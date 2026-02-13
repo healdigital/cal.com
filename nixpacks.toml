@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_22", "yarn-1_x", "openssl"]
+nixPkgs = ["nodejs_22", "yarn-1_x", "openssl", "python3", "gcc", "gnumake"]
 nixLibs = ["gcc-unwrapped", "libuuid", "libGL"]
 aptPkgs = ["curl", "wget"]
 
