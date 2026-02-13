@@ -30,8 +30,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Generate Prisma Client
-RUN npx prisma generate --schema=packages/prisma/schema.prisma
+# Generate Prisma Client (run from prisma directory for custom generator)
+WORKDIR /app/packages/prisma
+RUN npx prisma generate
+WORKDIR /app
 
 # Build only the web app
 RUN yarn turbo run build --filter=@calcom/web
