@@ -17,7 +17,7 @@ COPY apps ./apps
 COPY turbo.json ./
 
 # Install dependencies with increased timeout
-RUN yarn install --immutable
+RUN yarn install
 
 # Build the application
 FROM base AS builder
