@@ -1,12 +1,9 @@
 import process from "node:process";
-import dayjs from "@calcom/dayjs";
-import { AnalyticsService } from "@calcom/features/thotis/services/AnalyticsService";
-import { ThotisEmailService } from "@calcom/features/thotis/services/ThotisEmailService";
-import { getTranslation } from "@calcom/lib/server/i18n";
 import prisma from "@calcom/prisma";
-import type { CalendarEvent } from "@calcom/types/Calendar";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 const CRON_SECRET: string | undefined = process.env.CRON_SECRET;
 
@@ -21,6 +18,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (authHeader !== `Bearer ${CRON_SECRET}` && apiKey !== CRON_SECRET) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
+
+  // Dynamic imports to avoid pulling React into the API route at build time
+  const { default: dayjs } = await import("@calcom/dayjs");
+  const { AnalyticsService } = await import("@calcom/features/thotis/services/AnalyticsService");
+  const { ThotisEmailService } = await import("@calcom/features/thotis/services/ThotisEmailService");
+  const { getTranslation } = await import("@calcom/lib/server/i18n");
 
   const analytics = new AnalyticsService();
   const thotisEmail = new ThotisEmailService();
@@ -89,7 +92,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const tMentor = await getTranslation(mentor.locale || "en", "common");
 
       // Build CalendarEvent for emails
-      const calEvent: CalendarEvent = {
+      const calEvent = {
         title: booking.title,
         type: booking.title,
         startTime: booking.startTime.toISOString(),
@@ -105,14 +108,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           name: a.name,
           email: a.email,
           timeZone: a.timeZone,
-          language: { translate: tMentor, locale: a.locale || "en" }, // Approximate
+          language: { translate: tMentor, locale: a.locale || "en" },
         })),
         location: (metadata.googleMeetLink as string) || "",
         uid: booking.uid,
       };
 
       // 1. Send to Mentor
-      await thotisEmail.sendReminder(calEvent, {
+      await thotisEmail.sendReminder(calEvent as any, {
         name: mentor.name || "Mentor",
         email: mentor.email,
         timeZone: mentor.timeZone,
@@ -121,7 +124,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // 2. Send to Student (attendee)
       for (const attendee of calEvent.attendees) {
-        await thotisEmail.sendReminder(calEvent, attendee);
+        await thotisEmail.sendReminder(calEvent as any, attendee);
       }
 
       // 3. Log to Mixpanel

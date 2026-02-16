@@ -1,11 +1,12 @@
 import process from "node:process";
-import FeedbackRequestEmail from "@calcom/emails/templates/thotis/feedback-request";
 import prisma from "@calcom/prisma";
 import { Prisma } from "@calcom/prisma/client";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { TFunction } from "next-i18next";
+
+export const dynamic = "force-dynamic";
 
 const CRON_SECRET: string | undefined = process.env.CRON_SECRET;
 
@@ -131,6 +132,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // 1. Nudge Mentor if no summary exists
       if (!booking.thotisSessionSummary && !metadata.mentorNudgeSent) {
+        // Dynamic import to avoid pulling React into the API route at build time
         const { default: MentorNudgeEmail } = await import("@calcom/emails/templates/thotis/mentor-nudge");
         const addSummaryLink = `${webAppUrl}/thotis/mentor-dashboard`;
         const email = new MentorNudgeEmail({ calEvent, attendee, addSummaryLink });
@@ -148,10 +150,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         });
       }
 
-      // 2. Send feedback email to student (Property 38)
-      // Coupled: Only send feedback request if mentor summary exists
-      // "Dépendance feedback élève au résumé mentor: si pas de résumé, pas de feedback élève envoyé."
+      // 2. Send feedback email to student
+      // Only send feedback request if mentor summary exists
       if (!metadata.feedbackEmailSent && booking.thotisSessionSummary) {
+        // Dynamic import to avoid pulling React into the API route at build time
+        const { default: FeedbackRequestEmail } = await import(
+          "@calcom/emails/templates/thotis/feedback-request"
+        );
         const { ThotisGuestService } = await import("@calcom/features/thotis/services/ThotisGuestService");
         const guestService = new ThotisGuestService();
         // Token for dashboard access (1 day validity)
@@ -171,9 +176,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             },
           },
         });
-      } else if (!metadata.feedbackEmailSent && !booking.thotisSessionSummary) {
-        // Log/Track that we skipped feedback email due to missing summary?
-        // Optional: Maybe nudge mentor again? (Already handled above)
       }
 
       results.processed++;
@@ -189,5 +191,3 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ...results,
   });
 }
-
-export const dynamic = "force-dynamic";

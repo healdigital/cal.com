@@ -1,7 +1,4 @@
 import process from "node:process";
-import { AnalyticsRepository } from "@calcom/features/thotis/repositories/AnalyticsRepository";
-import { ThotisAnalyticsService } from "@calcom/features/thotis/services/ThotisAnalyticsService";
-import { ThotisBookingService } from "@calcom/features/thotis/services/ThotisBookingService";
 import prisma from "@calcom/prisma";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -25,6 +22,11 @@ export async function GET(req: NextRequest) {
   if (authHeader !== `Bearer ${CRON_SECRET}` && apiKey !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Dynamic imports to avoid pulling React (via email templates) into the API route at build time
+  const { AnalyticsRepository } = await import("@calcom/features/thotis/repositories/AnalyticsRepository");
+  const { ThotisAnalyticsService } = await import("@calcom/features/thotis/services/ThotisAnalyticsService");
+  const { ThotisBookingService } = await import("@calcom/features/thotis/services/ThotisBookingService");
 
   const analyticsRepository = new AnalyticsRepository();
   const thotisAnalytics = new ThotisAnalyticsService(analyticsRepository);
