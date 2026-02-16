@@ -1,4 +1,7 @@
-import { WEBAPP_URL } from "@calcom/lib/constants";
+// Inline WEBAPP_URL instead of importing from @calcom/lib/constants which uses
+// "node:process" — incompatible with Edge Runtime
+const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || "https://app.cal.com";
+
 import { App, Generic, getOGImageVersion, Meeting } from "@calcom/lib/OgImages";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
