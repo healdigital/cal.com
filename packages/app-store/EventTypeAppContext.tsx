@@ -28,7 +28,7 @@ const defaultContext: AppContext = {
 let EventTypeAppContext: React.Context<AppContext>;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const ReactImpl = require("react");
+  const ReactImpl: typeof React = require("react");
   if (typeof ReactImpl.createContext !== "function") {
     throw new Error("React.createContext not available");
   }
