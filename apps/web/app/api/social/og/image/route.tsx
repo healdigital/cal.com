@@ -1,14 +1,12 @@
-// Inline WEBAPP_URL instead of importing from @calcom/lib/constants which uses
-// "node:process" — incompatible with Edge Runtime
-const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || "https://app.cal.com";
-
+import { WEBAPP_URL } from "@calcom/lib/constants";
 import { App, Generic, getOGImageVersion, Meeting } from "@calcom/lib/OgImages";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import type { SatoriOptions } from "satori";
 import { ZodError, z } from "zod";
 
-export const runtime = "edge";
+// Use Node.js runtime instead of edge to avoid node:process compatibility issues
+export const runtime = "nodejs";
 
 const meetingSchema = z.object({
   imageType: z.literal("meeting"),

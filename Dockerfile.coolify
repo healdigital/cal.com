@@ -1,5 +1,6 @@
 # Dockerfile.coolify - Based on official Cal.com Dockerfile
 # Optimized for Coolify deployment
+# Cache bust: 2026-02-16-v2
 FROM --platform=$BUILDPLATFORM node:20 AS builder
 
 WORKDIR /calcom
