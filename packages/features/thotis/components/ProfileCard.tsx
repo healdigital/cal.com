@@ -1,3 +1,5 @@
+"use client";
+
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { StudentProfile, User } from "@calcom/prisma/client";
 import classNames from "@calcom/ui/classNames";

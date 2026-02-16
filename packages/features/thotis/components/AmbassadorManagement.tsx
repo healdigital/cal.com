@@ -1,3 +1,5 @@
+"use client";
+
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
