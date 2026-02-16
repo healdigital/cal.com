@@ -3,7 +3,7 @@
 import { BookingWidget } from "@calcom/features/thotis/components/BookingWidget";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
-import { UserAvatar } from "@calcom/ui/components/avatar/UserAvatar";
+import { UserAvatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useParams, useRouter } from "next/navigation";
