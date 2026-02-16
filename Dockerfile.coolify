@@ -1,6 +1,6 @@
 # Dockerfile.coolify - Based on official Cal.com Dockerfile
 # Optimized for Coolify deployment
-# Cache bust: 2026-02-16-v2
+# Cache bust: 2026-02-17-v1
 FROM --platform=$BUILDPLATFORM node:20 AS builder
 
 WORKDIR /calcom
@@ -51,7 +51,9 @@ RUN npx turbo run post-install || true
 RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
-RUN yarn --cwd apps/web workspace @calcom/web run build
+# Use webpack instead of Turbopack for production build to avoid
+# React.createContext server-side evaluation issues with "use client" modules
+RUN cd apps/web && npx next build --webpack
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
 
 FROM node:20 AS builder-two
