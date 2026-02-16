@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import type { ZodType, z } from "zod";
 
@@ -13,11 +15,18 @@ type AppContext = {
   disabled?: Disabled;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const EventTypeAppContext = React.createContext<AppContext>({
+// Guard against server-side evaluation where React.createContext may not exist
+// (Turbopack can evaluate this module server-side during build page data collection)
+const defaultContext: AppContext = {
   getAppData: () => ({}),
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   setAppData: () => ({}),
-});
+};
+
+const EventTypeAppContext =
+  typeof React.createContext === "function"
+    ? React.createContext<AppContext>(defaultContext)
+    : (({ Provider: ({ children }: { children: React.ReactNode }) => children, Consumer: null } as unknown) as React.Context<AppContext>);
 
 type SetAppDataGeneric<TAppData extends ZodType> = <
   TKey extends keyof z.infer<TAppData>,
