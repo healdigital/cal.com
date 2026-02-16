@@ -1,6 +1,4 @@
-import renderEmail from "@calcom/emails/src/renderEmail";
 import { IS_PRODUCTION } from "@calcom/lib/constants";
-import { getTranslation } from "@calcom/lib/server/i18n";
 import { defaultResponderForAppDir } from "app/api/defaultResponderForAppDir";
 import { NextResponse } from "next/server";
 
@@ -14,6 +12,10 @@ async function getHandler() {
       status: 403,
     });
   }
+
+  // Dynamic imports to avoid pulling React (via email templates) into the API route at build time
+  const renderEmail = (await import("@calcom/emails/src/renderEmail")).default;
+  const { getTranslation } = await import("@calcom/lib/server/i18n");
 
   const t = await getTranslation("en", "common");
 

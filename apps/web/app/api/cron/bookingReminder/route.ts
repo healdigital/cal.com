@@ -1,10 +1,6 @@
 import process from "node:process";
-import dayjs from "@calcom/dayjs";
-import { sendOrganizerRequestReminderEmail } from "@calcom/emails/email-manager";
-import { getCalEventResponses } from "@calcom/features/bookings/lib/getCalEventResponses";
 import { isPrismaObjOrUndefined } from "@calcom/lib/isPrismaObj";
 import { parseRecurringEvent } from "@calcom/lib/isRecurringEvent";
-import { getTranslation } from "@calcom/lib/server/i18n";
 import prisma, { bookingMinimalSelect } from "@calcom/prisma";
 import { BookingStatus, ReminderType } from "@calcom/prisma/enums";
 import type { EventTypeMetadata } from "@calcom/prisma/zod-utils";
@@ -19,6 +15,12 @@ async function postHandler(request: NextRequest) {
   if (process.env.CRON_API_KEY !== apiKey) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
+  // Dynamic imports to avoid pulling React (via email templates) into the API route at build time
+  const { default: dayjs } = await import("@calcom/dayjs");
+  const { sendOrganizerRequestReminderEmail } = await import("@calcom/emails/email-manager");
+  const { getCalEventResponses } = await import("@calcom/features/bookings/lib/getCalEventResponses");
+  const { getTranslation } = await import("@calcom/lib/server/i18n");
 
   const reminderIntervalMinutes = [48 * 60, 24 * 60, 3 * 60];
   let notificationsSent = 0;

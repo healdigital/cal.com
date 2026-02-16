@@ -1,8 +1,4 @@
 import process from "node:process";
-import dayjs from "@calcom/dayjs";
-import { sendMonthlyDigestEmail } from "@calcom/emails/workflow-email-service";
-import { EventsInsights } from "@calcom/features/insights/server/events";
-import { getTranslation } from "@calcom/lib/server/i18n";
 import prisma from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";
 import { defaultResponderForAppDir } from "app/api/defaultResponderForAppDir";
@@ -20,6 +16,12 @@ async function postHandler(request: NextRequest) {
   if (process.env.CRON_API_KEY !== apiKey) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
+  // Dynamic imports to avoid pulling React (via email templates) into the API route at build time
+  const { default: dayjs } = await import("@calcom/dayjs");
+  const { sendMonthlyDigestEmail } = await import("@calcom/emails/workflow-email-service");
+  const { EventsInsights } = await import("@calcom/features/insights/server/events");
+  const { getTranslation } = await import("@calcom/lib/server/i18n");
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   const pageSize = 90; // Adjust this value based on the total number of teams and the available processing time

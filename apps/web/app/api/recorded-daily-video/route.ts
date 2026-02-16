@@ -1,15 +1,6 @@
 import { createHmac } from "node:crypto";
 import process from "node:process";
 import { getBatchProcessorJobAccessLink, getRoomNameFromRecordingId } from "@calcom/app-store/dailyvideo/lib";
-import {
-  sendDailyVideoRecordingEmails,
-  sendDailyVideoTranscriptEmails,
-} from "@calcom/emails/daily-video-emails";
-import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
-import {
-  getAllTranscriptsAccessLinkFromMeetingId,
-  submitBatchProcessorTranscriptionJob,
-} from "@calcom/features/conferencing/lib/videoClient";
 import { WEBAPP_URL } from "@calcom/lib/constants";
 import { getTeamIdFromEventType } from "@calcom/lib/getTeamIdFromEventType";
 import { HttpError } from "@calcom/lib/http-error";
@@ -80,6 +71,15 @@ export async function postHandler(request: NextRequest) {
     safeStringify({
       body,
     })
+  );
+
+  // Dynamic imports to avoid pulling React (via email templates) into the API route at build time
+  const { sendDailyVideoRecordingEmails, sendDailyVideoTranscriptEmails } = await import(
+    "@calcom/emails/daily-video-emails"
+  );
+  const { BookingRepository } = await import("@calcom/features/bookings/repositories/BookingRepository");
+  const { getAllTranscriptsAccessLinkFromMeetingId, submitBatchProcessorTranscriptionJob } = await import(
+    "@calcom/features/conferencing/lib/videoClient"
   );
 
   try {
