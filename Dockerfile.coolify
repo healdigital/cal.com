@@ -42,7 +42,10 @@ COPY apps/api/v2 ./apps/api/v2
 COPY packages ./packages
 
 RUN npx turbo prune --scope=@calcom/web --scope=@calcom/trpc --docker
-RUN yarn install
+ENV HUSKY=0
+RUN yarn install --inline-builds || true
+RUN yarn prisma generate || true
+RUN npx turbo run post-install || true
 # Build tRPC and embed, copy static assets, then build web
 RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
