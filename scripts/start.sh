@@ -14,7 +14,12 @@ if [ -z "$DATABASE_HOST" ] && [ -n "$DATABASE_URL" ]; then
 fi
 
 if [ -n "$DATABASE_HOST" ]; then
-  scripts/wait-for-it.sh "${DATABASE_HOST}" -- echo "database is up"
+  # wait-for-it is best-effort; some networks block raw TCP probes
+  # but still allow PostgreSQL connections. Don't fail the startup if
+  # the probe times out — prisma migrate will give a proper error if
+  # the database is truly unreachable.
+  scripts/wait-for-it.sh "${DATABASE_HOST}" -t 30 -- echo "database is up" || \
+    echo "WARNING: wait-for-it timed out for ${DATABASE_HOST}. Continuing anyway..."
 else
   echo "WARNING: DATABASE_HOST not set and could not be extracted. Skipping wait-for-it."
   sleep 5
