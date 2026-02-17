@@ -11,7 +11,6 @@ import { signupSchema } from "@calcom/prisma/zod-utils";
 import { defaultResponderForAppDir } from "app/api/defaultResponderForAppDir";
 import { parseRequestData } from "app/api/parseRequestData";
 import { type NextRequest, NextResponse } from "next/server";
-import selfHostedSignupHandler from "./handlers/selfHostedHandler";
 
 // Prevent Next.js from statically analyzing this route during build.
 // Transitive imports from @calcom/app-store pull in React.createContext
@@ -72,6 +71,9 @@ async function handler(req: NextRequest) {
       return await calcomSignupHandler(body, query);
     }
 
+    // Dynamic import: selfHostedHandler transitively imports @calcom/emails
+    // which barrel-exports from @calcom/app-store, pulling in React.createContext
+    const { default: selfHostedSignupHandler } = await import("./handlers/selfHostedHandler");
     return await selfHostedSignupHandler(body);
   } catch (e) {
     if (e instanceof HttpError) {
