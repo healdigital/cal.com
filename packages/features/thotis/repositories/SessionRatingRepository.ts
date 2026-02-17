@@ -27,8 +27,21 @@ export class SessionRatingRepository {
         feedback: data.feedback,
         prospectiveEmail: data.prospectiveEmail || "",
       },
-      include: {
-        booking: true,
+      select: {
+        id: true,
+        bookingId: true,
+        studentProfileId: true,
+        rating: true,
+        feedback: true,
+        prospectiveEmail: true,
+        createdAt: true,
+        booking: {
+          select: {
+            id: true,
+            uid: true,
+            metadata: true,
+          },
+        },
       },
     });
   }
@@ -49,8 +62,21 @@ export class SessionRatingRepository {
   async findByBookingId(bookingId: number) {
     return this.prismaClient.sessionRating.findUnique({
       where: { bookingId },
-      include: {
-        booking: true,
+      select: {
+        id: true,
+        bookingId: true,
+        studentProfileId: true,
+        rating: true,
+        feedback: true,
+        prospectiveEmail: true,
+        createdAt: true,
+        booking: {
+          select: {
+            id: true,
+            uid: true,
+            metadata: true,
+          },
+        },
       },
     });
   }

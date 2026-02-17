@@ -33,10 +33,10 @@ export type OAuthCallbackState = {
 @Injectable()
 export class StripeService {
   private stripe: Stripe;
-  private redirectUri = `${this.config.get("api.url")}/stripe/save`;
-  private webAppUrl = this.config.get("app.baseUrl");
-  private environment = this.config.get("env.type");
-  private teamMonthlyPriceId = this.config.get("stripe.teamMonthlyPriceId");
+  private redirectUri: string;
+  private webAppUrl: string | undefined;
+  private environment: string | undefined;
+  private teamMonthlyPriceId: string | undefined;
 
   constructor(
     configService: ConfigService<AppConfig>,
@@ -46,6 +46,11 @@ export class StripeService {
     private readonly membershipRepository: MembershipsRepository,
     private readonly usersRepository: UsersRepository
   ) {
+    this.redirectUri = `${this.config.get("api.url")}/stripe/save`;
+    this.webAppUrl = this.config.get("app.baseUrl");
+    this.environment = this.config.get("env.type");
+    this.teamMonthlyPriceId = this.config.get("stripe.teamMonthlyPriceId");
+
     this.stripe = new Stripe(configService.get("stripe.apiKey", { infer: true }) ?? "", {
       apiVersion: "2020-08-27",
     });

@@ -35,7 +35,7 @@ export class DestinationCalendarsService {
           (cal: Calendar) =>
             cal.externalId === externalId &&
             cal.integration === integration &&
-            cal.delegationCredentialId === delegationCredentialId
+            (cal as any).delegationCredentialId === delegationCredentialId
         )
       : undefined;
 

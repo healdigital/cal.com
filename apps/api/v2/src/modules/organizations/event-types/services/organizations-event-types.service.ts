@@ -42,8 +42,6 @@ export class OrganizationsEventTypesService {
       },
       ctx: {
         user: eventTypeUser,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
         prisma: this.dbWrite.prisma,
       },
     });

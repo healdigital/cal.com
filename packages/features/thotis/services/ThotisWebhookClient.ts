@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { Booking } from "@calcom/prisma/client";
 
 interface ThotisBookingResponses {
@@ -7,12 +6,10 @@ interface ThotisBookingResponses {
 }
 
 /**
- * Service for sending webhooks to the main Thotis platform
+ * Client for sending webhooks to the main Thotis platform.
+ * Moved from apps/web/lib/webhooks/thotis.ts to respect package boundaries.
  */
 const thotisWebhooks = {
-  /**
-   * Triggered when a new booking is created
-   */
   onBookingCreated: async (
     booking: Pick<Booking, "id" | "userId" | "responses" | "startTime">,
     studentProfileId: string,
@@ -20,7 +17,7 @@ const thotisWebhooks = {
   ) => {
     await sendWebhook("booking-created", {
       bookingId: booking.id,
-      studentId: booking.userId, // This is the mentor's user ID
+      studentId: booking.userId,
       studentProfileId,
       attendeeEmail: (booking.responses as ThotisBookingResponses)?.email,
       attendeeName: (booking.responses as ThotisBookingResponses)?.name,
@@ -29,9 +26,6 @@ const thotisWebhooks = {
     });
   },
 
-  /**
-   * Triggered when a booking is cancelled
-   */
   onBookingCancelled: async (booking: Pick<Booking, "id">, reason: string) => {
     await sendWebhook("booking-cancelled", {
       bookingId: booking.id,
@@ -40,9 +34,6 @@ const thotisWebhooks = {
     });
   },
 
-  /**
-   * Triggered when a booking is rescheduled
-   */
   onBookingRescheduled: async (
     booking: Pick<Booking, "id">,
     newStartTime: Date,
@@ -58,9 +49,6 @@ const thotisWebhooks = {
     });
   },
 
-  /**
-   * Triggered when a session is completed
-   */
   onBookingCompleted: async (booking: Pick<Booking, "id" | "userId" | "metadata">, duration: number) => {
     const metadata = booking.metadata as { studentProfileId?: string } | null;
     await sendWebhook("booking-completed", {
@@ -72,9 +60,6 @@ const thotisWebhooks = {
     });
   },
 
-  /**
-   * Triggered when a reminder is sent
-   */
   onReminder: async (booking: Pick<Booking, "id">, type: "24h" | "1h") => {
     await sendWebhook("reminder-sent", {
       bookingId: booking.id,

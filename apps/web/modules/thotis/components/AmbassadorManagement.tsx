@@ -10,7 +10,7 @@ import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import type { ProvisionAmbassadorInput } from "../services/ThotisAdminService";
+import type { ProvisionAmbassadorInput } from "@calcom/features/thotis/services/ThotisAdminService";
 
 const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -121,7 +121,7 @@ const IncidentsModal: React.FC<{
           ) : !data?.incidents || data.incidents.length === 0 ? (
             <p className="text-center text-subtle py-4">{t("thotis_admin_no_incidents_found")}</p>
           ) : (
-            data.incidents.map((incident: any) => (
+            data.incidents.map((incident) => (
               <div key={incident.id} className="p-3 bg-subtle rounded-md border border-subtle">
                 <div className="flex justify-between items-start mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-emphasis">

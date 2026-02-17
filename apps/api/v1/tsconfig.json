@@ -9,7 +9,9 @@
       "@prisma/client/*": ["@calcom/prisma/client/*"],
       "@calcom/testing/*": ["../../../packages/testing/src/*"]
     },
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2015"
   },
   "include": [
     "next-env.d.ts",

@@ -24,8 +24,18 @@ const fields = [
   { value: "OTHER", label: "Other" },
 ];
 
+export interface OrientationIntentData {
+  targetFields: string[];
+  academicLevel: string;
+  zone: string;
+  goals: string[];
+  scheduleConstraints: {
+    preferredTimes: string[];
+  };
+}
+
 interface OrientationIntentFormProps {
-  onSubmit: (data: any) => void;
+  onSubmit: (data: OrientationIntentData) => void;
   isPending?: boolean;
 }
 

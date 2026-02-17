@@ -1,6 +1,6 @@
-import process from "node:process";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
+import type { Prisma } from "@calcom/prisma/client";
 import { AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import sharp from "sharp";
 import { RedisService } from "../../redis/RedisService";
@@ -271,7 +271,7 @@ export class ProfileService {
   async getProfile(userId: number) {
     if (this.redis) {
       const cached = await this.redis.get(`profile:${userId}`);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as any);
+      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
     }
 
     const profile = await this.repository.getProfileByUserId(userId);
@@ -286,7 +286,7 @@ export class ProfileService {
   async getProfileById(profileId: string) {
     if (this.redis) {
       const cached = await this.redis.get(`profile:id:${profileId}`);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as any);
+      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
     }
 
     const profile = await this.repository.getProfile(profileId);
@@ -302,7 +302,7 @@ export class ProfileService {
     const cacheKey = `profile:username:${username}`;
     if (this.redis) {
       const cached = await this.redis.get(cacheKey);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as any);
+      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
     }
 
     const profile = await this.repository.getProfileByUsername(username);
@@ -384,7 +384,7 @@ export class ProfileService {
       academicLevel: string;
       zone?: string | null;
       goals?: string[];
-      scheduleConstraints?: any;
+      scheduleConstraints?: Prisma.InputJsonValue;
     }
   ) {
     return this.repository.upsertOrientationIntent(userId, input);
@@ -404,8 +404,8 @@ export class ProfileService {
   }
 
   async getProfilesByField(field: string) {
-    const result = (await this.repository.getProfilesByField(toAcademicField(field))) as any;
-    return result.profiles.map((p: any) => this.mapProfile(p));
+    const result = await this.repository.getProfilesByField(toAcademicField(field));
+    return result.profiles.map((p: StudentProfileWithUser) => this.mapProfile(p));
   }
 
   isProfileComplete(profile: StudentProfileWithUser): boolean {

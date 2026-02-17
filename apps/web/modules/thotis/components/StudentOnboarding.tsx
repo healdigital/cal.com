@@ -2,10 +2,14 @@
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Form, Label, Switch, showToast, TextField } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { Form, Label, TextField } from "@calcom/ui/components/form";
+import { Switch } from "@calcom/ui/components/form";
+import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { OrientationIntentForm } from "./OrientationIntentForm";
+import type { OrientationIntentData } from "@calcom/features/thotis/components/OrientationIntentForm";
+import { OrientationIntentForm } from "@calcom/features/thotis/components/OrientationIntentForm";
 
 interface StudentOnboardingProps {
   onComplete?: () => void;
@@ -50,7 +54,7 @@ export function StudentOnboarding({ onComplete }: StudentOnboardingProps) {
     });
   };
 
-  const handleIntentSubmit = (data: any) => {
+  const handleIntentSubmit = (data: OrientationIntentData) => {
     upsertIntentMutation.mutate(data);
   };
 

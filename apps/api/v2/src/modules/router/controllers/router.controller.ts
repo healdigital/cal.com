@@ -87,10 +87,10 @@ export class RouterController {
       email: teamMemberEmail,
       recordType: crmOwnerRecordType,
       crmAppSlug,
-    } = await getTeamMemberEmailForResponseOrContactUsingUrlQuery({
+    } = (await getTeamMemberEmailForResponseOrContactUsingUrlQuery({
       query: Object.fromEntries(routingSearchParams),
       eventData: eventTypeData,
-    });
+    })) as any;
 
     teamMemberEmail && routingUrl.searchParams.set("cal.teamMemberEmail", teamMemberEmail);
     crmOwnerRecordType && routingUrl.searchParams.set("cal.crmOwnerRecordType", crmOwnerRecordType);

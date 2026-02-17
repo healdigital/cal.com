@@ -3,6 +3,16 @@ import { ErrorWithCode } from "@calcom/lib/errors";
 import type { SessionRatingRepository } from "../repositories/SessionRatingRepository";
 import { AnalyticsService } from "./AnalyticsService";
 
+/** Shared shape for rating data returned by service methods */
+export interface SessionRatingDto {
+  id: string;
+  bookingId: number;
+  studentProfileId: string;
+  rating: number;
+  feedback: string | null;
+  createdAt: Date;
+}
+
 /**
  * Service for managing session ratings
  * Implements business logic and validation for rating operations
@@ -26,15 +36,7 @@ export class SessionRatingService {
     studentProfileId: string;
     rating: number;
     feedback?: string | null;
-  }): Promise<{
-    id: string; // Prisma uses cuid for SessionRating id
-    bookingId: number;
-    studentProfileId: string;
-    rating: number;
-    feedback: string | null;
-    createdAt: Date;
-    // updatedAt: Date; // Removed as SessionRating model doesn't have updatedAt
-  }> {
+  }): Promise<SessionRatingDto> {
     // Validate rating (Property 21)
     if (data.rating < 1 || data.rating > 5) {
       throw new ErrorWithCode(ErrorCode.BadRequest, "Rating must be between 1 and 5");
@@ -55,45 +57,60 @@ export class SessionRatingService {
       feedback: data.feedback ?? null,
     });
 
-    this.analytics.trackRatingSubmitted(rating as any, { metadata: (rating as any).booking?.metadata });
+    // The analytics service expects id as number, but SessionRating uses string cuid.
+    // We pass bookingId as a numeric identifier for analytics tracking.
+    const bookingMetadata = rating.booking?.metadata as Record<string, unknown> | undefined;
+    this.analytics.trackRatingSubmitted(
+      {
+        id: rating.bookingId,
+        bookingId: rating.bookingId,
+        studentProfileId: rating.bookingId,
+        rating: rating.rating,
+        feedback: rating.feedback,
+      },
+      { metadata: bookingMetadata }
+    );
 
-    // Casting as necessary if types diverge deeply, or aligning interface
     return {
-      ...rating,
       id: rating.id,
-    } as any;
+      bookingId: rating.bookingId,
+      studentProfileId: rating.studentProfileId,
+      rating: rating.rating,
+      feedback: rating.feedback,
+      createdAt: rating.createdAt,
+    };
   }
 
   /**
    * Retrieves a rating by booking ID
    */
-  async getRatingByBookingId(bookingId: number): Promise<{
-    id: string;
-    bookingId: number;
-    studentProfileId: string;
-    rating: number;
-    feedback: string | null;
-    createdAt: Date;
-  } | null> {
+  async getRatingByBookingId(bookingId: number): Promise<SessionRatingDto | null> {
     const rating = await this.repository.findByBookingId(bookingId);
-    return rating ? (rating as any) : null;
+    if (!rating) return null;
+
+    return {
+      id: rating.id,
+      bookingId: rating.bookingId,
+      studentProfileId: rating.studentProfileId,
+      rating: rating.rating,
+      feedback: rating.feedback,
+      createdAt: rating.createdAt,
+    };
   }
 
   /**
    * Retrieves all ratings for a student profile
    */
-  async getRatingsByStudentProfileId(studentProfileId: string): Promise<
-    Array<{
-      id: string;
-      bookingId: number;
-      studentProfileId: string;
-      rating: number;
-      feedback: string | null;
-      createdAt: Date;
-    }>
-  > {
+  async getRatingsByStudentProfileId(studentProfileId: string): Promise<SessionRatingDto[]> {
     const ratings = await this.repository.findByStudentProfileId(studentProfileId);
-    return ratings as any[];
+    return ratings.map((r) => ({
+      id: r.id,
+      bookingId: r.bookingId,
+      studentProfileId: r.studentProfileId,
+      rating: r.rating,
+      feedback: r.feedback,
+      createdAt: r.createdAt,
+    }));
   }
 
   /**
@@ -124,14 +141,7 @@ export class SessionRatingService {
       rating?: number;
       feedback?: string | null;
     }
-  ): Promise<{
-    id: string;
-    bookingId: number;
-    studentProfileId: string;
-    rating: number;
-    feedback: string | null;
-    createdAt: Date;
-  }> {
+  ): Promise<SessionRatingDto> {
     // Validate rating if provided
     if (data.rating !== undefined && (data.rating < 1 || data.rating > 5)) {
       throw new ErrorWithCode(ErrorCode.BadRequest, "Rating must be between 1 and 5");
@@ -146,7 +156,14 @@ export class SessionRatingService {
     }
 
     const result = await this.repository.updateRating(id, data);
-    return result as any;
+    return {
+      id: result.id,
+      bookingId: result.bookingId,
+      studentProfileId: result.studentProfileId,
+      rating: result.rating,
+      feedback: result.feedback,
+      createdAt: result.createdAt,
+    };
   }
 
   /**

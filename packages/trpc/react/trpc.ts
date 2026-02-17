@@ -17,9 +17,10 @@ type Maybe<T> = T | null | undefined;
  * We deploy our tRPC router on multiple lambdas to keep number of imports as small as possible
  * TODO: Make this dynamic based on folders in trpc server?
  */
-export type Endpoint = (typeof ENDPOINTS)[number];
+// Endpoint type moved to end of file
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: internal trpc types are complex
 const resolveEndpoint = (links: any) => {
   // TODO: Update our trpc routes so they are more clear.
   // This function parses paths like the following and maps them
@@ -27,11 +28,12 @@ const resolveEndpoint = (links: any) => {
   // - viewer.me - 2 segment paths like this are for logged in requests
   // - viewer.public.i18n - 3 segments paths can be public or authed
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: internal trpc types are complex
   return (ctx: any) => {
     const parts = ctx.op.path.split(".");
     let endpoint: keyof typeof links;
     let path = "";
-    if (parts.length == 2) {
+    if (parts.length === 2) {
       endpoint = parts[0] as keyof typeof links;
       path = parts[1];
     } else {
@@ -51,12 +53,12 @@ export const trpc: CreateTRPCNext<AppRouter, NextPageContext, null> = createTRPC
   NextPageContext
 >({
   config() {
-    const url =
-      typeof window !== "undefined"
-        ? "/api/trpc"
-        : process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}/api/trpc`
-          : `${process.env.NEXT_PUBLIC_WEBAPP_URL}/api/trpc`;
+    let url = `${process.env.NEXT_PUBLIC_WEBAPP_URL}/api/trpc`;
+    if (typeof window !== "undefined") {
+      url = "/api/trpc";
+    } else if (process.env.VERCEL_URL) {
+      url = `https://${process.env.VERCEL_URL}/api/trpc`;
+    }
 
     /**
      * If you want to use SSR, you need to use the server's full URL
@@ -136,3 +138,5 @@ export const transformer = superjson;
 
 export type RouterInputs = inferRouterInputs<AppRouter>;
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+export type Endpoint = (typeof ENDPOINTS)[number];

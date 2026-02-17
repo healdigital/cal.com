@@ -1,4 +1,3 @@
-import process from "node:process";
 import BookingCancellationEmail from "@calcom/emails/templates/thotis/booking-cancellation";
 import BookingConfirmationEmail from "@calcom/emails/templates/thotis/booking-confirmation";
 import BookingRescheduledEmail from "@calcom/emails/templates/thotis/booking-rescheduled";
@@ -12,7 +11,15 @@ import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { CredentialForCalendarService } from "@calcom/types/Credential";
 import type { TFunction } from "next-i18next";
 import { uuid } from "short-uuid";
-import type { ContextForGetSchedule } from "../../../trpc/server/routers/viewer/slots/types";
+import type { IncomingMessage } from "node:http";
+
+/**
+ * Locally defined to avoid importing from @calcom/trpc (architecture boundary).
+ * Mirrors packages/trpc/server/routers/viewer/slots/types.ts
+ */
+interface ContextForGetSchedule extends Record<string, unknown> {
+  req?: (IncomingMessage & { cookies: Partial<{ [key: string]: string }> }) | undefined;
+}
 import { RedisService } from "../../redis/RedisService";
 import { AnalyticsService } from "./AnalyticsService";
 import type { ThotisAnalyticsService } from "./ThotisAnalyticsService";
@@ -308,12 +315,12 @@ export class ThotisBookingService {
         profileId: input.studentProfileId,
         bookingId: booking.id,
         field: studentProfile.user.studentProfile?.field || undefined,
-        metadata: booking.metadata as Record<string, any>,
+        metadata: booking.metadata as Record<string, unknown>,
       });
     }
 
     // Trigger Webhook
-    const { thotisWebhooks } = await import("../../../../apps/web/lib/webhooks/thotis");
+    const { thotisWebhooks } = await import("./ThotisWebhookClient");
     await thotisWebhooks.onBookingCreated(
       booking,
       input.studentProfileId,
@@ -484,7 +491,9 @@ export class ThotisBookingService {
     // 1. Get student profile and associated user
     const studentProfile = await this.prisma.studentProfile.findUnique({
       where: { id: studentProfileId },
-      include: {
+      select: {
+        id: true,
+        status: true,
         user: {
           select: {
             id: true,
@@ -758,7 +767,7 @@ export class ThotisBookingService {
     }
 
     // Trigger Webhook
-    const { thotisWebhooks } = await import("../../../../apps/web/lib/webhooks/thotis");
+    const { thotisWebhooks } = await import("./ThotisWebhookClient");
     await thotisWebhooks.onBookingCancelled(booking, reason);
   }
 
@@ -968,7 +977,7 @@ export class ThotisBookingService {
     }
 
     // Trigger Webhook
-    const { thotisWebhooks } = await import("../../../../apps/web/lib/webhooks/thotis");
+    const { thotisWebhooks } = await import("./ThotisWebhookClient");
     await thotisWebhooks.onBookingRescheduled(updatedBooking, newStartTime, newEndTime, finalizedMeetLink);
 
     // Track Postgres Analytics
@@ -1076,7 +1085,7 @@ export class ThotisBookingService {
     }
 
     // Trigger Webhook
-    const { thotisWebhooks } = await import("../../../../apps/web/lib/webhooks/thotis");
+    const { thotisWebhooks } = await import("./ThotisWebhookClient");
     await thotisWebhooks.onBookingCompleted(booking, 15); // Duration is fixed 15 min
 
     this.analytics.trackBookingCompleted({
@@ -1092,7 +1101,7 @@ export class ThotisBookingService {
         userId: booking.userId || undefined,
         profileId: studentProfileId,
         bookingId: booking.id,
-        metadata: booking.metadata as Record<string, any>,
+        metadata: booking.metadata as Record<string, unknown>,
       });
     }
   }
@@ -1204,7 +1213,7 @@ export class ThotisBookingService {
 
     // Trigger Webhook
     try {
-      const { thotisWebhooks } = await import("../../../../apps/web/lib/webhooks/thotis");
+      const { thotisWebhooks } = await import("./ThotisWebhookClient");
       await thotisWebhooks.onBookingCancelled(booking, "Automatically cancelled due to no-show");
     } catch (e) {
       console.warn("Failed to trigger thotisWebhooks.onBookingCancelled for no-show", e);
@@ -1228,7 +1237,7 @@ export class ThotisBookingService {
         profileId: studentProfileId,
         bookingId: booking.id,
         metadata: {
-          ...(booking.metadata as Record<string, any>),
+          ...(booking.metadata as Record<string, unknown>),
           autoDetected: true,
         },
       });

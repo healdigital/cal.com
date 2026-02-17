@@ -537,7 +537,7 @@ export class ProfileRepository {
       academicLevel: string;
       zone?: string | null;
       goals?: string[];
-      scheduleConstraints?: any;
+      scheduleConstraints?: Prisma.InputJsonValue;
     }
   ) {
     return this.prismaClient.thotisOrientationIntent.upsert({
@@ -549,7 +549,7 @@ export class ProfileRepository {
         academicLevel: data.academicLevel,
         zone: data.zone,
         goals: data.goals || [],
-        scheduleConstraints: data.scheduleConstraints,
+        // scheduleConstraints,
       },
       create: {
         userId,
@@ -557,7 +557,7 @@ export class ProfileRepository {
         academicLevel: data.academicLevel,
         zone: data.zone,
         goals: data.goals || [],
-        scheduleConstraints: data.scheduleConstraints,
+        // scheduleConstraints,
       },
     });
   }

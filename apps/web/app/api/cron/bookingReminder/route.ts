@@ -1,4 +1,3 @@
-import process from "node:process";
 import { isPrismaObjOrUndefined } from "@calcom/lib/isPrismaObj";
 import { parseRecurringEvent } from "@calcom/lib/isRecurringEvent";
 import prisma, { bookingMinimalSelect } from "@calcom/prisma";

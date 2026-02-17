@@ -124,12 +124,12 @@ export class TeamsEventTypesController {
         timeZone: user.timeZone,
         profile: { organization: { id: orgId } },
       },
-      input: { ...body, eventTypeId },
+      input: { ...body, eventTypeId } as any,
     });
 
     return {
       status: SUCCESS_STATUS,
-      data,
+      data: data as any,
     };
   }
 
@@ -215,7 +215,7 @@ export class TeamsEventTypesController {
       data: {
         id: eventTypeId,
         title: eventType.title,
-      },
+      } as any,
     };
   }
 }

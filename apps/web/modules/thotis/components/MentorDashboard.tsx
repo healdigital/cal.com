@@ -77,8 +77,7 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
           <h1 className="text-emphasis text-2xl font-bold">{t("thotis_mentor_dashboard")}</h1>
           {profile && (
             <p className="text-subtle text-sm">
-              {(profile as { university?: string }).university} &middot;{" "}
-              {(profile as { field?: string }).field}
+              {profile.university} &middot; {profile.field}
             </p>
           )}
         </div>
@@ -152,7 +151,7 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {sessionsData.bookings.map((booking: any) => (
+            {sessionsData.bookings.map((booking) => (
               <SessionManagementUI key={booking.id} booking={booking} isMentor />
             ))}
           </div>

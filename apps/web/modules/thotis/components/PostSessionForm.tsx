@@ -2,7 +2,11 @@
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Dialog, DialogContent, Form, Icon, Label, showToast, TextArea, TextField } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { Dialog, DialogContent } from "@calcom/ui/components/dialog";
+import { Form, Label, TextField, TextArea } from "@calcom/ui/components/form";
+import { Icon } from "@calcom/ui/components/icon";
+import { showToast } from "@calcom/ui/components/toast";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 

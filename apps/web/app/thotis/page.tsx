@@ -2,7 +2,8 @@
 
 import { OrientationIntentForm } from "@calcom/features/thotis/components/OrientationIntentForm";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Icon } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { Icon } from "@calcom/ui/components/icon";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 

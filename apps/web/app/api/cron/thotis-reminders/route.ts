@@ -1,4 +1,3 @@
-import process from "node:process";
 import prisma from "@calcom/prisma";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -135,7 +134,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       });
 
       // Trigger Webhook
-      const { thotisWebhooks } = await import("../../../../lib/webhooks/thotis");
+      const { thotisWebhooks } = await import("@calcom/features/thotis/services/ThotisWebhookClient");
       await thotisWebhooks.onReminder(booking, "24h");
 
       // 4. Mark as sent

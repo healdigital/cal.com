@@ -87,9 +87,7 @@ export function getUrlSearchParamsToForward({
   });
 
   // Build query params from current URL. It excludes route params
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  for (const [name, value] of searchParams.entries()) {
+  for (const [name, value] of Array.from(searchParams.entries())) {
     const target = paramsFromCurrentUrl[name];
     if (target instanceof Array) {
       target.push(value);

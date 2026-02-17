@@ -64,6 +64,7 @@ export function QueryCell<TData, TError extends ErrorLike>(
       return opts.empty(query);
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: legacy compatibility
     return opts.success(query as any);
   }
 

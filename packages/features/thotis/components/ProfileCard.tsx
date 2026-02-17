@@ -1,11 +1,11 @@
 "use client";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import type { StudentProfile, User } from "@calcom/prisma/client";
 import classNames from "@calcom/ui/classNames";
 import { UserAvatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
+import { useMemo } from "react";
 import type { StudentProfileWithUser as BaseStudentProfileWithUser } from "../repositories/ProfileRepository";
 
 export type StudentProfileWithUser = BaseStudentProfileWithUser & {
@@ -28,12 +28,46 @@ export const ProfileCard = ({
 }: ProfileCardProps) => {
   const { t } = useLocale();
   const { user } = student;
-  // const statistics = student.statistics as { averageRating?: number; totalRatings?: number } | null;
   const rating = Number(student.averageRating) ?? 0;
   const totalRatings = student.totalRatings ?? 0;
 
   // Format ratings to 1 decimal place if it has decimals
   const formattedRating = Number(rating).toFixed(1).replace(/\.0$/, "");
+
+  // Build the user object shape expected by UserAvatar.
+  // UserAvatar expects { name, username, avatarUrl, profile: Omit<UserProfile, "upId"> }
+  // while the repository returns { profiles: [{ organization }] }.
+  // We map profiles[0].organization to the profile.organization shape.
+  const avatarUser = useMemo(() => {
+    const org = user.profiles?.[0]?.organization;
+    const profile: { id: null; username: string; organizationId: null; organization: null } = {
+      id: null,
+      username: user.username ?? "",
+      organizationId: null,
+      organization: null,
+    };
+    return {
+      name: user.name,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      profile: org
+        ? {
+            id: 0,
+            username: user.username ?? "",
+            organizationId: org.id,
+            organization: {
+              id: org.id,
+              slug: org.slug,
+              name: org.slug || "",
+              requestedSlug: null as string | null,
+              calVideoLogo: null as string | null,
+              bannerUrl: null as string | null,
+              logoUrl: org.logoUrl ?? undefined,
+            },
+          }
+        : profile,
+    };
+  }, [user]);
 
   return (
     <div
@@ -43,7 +77,7 @@ export const ProfileCard = ({
       )}
       data-testid="mentor-card">
       <div className="mb-4 flex items-start justify-between">
-        <UserAvatar size="lg" user={user as any} className="h-16 w-16" />
+        <UserAvatar size="lg" user={avatarUser} className="h-16 w-16" />
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-1.5 rounded-full bg-green-50 px-2 py-1 dark:bg-green-900/20">
             <div className="h-2 w-2 rounded-full bg-green-500" />

@@ -9,14 +9,16 @@ import { TeamsRepository } from "@/modules/teams/teams/teams.repository";
 
 @Injectable()
 export class TeamsService {
-  private isTeamBillingEnabled = this.configService.get("stripe.isTeamBillingEnabled");
+  private isTeamBillingEnabled: boolean;
 
   constructor(
     private readonly teamsRepository: TeamsRepository,
     private readonly teamsMembershipsRepository: TeamsMembershipsRepository,
     private readonly stripeService: StripeService,
     private readonly configService: ConfigService
-  ) {}
+  ) {
+    this.isTeamBillingEnabled = this.configService.get("stripe.isTeamBillingEnabled") ?? false;
+  }
 
   async createTeam(input: CreateTeamInput, ownerId: number) {
     const { autoAcceptCreator, ...teamData } = input;

@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from "node:crypto";
-import process from "node:process";
 import prisma from "@calcom/prisma";
 import { TRPCError } from "@trpc/server";
 
@@ -99,7 +98,24 @@ export class ThotisGuestService {
 
     const magicLink = await prisma.thotisMagicLinkToken.findUnique({
       where: { tokenHash },
-      include: { guest: true },
+      select: {
+        id: true,
+        tokenHash: true,
+        guestId: true,
+        expiresAt: true,
+        usedAt: true,
+        invalidated: true,
+        bookingId: true,
+        createdAt: true,
+        guest: {
+          select: {
+            id: true,
+            email: true,
+            normalizedEmail: true,
+            blocked: true,
+          },
+        },
+      },
     });
 
     if (!magicLink) {

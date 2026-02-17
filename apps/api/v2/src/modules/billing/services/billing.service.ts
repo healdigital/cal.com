@@ -454,7 +454,7 @@ export class BillingService implements IBillingService, OnModuleDestroy {
         options: {
           delay: startTime,
           tags: [getIncrementUsageJobTag(uid)],
-          idempotencyKey: getIncrementUsageIdempotencyKey(uid, userId),
+          idempotencyKey: getIncrementUsageIdempotencyKey(uid),
         },
       });
       return true;

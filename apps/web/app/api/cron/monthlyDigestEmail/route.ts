@@ -1,4 +1,3 @@
-import process from "node:process";
 import prisma from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";
 import { defaultResponderForAppDir } from "app/api/defaultResponderForAppDir";

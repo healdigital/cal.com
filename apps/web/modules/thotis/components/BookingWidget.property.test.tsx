@@ -48,7 +48,7 @@ describe("BookingWidget Property Tests", () => {
     // Reset window.location mock
     // @ts-expect-error
     delete window.location;
-    window.location = { ...originalLocation, search: "" } as Location;
+    window.location = { ...originalLocation, search: "" } as any;
     // Mock postMessage
     window.parent.postMessage = vi.fn();
 
@@ -58,7 +58,6 @@ describe("BookingWidget Property Tests", () => {
       unobserve = vi.fn();
       disconnect = vi.fn();
     }
-    // @ts-expect-error
     window.ResizeObserver = MockResizeObserver;
 
     // Reset mockMutate implementation to default
@@ -70,7 +69,7 @@ describe("BookingWidget Property Tests", () => {
   });
 
   afterEach(() => {
-    window.location = originalLocation;
+    window.location = originalLocation as any;
     window.parent.postMessage = originalPostMessage;
   });
 
@@ -99,7 +98,7 @@ describe("BookingWidget Property Tests", () => {
             options?.onSuccess({ id: bookingId, googleMeetLink: meetLink });
           });
 
-          render(<BookingWidget studentId={studentId} />);
+          render(<BookingWidget studentProfileId={String(studentId)} />);
 
           // Act: Step 1 - Select Date
           fireEvent.click(screen.getByTestId("mock-date-picker"));
@@ -154,7 +153,7 @@ describe("BookingWidget Property Tests", () => {
 
         // @ts-expect-error
         delete window.location;
-        window.location = url as unknown as Location;
+        window.location = url as any;
 
         // Act
         const { unmount } = render(<BookingWidget />);

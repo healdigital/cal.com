@@ -1,5 +1,5 @@
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
-import { RatingForm } from "@calcom/features/thotis/components/RatingForm";
+import { RatingForm } from "~/thotis/components/RatingForm";
 import prisma from "@calcom/prisma";
 import { notFound } from "next/navigation";
 

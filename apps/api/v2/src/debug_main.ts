@@ -1,19 +1,19 @@
 import "dotenv/config";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { bootstrap } from "./bootstrap";
 
 async function run() {
   console.log("Starting debug_main...");
   try {
-    // @ts-expect-error
     const app = await NestFactory.create(AppModule, {
       logger: ["log", "error", "warn", "debug", "verbose"],
       bufferLogs: false,
     });
     console.log("App created.");
 
-    bootstrap(app);
+    bootstrap(app as unknown as NestExpressApplication);
     console.log("App bootstrap done. Initializing...");
 
     await app.init();

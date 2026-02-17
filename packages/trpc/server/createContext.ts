@@ -11,7 +11,7 @@ import type { GetServerSidePropsContext, NextApiRequest, NextApiResponse } from 
 import type { Session } from "next-auth";
 import type { serverSideTranslations } from "next-i18next/serverSideTranslations";
 
-type CreateContextOptions =
+export type CreateContextOptions =
   | (Omit<CreateNextContextOptions, "info"> & {
       info?: CreateNextContextOptions["info"];
     })
@@ -77,7 +77,7 @@ export async function createContextInner(opts: CreateInnerContextOptions): Promi
   };
 }
 
-type Context = InnerContext & {
+export type Context = InnerContext & {
   req: CreateContextOptions["req"];
   res: CreateContextOptions["res"];
 };
@@ -106,7 +106,9 @@ export const createContext = async (
 
 export type TRPCContext = Awaited<ReturnType<typeof createContext>>;
 export type TRPCContextInner = Awaited<ReturnType<typeof createContextInner>>;
+// biome-ignore lint/suspicious/noExplicitAny: generic default
 export type WithLocale<T extends TRPCContext = any> = T &
   Required<Pick<CreateInnerContextOptions, "i18n" | "locale">>;
+// biome-ignore lint/suspicious/noExplicitAny: generic default
 export type WithSession<T extends TRPCContext = any> = T &
   Required<Pick<CreateInnerContextOptions, "session">>;

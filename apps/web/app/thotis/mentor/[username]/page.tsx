@@ -1,13 +1,13 @@
 "use client";
 
-import { BookingWidget } from "@calcom/features/thotis/components/BookingWidget";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { UserAvatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { BookingWidget } from "~/thotis/components/BookingWidget";
 
 export default function MentorProfilePage() {
   const params = useParams();
@@ -28,16 +28,18 @@ export default function MentorProfilePage() {
   );
 
   const trackEvent = trpc.thotis.analytics.track.useMutation();
+  const hasTracked = useRef(false);
 
   useEffect(() => {
-    if (profile && !isLoading && !error) {
+    if (profile && !isLoading && !error && !hasTracked.current) {
+      hasTracked.current = true;
       trackEvent.mutate({
         eventType: ThotisAnalyticsEventType.profile_viewed,
         profileId: profile.id,
         field: profile.field,
       });
     }
-  }, [profile, isLoading, error, trackEvent.mutate]);
+  }, [profile, isLoading, error]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (
@@ -59,7 +61,14 @@ export default function MentorProfilePage() {
     );
   }
 
-  const { user } = profile as any;
+  const user = profile.user;
+  // UserAvatar expects a singular `profile` property derived from the `profiles` array
+  const userForAvatar = {
+    name: user.name,
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+    profile: user.profiles?.[0] ?? null,
+  } as React.ComponentProps<typeof UserAvatar>["user"];
   const rating = profile.averageRating ?? 0;
   const totalRatings = profile.totalRatings ?? 0;
   const formattedRating = Number(rating).toFixed(1).replace(/\.0$/, "");
@@ -81,7 +90,11 @@ export default function MentorProfilePage() {
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <div className="flex flex-col md:flex-row gap-6 items-start">
-                <UserAvatar size="xl" user={user} className="h-24 w-24 border-2 border-white shadow-sm" />
+                <UserAvatar
+                  size="xl"
+                  user={userForAvatar}
+                  className="h-24 w-24 border-2 border-white shadow-sm"
+                />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>

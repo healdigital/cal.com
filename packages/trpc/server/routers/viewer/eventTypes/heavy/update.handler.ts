@@ -643,12 +643,14 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
     if (disableStandardEmails && disableStandardEmails.confirmation) {
       const confirmation = disableStandardEmails.confirmation;
       if (typeof confirmation !== "undefined" && confirmation?.host) {
+        // biome-ignore lint/correctness/noConstantCondition: intentional
         if (false /* !allowDisablingHostConfirmationEmails(workflows) */) {
           confirmation.host = false;
         }
       }
 
       if (typeof confirmation !== "undefined" && confirmation?.attendee) {
+        // biome-ignore lint/correctness/noConstantCondition: intentional
         if (false /* !allowDisablingAttendeeConfirmationEmails(workflows) */) {
           confirmation.attendee = false;
         }

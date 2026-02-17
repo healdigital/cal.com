@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+set -e
 
 # Replace the statically built BUILT_NEXT_PUBLIC_WEBAPP_URL with run-time NEXT_PUBLIC_WEBAPP_URL
 # NOTE: if these values are the same, this will be skipped.
@@ -14,7 +14,7 @@ if [ -z "$DATABASE_HOST" ] && [ -n "$DATABASE_URL" ]; then
 fi
 
 if [ -n "$DATABASE_HOST" ]; then
-  scripts/wait-for-it.sh ${DATABASE_HOST} -- echo "database is up"
+  scripts/wait-for-it.sh "${DATABASE_HOST}" -- echo "database is up"
 else
   echo "WARNING: DATABASE_HOST not set and could not be extracted. Skipping wait-for-it."
   sleep 5

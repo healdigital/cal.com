@@ -139,11 +139,15 @@ export class EventTypesAtomService {
     body: TUpdateEventTypeInputSchema,
     user: UserWithProfile,
     teamId: number
-  ) {
+  ): Promise<any> {
     throw new NotFoundException("updateTeamEventType is disabled in OSS");
   }
 
-  async updateEventType(eventTypeId: number, body: TUpdateEventTypeInputSchema, user: UserWithProfile) {
+  async updateEventType(
+    eventTypeId: number,
+    body: TUpdateEventTypeInputSchema,
+    user: UserWithProfile
+  ): Promise<any> {
     throw new NotFoundException("updateEventType is disabled in OSS");
   }
 

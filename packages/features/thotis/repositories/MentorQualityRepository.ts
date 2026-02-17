@@ -31,9 +31,22 @@ export class MentorQualityRepository {
     const [incidents, total] = await Promise.all([
       this.prismaClient.mentorQualityIncident.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          studentProfileId: true,
+          reportedByUserId: true,
+          bookingUid: true,
+          type: true,
+          description: true,
+          severity: true,
+          resolved: true,
+          resolvedAt: true,
+          createdAt: true,
+          updatedAt: true,
           studentProfile: {
-            include: {
+            select: {
+              id: true,
+              university: true,
               user: {
                 select: {
                   name: true,
@@ -65,8 +78,29 @@ export class MentorQualityRepository {
   async getIncidentById(id: string) {
     return this.prismaClient.mentorQualityIncident.findUnique({
       where: { id },
-      include: {
-        studentProfile: true,
+      select: {
+        id: true,
+        studentProfileId: true,
+        reportedByUserId: true,
+        bookingUid: true,
+        type: true,
+        description: true,
+        severity: true,
+        resolved: true,
+        resolvedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        studentProfile: {
+          select: {
+            id: true,
+            userId: true,
+            university: true,
+            degree: true,
+            field: true,
+            isActive: true,
+            status: true,
+          },
+        },
       },
     });
   }
@@ -101,7 +135,13 @@ export class MentorQualityRepository {
   async listModerationActions(studentProfileId: string) {
     return this.prismaClient.mentorModerationAction.findMany({
       where: { studentProfileId },
-      include: {
+      select: {
+        id: true,
+        studentProfileId: true,
+        actionByUserId: true,
+        actionType: true,
+        reason: true,
+        createdAt: true,
         actionByUser: {
           select: {
             name: true,

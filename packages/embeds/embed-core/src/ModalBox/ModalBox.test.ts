@@ -26,7 +26,7 @@ describe("ModalBox", () => {
   });
 
   afterEach(() => {
-    if (modalBox && modalBox.parentNode) {
+    if (modalBox?.parentNode) {
       document.body.removeChild(modalBox);
     }
     vi.restoreAllMocks();

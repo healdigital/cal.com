@@ -3,7 +3,8 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { AcademicField } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
-import { Button, TextAreaField, TextField } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { TextField, TextAreaField } from "@calcom/ui/components/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";

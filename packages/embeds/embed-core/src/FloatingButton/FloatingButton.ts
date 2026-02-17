@@ -67,7 +67,7 @@ export class FloatingButton extends HTMLElement {
     if (name === "data-button-text") {
       buttonEl.textContent = newValue;
     } else if (name === "data-hide-button-icon") {
-      buttonIconEl.style.display = newValue == "true" ? "none" : "block";
+      buttonIconEl.style.display = newValue === "true" ? "none" : "block";
     } else if (name === "data-button-position") {
       buttonWrapperEl.className = FloatingButton.updatedClassString(newValue, buttonWrapperEl.className);
     } else if (name === "data-button-color") {
@@ -75,7 +75,7 @@ export class FloatingButton extends HTMLElement {
     } else if (name === "data-button-text-color") {
       buttonWrapperEl.style.color = newValue;
     } else if (name === "data-toggle-off") {
-      const off = newValue == "true";
+      const off = newValue === "true";
       if (off) {
         // When toggling off, back up the original display value so that it can be restored when toggled back on
         this.buttonWrapperStyleDisplay = buttonWrapperEl.style.display;

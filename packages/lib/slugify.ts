@@ -1,6 +1,11 @@
 // forDisplayingInput is used to allow user to type "-" at the end and not replace with empty space.
 // For eg:- "test-slug" is the slug user wants to set but while typing "test-" would get replace to "test" becauser of replace(/-+$/, "")
 
+// Unicode property escapes require ES6+ target; using RegExp constructor avoids TS1501 compile errors
+// when this file is consumed by packages targeting ES5 (e.g. @calcom/trpc)
+const DIACRITICS_RE = new RegExp("\\p{Diacritic}", "gu");
+const NON_ALNUM_UNICODE_RE = new RegExp("[^.\\p{L}\\p{N}\\p{Zs}\\p{Emoji}]+", "gu");
+
 export const slugify = (str: string, forDisplayingInput?: boolean) => {
   if (!str) {
     return "";
@@ -10,10 +15,8 @@ export const slugify = (str: string, forDisplayingInput?: boolean) => {
     .toLowerCase() // Convert to lowercase
     .trim() // Remove whitespace from both sides
     .normalize("NFD") // Normalize to decomposed form for handling accents
-    // @ts-expect-error - Unicode property escapes require ES6+ target in some TS configs
-    .replace(/\p{Diacritic}/gu, "") // Remove any diacritics (accents) from characters
-    // @ts-expect-error - Unicode property escapes require ES6+ target in some TS configs
-    .replace(/[^.\p{L}\p{N}\p{Zs}\p{Emoji}]+/gu, "-") // Replace any non-alphanumeric characters (including Unicode and except "." period) with a dash
+    .replace(DIACRITICS_RE, "") // Remove any diacritics (accents) from characters
+    .replace(NON_ALNUM_UNICODE_RE, "-") // Replace any non-alphanumeric characters (including Unicode and except "." period) with a dash
     .replace(/[\s_#]+/g, "-") // Replace whitespace, # and underscores with a single dash
     .replace(/^-+/, "") // Remove dashes from start
     .replace(/\.{2,}/g, ".") // Replace consecutive periods with a single period

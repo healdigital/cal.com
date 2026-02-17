@@ -1,14 +1,19 @@
 "use client";
 
 import { MentorListView } from "@calcom/features/thotis/components/MentorListView";
-import {
-  MentorSearchFilters,
-  type MentorSearchFiltersState,
-} from "@calcom/features/thotis/components/MentorSearchFilters";
 import { trpc } from "@calcom/trpc/react";
-import { Icon } from "@calcom/ui";
+import { Icon } from "@calcom/ui/components/icon";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
+import { MentorSearchFilters, type MentorSearchFiltersState } from "~/thotis/components/MentorSearchFilters";
+
+interface ThotisIntent {
+  targetFields: string[];
+  academicLevel: string;
+  zone?: string | null;
+  goals?: string[];
+  scheduleConstraints?: unknown;
+}
 
 export default function MentorsPage() {
   const router = useRouter();
@@ -20,12 +25,12 @@ export default function MentorsPage() {
     minRating: searchParams?.get("minRating") ? Number(searchParams.get("minRating")) : 0,
   });
 
-  const [localIntent, _setLocalIntent] = useState<any>(() => {
+  const [localIntent, _setLocalIntent] = useState<ThotisIntent | null>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("thotis_orientation_intent");
       if (saved) {
         try {
-          return JSON.parse(saved);
+          return JSON.parse(saved) as ThotisIntent;
         } catch (e) {
           console.error("Failed to parse local intent", e);
         }
@@ -44,7 +49,7 @@ export default function MentorsPage() {
   const { data: recommendations, isLoading: isRefLoading } = trpc.thotis.intent.getRecommended.useQuery(
     {
       targetFields: effectiveIntent?.targetFields || [],
-      academicLevel: effectiveIntent?.academicLevel || "",
+      academicLevel: (effectiveIntent?.academicLevel || undefined) as any,
       zone: effectiveIntent?.zone,
     },
     {
@@ -53,14 +58,11 @@ export default function MentorsPage() {
     }
   );
 
-  const { data, isLoading, error } = trpc.thotis.profile.search.useQuery(
-    {
-      fieldOfStudy: (filters.fieldOfStudy as any) || undefined,
-      university: filters.university || undefined,
-      minRating: filters.minRating || undefined,
-    },
-    undefined
-  );
+  const { data, isLoading, error } = trpc.thotis.profile.search.useQuery({
+    fieldOfStudy: (filters.fieldOfStudy || undefined) as any,
+    university: filters.university || undefined,
+    minRating: filters.minRating || undefined,
+  });
 
   const handleFiltersChange = useCallback(
     (newFilters: MentorSearchFiltersState) => {
@@ -110,7 +112,7 @@ export default function MentorsPage() {
               <h2 className="font-bold text-gray-900 text-xl">Recommended for your orientation</h2>
             </div>
             <MentorListView
-              profiles={(recommendations as any) || []}
+              profiles={recommendations || []}
               isLoading={isRefLoading}
               total={recommendations.length}
               onBookSession={handleBookSession}
@@ -131,7 +133,7 @@ export default function MentorsPage() {
           </h2>
         </div>
         <MentorListView
-          profiles={(data?.profiles as any) || []}
+          profiles={data?.profiles || []}
           isLoading={isLoading && !data}
           total={data?.total || 0}
           onBookSession={handleBookSession}

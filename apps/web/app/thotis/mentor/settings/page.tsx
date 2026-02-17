@@ -2,7 +2,8 @@
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Card, TextAreaField, TextField } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { TextField, TextAreaField } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -31,7 +32,7 @@ export default function MentorSettingsPage() {
     }
   }, [profile, reset]);
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: Record<string, string>) => {
     updateProfile.mutate({
       university: data.university,
       degree: data.degree,

@@ -1,4 +1,3 @@
-import process from "node:process";
 import Mixpanel from "mixpanel";
 
 export class AnalyticsService {

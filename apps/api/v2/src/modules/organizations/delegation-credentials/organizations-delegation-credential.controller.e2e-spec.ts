@@ -140,7 +140,7 @@ describe("Organizations Delegation Credentials Endpoints", () => {
           workspacePlatformId: workspacePlatform.id,
           organizationId: org.id,
           domain: "@test-domain.com",
-          serviceAccountKey: encryptedServiceAccountKey,
+          serviceAccountKey: encryptedServiceAccountKey as any,
           enabled: false,
         },
       });

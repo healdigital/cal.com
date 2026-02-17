@@ -1,4 +1,3 @@
-import process from "node:process";
 import prisma from "@calcom/prisma";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

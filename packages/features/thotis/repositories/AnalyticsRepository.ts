@@ -1,5 +1,5 @@
 import prisma from "@calcom/prisma";
-import type { PrismaClient } from "@calcom/prisma/client";
+import type { Prisma, PrismaClient } from "@calcom/prisma/client";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 
 export class AnalyticsRepository {
@@ -17,7 +17,7 @@ export class AnalyticsRepository {
     bookingId?: number;
     field?: string;
     source?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }) {
     return this.prismaClient.thotisAnalyticsEvent.create({
       data: {
@@ -28,7 +28,7 @@ export class AnalyticsRepository {
         bookingId: data.bookingId,
         field: data.field,
         source: data.source,
-        metadata: data.metadata || {},
+        metadata: (data.metadata || {}) as Prisma.InputJsonValue,
       },
     });
   }

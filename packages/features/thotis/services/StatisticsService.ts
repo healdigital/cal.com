@@ -1,4 +1,3 @@
-import process from "node:process";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import { RedisService } from "../../redis/RedisService";
@@ -157,9 +156,7 @@ export class StatisticsService {
       );
     }
 
-    // Pass the profile ID (which is likely string) to the repository.
-    // We cast to any to bypass potential type mismatch if repository definition is using number
-    // but Prisma uses string CUIDs.
+    // Pass the profile ID (string cuid) to the repository.
     await this.ratingRepository.createRating({
       bookingId,
       studentProfileId: profile.id,

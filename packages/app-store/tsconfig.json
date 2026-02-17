@@ -8,7 +8,9 @@
       "@calcom/testing/*": ["../testing/src/*"]
     },
     "resolveJsonModule": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2015"
   },
   "include": [
     "next-env.d.ts",

@@ -7,7 +7,7 @@ export class Inline extends EmbedElement {
     return ["loading"];
   }
 
-  attributeChangedCallback(name: string, oldValue: string, newValue: string) {
+  attributeChangedCallback(name: string, _oldValue: string, newValue: string) {
     this.assertHasShadowRoot();
     const errorEl = this.shadowRoot.querySelector<HTMLElement>("#error");
     const slotEl = this.shadowRoot.querySelector<HTMLElement>("slot");
@@ -15,7 +15,7 @@ export class Inline extends EmbedElement {
       throw new Error("One of loaderEl, slotEl or errorEl is missing");
     }
     if (name === "loading") {
-      if (newValue == "done") {
+      if (newValue === "done") {
         this.toggleLoader(false);
       } else if (newValue === "failed") {
         this.toggleLoader(false);

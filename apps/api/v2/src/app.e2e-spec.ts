@@ -1,5 +1,5 @@
 import { X_CAL_CLIENT_ID, X_CAL_SECRET_KEY } from "@calcom/platform-constants";
-import { SchedulesModule_2024_04_15 } from "@calcom/platform-libraries";
+import { SchedulesModule_2024_06_11 } from "@calcom/platform-libraries";
 import type { PlatformOAuthClient, RateLimit, Team, User } from "@calcom/prisma/client";
 import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
@@ -49,7 +49,7 @@ describe("AppController", () => {
 
     beforeEach(async () => {
       const moduleRef: TestingModule = await Test.createTestingModule({
-        imports: [AppModule, PrismaModule, UsersModule, TokensModule, SchedulesModule_2024_04_15],
+        imports: [AppModule, PrismaModule, UsersModule, TokensModule, SchedulesModule_2024_06_11],
       }).compile();
 
       jest.spyOn(CustomThrottlerGuard.prototype, "getDefaultLimit").mockReturnValue(mockDefaultLimit);

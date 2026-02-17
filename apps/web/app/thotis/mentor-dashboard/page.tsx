@@ -1,6 +1,6 @@
 "use client";
 
-import { MentorDashboard } from "@calcom/features/thotis/components/MentorDashboard";
+import { MentorDashboard } from "~/thotis/components/MentorDashboard";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";

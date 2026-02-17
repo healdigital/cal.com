@@ -12,7 +12,7 @@ export class ThotisAnalyticsService {
     bookingId?: number;
     field?: string;
     source?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }) {
     // Only track if eventType is valid (standardized taxonomy)
     return this.repository.trackEvent(data);

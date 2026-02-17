@@ -8,8 +8,8 @@ import {
 import type {
   CreateBookingOutput_2024_08_13,
   CreateScheduleInput_2024_04_15,
-  SchedulesService_2024_04_15,
 } from "@calcom/platform-libraries";
+import { SchedulesService_2024_04_15 } from "@calcom/platform-libraries";
 import type {
   BookingOutput_2024_08_13,
   CreateBookingInput_2024_08_13,

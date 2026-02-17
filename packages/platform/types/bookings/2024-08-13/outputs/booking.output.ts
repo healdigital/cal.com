@@ -332,7 +332,7 @@ export class RecurringBookingOutput_2024_08_13 extends BookingOutput_2024_08_13 
   })
   @IsObject()
   @Expose()
-  bookingFieldsResponses!: Record<string, unknown>;
+  declare bookingFieldsResponses: Record<string, unknown>;
 }
 
 export class GetSeatedBookingOutput_2024_08_13 extends BaseBookingOutput_2024_08_13 {

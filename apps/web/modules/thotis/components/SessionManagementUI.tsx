@@ -5,13 +5,26 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { BookingStatus } from "@calcom/prisma/enums";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
-import { DatePicker } from "@calcom/ui";
 import { Button } from "@calcom/ui/components/button";
+import { DatePicker } from "@calcom/ui/components/form/datepicker";
 import { Icon } from "@calcom/ui/components/icon";
 import { useCallback, useMemo, useState } from "react";
 import { PostSessionForm } from "./PostSessionForm";
 import { RatingForm } from "./RatingForm";
 import { SessionSummaryView } from "./SessionSummaryView";
+
+interface SessionBookingMetadata {
+  googleMeetLink?: string;
+  completedAt?: string;
+  studentProfileId?: string;
+  [key: string]: unknown;
+}
+
+interface SessionBookingResponses {
+  name?: string;
+  email?: string;
+  [key: string]: unknown;
+}
 
 interface SessionBooking {
   id: number;
@@ -20,8 +33,8 @@ interface SessionBooking {
   startTime: Date | string;
   endTime: Date | string;
   status: BookingStatus | string;
-  metadata: any;
-  responses: any;
+  metadata: SessionBookingMetadata | null | any; // allow any for Prisma Json compatibility
+  responses: SessionBookingResponses | null | any; // allow any for Prisma Json compatibility
   cancellationReason?: string | null;
   thotisSessionSummary?: { id: number } | null;
 }
@@ -93,12 +106,8 @@ export const SessionManagementUI = ({
   const endTime = dayjs(booking.endTime);
   const isPast = endTime.isBefore(dayjs());
   const isCancelled = booking.status === "CANCELLED";
-  const metadata = booking.metadata as {
-    googleMeetLink?: string;
-    completedAt?: string;
-    studentProfileId?: string;
-  } | null;
-  const responses = booking.responses as { name?: string; email?: string } | null;
+  const metadata = booking.metadata;
+  const responses = booking.responses;
 
   const cancelMutation = trpc.thotis.booking.cancelSession.useMutation({
     onSuccess: () => {
@@ -508,14 +517,15 @@ export const SessionManagementUI = ({
                   <p className="text-xs text-blue-600 italic">No slots available for this date.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
-                    {availability.map((slot: any) => {
+                    {availability.map((slot: { start: Date; end: Date; available: boolean }) => {
                       const slotDate = new Date(slot.start);
-                      const isSelected = selectedSlot === slot.start;
+                      const startIso = slot.start.toISOString();
+                      const isSelected = selectedSlot === startIso;
                       return (
                         <button
-                          key={slot.start}
+                          key={startIso}
                           type="button"
-                          onClick={() => setSelectedSlot(slot.start)}
+                          onClick={() => setSelectedSlot(startIso)}
                           className={`rounded-md border px-2 py-1 text-xs transition-colors ${
                             isSelected
                               ? "border-blue-600 bg-blue-600 text-white"

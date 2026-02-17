@@ -2,7 +2,9 @@
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Dialog, DialogContent, Icon } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
+import { Dialog, DialogContent } from "@calcom/ui/components/dialog";
+import { Icon } from "@calcom/ui/components/icon";
 import { Download, ExternalLink, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

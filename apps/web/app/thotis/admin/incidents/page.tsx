@@ -2,12 +2,21 @@
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button } from "@calcom/ui";
+import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
+
+interface Incident {
+  id: string;
+  type: string;
+  description?: string | null;
+  resolved: boolean;
+  createdAt: string | Date;
+  studentProfileId: string;
+}
 
 export default function IncidentsPage() {
   const { t } = useLocale();
@@ -116,18 +125,18 @@ export default function IncidentsPage() {
             <tbody className="divide-subtle divide-y">
               {incidents.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-subtle">
+                  <td colSpan={5} className="px-6 py-10 text-center text-subtle">
                     {t("thotis_no_incidents_found")}
                   </td>
                 </tr>
               ) : (
-                incidents.map((incident: any) => (
+                incidents.map((incident: Incident) => (
                   <tr key={incident.id} className="hover:bg-subtle/50 transition-colors">
                     <td className="px-6 py-4">
                       <span className="font-medium text-emphasis">{incident.type}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="max-w-md truncate text-subtle" title={incident.description}>
+                      <div className="max-w-md truncate text-subtle" title={incident.description ?? undefined}>
                         {incident.description}
                       </div>
                     </td>

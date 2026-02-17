@@ -1,4 +1,3 @@
-import process from "node:process";
 import { JwtService } from "@nestjs/jwt";
 import { prisma } from "../../../prisma/index";
 
@@ -10,7 +9,7 @@ async function setup() {
   console.log("Prisma client loaded from packages/prisma");
 
   const jwtService = new JwtService({
-    secret: process.env.JWT_SECRET || "XF+Hws3A5g2eyWA5uGYYVJ74X+wrCWJ8oWo6kAfU6O8=",
+    secret: process.env.JWT_SECRET || "test-secret-do-not-use-in-production",
   });
   console.log("JWT service initialized");
 

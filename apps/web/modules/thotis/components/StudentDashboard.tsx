@@ -220,7 +220,7 @@ export const StudentDashboard = ({ email, token }: StudentDashboardProps) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {sessions.map((session: any) => (
+                  {sessions.map((session) => (
                     <SessionManagementUI
                       key={session.id}
                       booking={session}

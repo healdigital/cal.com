@@ -1,5 +1,8 @@
 "use client";
 
+import type { Mentor } from "@calcom/features/thotis/components/AdminDashboardUtils";
+import { generateCSV } from "@calcom/features/thotis/components/AdminDashboardUtils";
+import type { PlatformStats } from "@calcom/features/thotis/services/StatisticsService";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
@@ -20,17 +23,46 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { generateCSV } from "./AdminDashboardUtils";
 
 // --- Types & Interfaces ---
-// Moved to AdminDashboardUtils.ts
 
-// --- Utilities ---
-// Moved to AdminDashboardUtils.ts
+interface TrendPeriodData {
+  date: string;
+  count: number;
+}
+
+interface Trends {
+  daily: TrendPeriodData[];
+  weekly: TrendPeriodData[];
+  monthly: TrendPeriodData[];
+}
+
+interface FunnelData {
+  counts: Record<string, number>;
+  conversion: Record<string, number>;
+}
+
+interface FieldDistributionEntry {
+  name: string;
+  value: number;
+}
+
+interface IncidentData {
+  id: string;
+  type: string;
+  description: string | null;
+  createdAt: string | Date;
+  studentProfile: {
+    university: string | null;
+    user: {
+      name: string | null;
+    };
+  } | null;
+}
 
 // --- Sub-Components ---
 
-const StatsOverview = ({ stats }: { stats: any }) => {
+const StatsOverview = ({ stats }: { stats: PlatformStats | undefined }) => {
   const { t } = useLocale();
 
   const completionRate = stats?._sum?.totalSessions
@@ -58,13 +90,13 @@ const StatsOverview = ({ stats }: { stats: any }) => {
 
   return (
     <div className="space-y-4">
-      {stats?.dataQuality?.issues?.length > 0 && (
+      {(stats?.dataQuality?.issues?.length ?? 0) > 0 && (
         <div className="bg-error-subtle text-error p-3 rounded-md border border-error flex items-center gap-2 text-sm">
           <span>⚠️</span>
           <div>
             <strong>{t("thotis_data_quality_warning")}:</strong>
             <ul className="list-disc ml-5">
-              {stats.dataQuality.issues.map((issue: string, i: number) => (
+              {stats?.dataQuality?.issues?.map((issue: string, i: number) => (
                 <li key={i}>{issue}</li>
               ))}
             </ul>
@@ -83,12 +115,12 @@ const StatsOverview = ({ stats }: { stats: any }) => {
   );
 };
 
-const SessionTrendsChart = ({ trends }: { trends: any }) => {
+const SessionTrendsChart = ({ trends }: { trends: Trends | undefined }) => {
   const { t } = useLocale();
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
 
   const rawData = trends?.[period] || [];
-  const data = rawData.map((d: any) => ({
+  const data = rawData.map((d: TrendPeriodData) => ({
     date:
       period === "daily"
         ? new Date(d.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -141,7 +173,7 @@ const SessionTrendsChart = ({ trends }: { trends: any }) => {
   );
 };
 
-const FunnelChart = ({ funnel }: { funnel: any }) => {
+const FunnelChart = ({ funnel }: { funnel: FunnelData | undefined }) => {
   const { t } = useLocale();
   const data = [
     { name: t("thotis_funnel_viewed"), count: funnel?.counts?.profile_viewed || 0 },
@@ -182,10 +214,10 @@ const FunnelChart = ({ funnel }: { funnel: any }) => {
   );
 };
 
-const FieldDistributionChart = ({ distribution }: { distribution: any }) => {
+const FieldDistributionChart = ({ distribution }: { distribution: PlatformStats | undefined }) => {
   const { t } = useLocale();
-  const data =
-    distribution?.fieldDistribution?.map((d: any) => ({
+  const data: FieldDistributionEntry[] =
+    distribution?.fieldDistribution?.map((d: { field: string; _count: { id: number } }) => ({
       name: d.field,
       value: d._count.id,
     })) || [];
@@ -207,7 +239,7 @@ const FieldDistributionChart = ({ distribution }: { distribution: any }) => {
               fill="#8884d8"
               paddingAngle={5}
               dataKey="value">
-              {data.map((entry: any, index: number) => (
+              {data.map((entry: FieldDistributionEntry, index: number) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
@@ -220,7 +252,17 @@ const FieldDistributionChart = ({ distribution }: { distribution: any }) => {
   );
 };
 
-const MentorList = ({ profiles }: { profiles: any[] }) => {
+/** Profile shape used by the MentorList table */
+interface MentorListProfile {
+  id: string;
+  university: string | null;
+  field: string | null;
+  totalSessions: number | null;
+  completedSessions: number | null;
+  averageRating: unknown; // Prisma Decimal, coerced via Number()
+}
+
+const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
   const { t } = useLocale();
   const columns = [
     { Header: t("thotis_header_university"), accessor: "university" },
@@ -229,9 +271,10 @@ const MentorList = ({ profiles }: { profiles: any[] }) => {
     { Header: t("thotis_header_rating"), accessor: "averageRating" },
     {
       Header: t("thotis_header_completion"),
-      accessor: (row: any) => {
-        const rate =
-          row.totalSessions > 0 ? Math.round((row.completedSessions / row.totalSessions) * 100) : 0;
+      accessor: (row: MentorListProfile) => {
+        const total = row.totalSessions || 0;
+        const completed = row.completedSessions || 0;
+        const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
         return `${rate}%`;
       },
     },
@@ -252,15 +295,16 @@ const MentorList = ({ profiles }: { profiles: any[] }) => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {profiles.map((profile: any) => (
+            {profiles.map((profile: MentorListProfile) => (
               <Table.Row key={profile.id}>
                 <Table.Cell>{profile.university}</Table.Cell>
                 <Table.Cell>{profile.field}</Table.Cell>
                 <Table.Cell>{profile.totalSessions}</Table.Cell>
-                <Table.Cell>{profile.averageRating?.toFixed(1) || "-"}</Table.Cell>
+                <Table.Cell>{Number(profile.averageRating)?.toFixed(1) || "-"}</Table.Cell>
                 <Table.Cell>
-                  {profile.totalSessions > 0
-                    ? Math.round((profile.completedSessions / profile.totalSessions) * 100) + "%"
+                  {(profile.totalSessions || 0) > 0
+                    ? Math.round(((profile.completedSessions || 0) / (profile.totalSessions || 1)) * 100) +
+                      "%"
                     : "0%"}
                 </Table.Cell>
               </Table.Row>
@@ -297,7 +341,7 @@ const RecentIncidents = () => {
         {incidents.length === 0 ? (
           <p className="text-subtle text-sm text-center py-8">{t("thotis_no_recent_incidents")}</p>
         ) : (
-          incidents.map((incident: any) => (
+          incidents.map((incident: IncidentData) => (
             <div key={incident.id} className="p-3 bg-subtle rounded-md border border-subtle">
               <div className="flex justify-between items-start mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
@@ -338,7 +382,17 @@ export const AdminDashboard = () => {
   const handleExportCSV = () => {
     if (!searchData?.profiles) return;
 
-    const csvContent = "data:text/csv;charset=utf-8," + generateCSV(searchData.profiles as any);
+    // Map profiles to the Mentor shape expected by generateCSV
+    const mentors: Mentor[] = searchData.profiles.map((p) => ({
+      id: p.id,
+      university: p.university || "",
+      field: p.field || "",
+      totalSessions: p.totalSessions || 0,
+      completedSessions: p.completedSessions || 0,
+      cancelledSessions: p.cancelledSessions || 0,
+      averageRating: p.averageRating ? Number(p.averageRating) : null,
+    }));
+    const csvContent = "data:text/csv;charset=utf-8," + generateCSV(mentors);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

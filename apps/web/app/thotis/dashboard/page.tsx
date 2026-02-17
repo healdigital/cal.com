@@ -1,8 +1,8 @@
 "use client";
 
-import AdminDashboard from "@calcom/features/thotis/components/AdminDashboard";
-import { MentorDashboard } from "@calcom/features/thotis/components/MentorDashboard";
-import { StudentDashboard } from "@calcom/features/thotis/components/StudentDashboard";
+import AdminDashboard from "~/thotis/components/AdminDashboard";
+import { MentorDashboard } from "~/thotis/components/MentorDashboard";
+import { StudentDashboard } from "~/thotis/components/StudentDashboard";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
@@ -36,7 +36,7 @@ export default function ThotisDashboardPage() {
 
   // Determine which dashboard to show
   // 1. Admin Dashboard
-  if ((me as any).role === "ADMIN") {
+  if ("role" in me && me.role === "ADMIN") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto py-10 px-4">

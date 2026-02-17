@@ -102,7 +102,7 @@ export const MentorListView = ({ profiles, isLoading, total, onBookSession }: Me
                 viewMode === "grid" ? "bg-emphasis text-inverted" : "text-subtle hover:bg-muted"
               )}
               title={t("thotis_grid_view")}>
-              <Icon name={"grid" as any} className="h-4 w-4" />
+              <Icon name="grid-3x3" className="h-4 w-4" />
             </button>
             <button
               type="button"

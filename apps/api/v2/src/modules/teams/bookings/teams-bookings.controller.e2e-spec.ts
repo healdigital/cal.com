@@ -2,8 +2,8 @@ import { CAL_API_VERSION_HEADER, SUCCESS_STATUS, VERSION_2024_08_13 } from "@cal
 import type {
   CreateBookingOutput_2024_08_13,
   CreateScheduleInput_2024_04_15,
-  SchedulesService_2024_04_15,
 } from "@calcom/platform-libraries";
+import { SchedulesService_2024_04_15 } from "@calcom/platform-libraries";
 import type {
   BookingOutput_2024_08_13,
   CreateBookingInput_2024_08_13,
@@ -96,7 +96,7 @@ describe("Teams Bookings Endpoints 2024-08-13", () => {
 
       const responseData = responseBody.data;
       if (!Array.isArray(responseData) && "id" in responseData && !("bookingId" in responseData)) {
-        return responseData as BookingOutput_2024_08_13;
+        return responseData as unknown as BookingOutput_2024_08_13;
       }
       throw new Error("Invalid response data - expected booking but received unexpected format");
     }

@@ -1,7 +1,7 @@
 "use client";
 
-import { GuestMagicLinkForm } from "@calcom/features/thotis/components/GuestMagicLinkForm";
-import { StudentDashboard } from "@calcom/features/thotis/components/StudentDashboard";
+import { GuestMagicLinkForm } from "~/thotis/components/GuestMagicLinkForm";
+import { StudentDashboard } from "~/thotis/components/StudentDashboard";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useRouter, useSearchParams } from "next/navigation";

@@ -8,5 +8,5 @@ export class OrgTeamOutputDto extends TeamOutputDto {
   @IsOptional()
   @Expose()
   @ApiPropertyOptional()
-  readonly parentId?: number;
+  declare readonly parentId?: number;
 }
