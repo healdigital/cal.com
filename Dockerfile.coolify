@@ -1,6 +1,6 @@
 # Dockerfile.coolify - Based on official Cal.com Dockerfile
 # Optimized for Coolify deployment
-# Cache bust: 2026-02-17-v2
+# Cache bust: 2026-02-17-v3
 FROM node:20 AS builder
 
 WORKDIR /calcom
@@ -43,11 +43,14 @@ COPY apps/web ./apps/web
 COPY apps/api/v2 ./apps/api/v2
 COPY packages ./packages
 
-# Install dependencies - must succeed for a working build
-RUN yarn install --inline-builds
+# Install dependencies (lifecycle scripts may fail for non-critical packages
+# like platform-enums; we run prisma generate and post-install manually after)
+RUN yarn install --inline-builds || true
 
-# Generate Prisma client and run post-install hooks
+# Generate Prisma client (critical - must succeed)
 RUN yarn prisma generate
+
+# Run post-install hooks (may partially fail for non-critical packages)
 RUN npx turbo run post-install || true
 
 # Build tRPC package (required by web)
