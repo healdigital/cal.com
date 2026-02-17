@@ -11,7 +11,6 @@ import { signupSchema } from "@calcom/prisma/zod-utils";
 import { defaultResponderForAppDir } from "app/api/defaultResponderForAppDir";
 import { parseRequestData } from "app/api/parseRequestData";
 import { type NextRequest, NextResponse } from "next/server";
-import calcomSignupHandler from "./handlers/calcomSignupHandler";
 import selfHostedSignupHandler from "./handlers/selfHostedHandler";
 
 // Prevent Next.js from statically analyzing this route during build.
@@ -67,6 +66,9 @@ async function handler(req: NextRequest) {
      * @zomars: We need to be able to test this with E2E. They way it's done RN it will never run on CI.
      */
     if (IS_PREMIUM_USERNAME_ENABLED) {
+      // Dynamic import to prevent transitive @calcom/app-store imports
+      // from pulling React.createContext into the server build context
+      const { default: calcomSignupHandler } = await import("./handlers/calcomSignupHandler");
       return await calcomSignupHandler(body, query);
     }
 
