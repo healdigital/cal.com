@@ -14,6 +14,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import calcomSignupHandler from "./handlers/calcomSignupHandler";
 import selfHostedSignupHandler from "./handlers/selfHostedHandler";
 
+// Prevent Next.js from statically analyzing this route during build.
+// Transitive imports from @calcom/app-store pull in React.createContext
+// which is not available in the server-side build context.
+export const dynamic = "force-dynamic";
+
 async function ensureSignupIsEnabled(body: Record<string, string>) {
   const { token } = signupSchema
     .pick({
