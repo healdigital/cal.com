@@ -1,6 +1,6 @@
 # Dockerfile.coolify - Based on official Cal.com Dockerfile
 # Optimized for Coolify deployment
-# Cache bust: 2026-02-17-v3
+# Cache bust: 2026-02-17-v4
 FROM node:20 AS builder
 
 WORKDIR /calcom
@@ -97,7 +97,7 @@ FROM node:20-slim AS runner
 
 WORKDIR /calcom
 
-RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd wget curl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder-two /calcom ./
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
@@ -107,7 +107,8 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 ENV NODE_ENV=production
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
-  CMD wget --spider http://localhost:3000/api/auth/csrf || exit 1
+# start-period: grace period for prisma migrate + seed + first route compile
+HEALTHCHECK --interval=30s --timeout=30s --start-period=240s --retries=5 \
+  CMD curl -f http://localhost:3000/api/auth/csrf || exit 1
 
 CMD ["/calcom/scripts/start.sh"]
