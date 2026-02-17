@@ -1,7 +1,7 @@
 # Dockerfile.coolify - Based on official Cal.com Dockerfile
 # Optimized for Coolify deployment
-# Cache bust: 2026-02-17-v1
-FROM --platform=$BUILDPLATFORM node:20 AS builder
+# Cache bust: 2026-02-17-v2
+FROM node:20 AS builder
 
 WORKDIR /calcom
 
@@ -16,7 +16,6 @@ ARG CALENDSO_ENCRYPTION_KEY=secret
 ARG MAX_OLD_SPACE_SIZE=8192
 ARG NEXT_PUBLIC_API_V2_URL
 ARG CSP_POLICY
-
 ARG NEXT_PUBLIC_SINGLE_ORG_SLUG
 ARG ORGANIZATIONS_ENABLED
 
@@ -34,29 +33,38 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
   ORGANIZATIONS_ENABLED=$ORGANIZATIONS_ENABLED \
   NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
   BUILD_STANDALONE=true \
-  CSP_POLICY=$CSP_POLICY
+  CSP_POLICY=$CSP_POLICY \
+  HUSKY=0
 
+# Copy all source files needed for the build
 COPY package.json yarn.lock .yarnrc.yml playwright.config.ts turbo.json i18n.json ./
 COPY .yarn ./.yarn
 COPY apps/web ./apps/web
 COPY apps/api/v2 ./apps/api/v2
 COPY packages ./packages
 
-RUN npx turbo prune --scope=@calcom/web --scope=@calcom/trpc --docker
-ENV HUSKY=0
-RUN yarn install --inline-builds || true
-RUN yarn prisma generate || true
+# Install dependencies - must succeed for a working build
+RUN yarn install --inline-builds
+
+# Generate Prisma client and run post-install hooks
+RUN yarn prisma generate
 RUN npx turbo run post-install || true
-# Build tRPC and embed, copy static assets, then build web
+
+# Build tRPC package (required by web)
 RUN yarn workspace @calcom/trpc run build
+
+# Build embed-core and copy static assets
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
+
 # Use webpack instead of Turbopack for production build to avoid
 # React.createContext server-side evaluation issues with "use client" modules
 RUN cd apps/web && npx next build --webpack
+
+# Clean up caches to reduce image size
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
 
-FROM node:20 AS builder-two
+FROM node:20-slim AS builder-two
 
 WORKDIR /calcom
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
@@ -78,7 +86,7 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
-FROM node:20 AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /calcom
 
@@ -93,6 +101,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
-  CMD wget --spider http://localhost:3000 || exit 1
+  CMD wget --spider http://localhost:3000/api/auth/csrf || exit 1
 
 CMD ["/calcom/scripts/start.sh"]
