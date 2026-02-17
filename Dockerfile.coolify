@@ -63,9 +63,10 @@ RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
 
-# Use default bundler (Turbopack) which handles client/server module
-# boundaries correctly, preventing React.createContext server-side errors
-RUN cd apps/web && npx next build
+# Use Turbopack with --experimental-build-mode compile to skip the
+# "Collecting page data" phase which triggers React.createContext errors
+# from transitive @calcom/app-store imports in API routes.
+RUN cd apps/web && npx next build --experimental-build-mode compile
 
 # Clean up caches to reduce image size
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache

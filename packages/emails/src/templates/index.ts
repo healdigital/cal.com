@@ -1,4 +1,6 @@
-export * from "@calcom/app-store/routing-forms/emails/components";
+// Import directly from the component file instead of barrel-exporting through
+// @calcom/app-store which pulls in React.createContext via EventTypeAppContext
+export { ResponseEmail } from "@calcom/app-store/routing-forms/emails/components/ResponseEmail";
 export { AdminOAuthClientNotificationEmail } from "./AdminOAuthClientNotificationEmail";
 export { AdminOrganizationNotificationEmail } from "./AdminOrganizationNotificationEmail";
 export { AttendeeAddGuestsEmail } from "./AttendeeAddGuestsEmail";
