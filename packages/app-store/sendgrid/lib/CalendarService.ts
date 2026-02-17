@@ -1,4 +1,3 @@
-import process from "node:process";
 import { symmetricDecrypt } from "@calcom/lib/crypto";
 import logger from "@calcom/lib/logger";
 import type { SendgridNewContact } from "@calcom/lib/Sendgrid";

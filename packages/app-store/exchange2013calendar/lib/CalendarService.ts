@@ -1,4 +1,3 @@
-import process from "node:process";
 import { symmetricDecrypt } from "@calcom/lib/crypto";
 // Probably don't need
 // import { CALENDAR_INTEGRATIONS_TYPES } from "@calcom/lib/integrations/calendar/constants/generals";

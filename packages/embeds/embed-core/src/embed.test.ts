@@ -1,6 +1,5 @@
 import "../test/__mocks__/windowMatchMedia";
 
-import process from "node:process";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMBED_MODAL_IFRAME_FORCE_RELOAD_THRESHOLD_MS,

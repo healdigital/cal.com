@@ -1,4 +1,3 @@
-import process from "node:process";
 export function isEventTypeLoggingEnabled({
   eventTypeId,
   usernameOrTeamName,

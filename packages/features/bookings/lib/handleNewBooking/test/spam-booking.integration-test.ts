@@ -10,7 +10,6 @@ import {
   mockCalendarToHaveNoBusySlots,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { prisma } from "@calcom/prisma";
 import { BookingStatus, WatchlistType } from "@calcom/prisma/enums";
 import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";

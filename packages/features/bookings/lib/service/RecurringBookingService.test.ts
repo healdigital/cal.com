@@ -9,7 +9,6 @@ import {
   mockSuccessfulVideoMeetingCreation,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { getRecurringBookingService } from "@calcom/features/bookings/di/RecurringBookingService.container";
 import { WEBAPP_URL, WEBSITE_URL } from "@calcom/lib/constants";
 import logger from "@calcom/lib/logger";

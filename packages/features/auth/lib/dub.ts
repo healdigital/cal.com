@@ -1,4 +1,3 @@
-import process from "node:process";
 import { Dub } from "dub-package";
 
 export const dub = new Dub({

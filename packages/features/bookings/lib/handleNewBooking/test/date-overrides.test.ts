@@ -10,7 +10,6 @@ import {
   mockSuccessfulVideoMeetingCreation,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
 import dayjs from "@calcom/dayjs";
 import { BookingStatus } from "@calcom/prisma/enums";

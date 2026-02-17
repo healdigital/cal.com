@@ -1,4 +1,3 @@
-import process from "node:process";
 import { WEBAPP_URL } from "@calcom/lib/constants";
 import { symmetricEncrypt } from "@calcom/lib/crypto";
 import { CallToAction, CallToActionTable, Separator } from "../components";

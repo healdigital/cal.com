@@ -1,4 +1,3 @@
-import process from "node:process";
 import { APP_NAME, SENDER_NAME, SUPPORT_MAIL_ADDRESS } from "@calcom/lib/constants";
 import type { TFunction } from "i18next";
 import { BaseEmailHtml, CallToAction } from "../components";

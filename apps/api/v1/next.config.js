@@ -1,5 +1,4 @@
 /* eslint-disable */
-import process from "node:process";
 
 const { withAxiom } = require("next-axiom");
 const { withSentryConfig } = require("@sentry/nextjs");

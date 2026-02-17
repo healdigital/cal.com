@@ -1,4 +1,3 @@
-import process from "node:process";
 import { EMBED_DARK_THEME_CLASS, EMBED_LIGHT_THEME_CLASS } from "./constants";
 import type { AllPossibleLayouts, BookerLayouts, EmbedPageType, EmbedThemeConfig } from "./types";
 import type { ExternalThemeClass } from "./ui/themeClass";

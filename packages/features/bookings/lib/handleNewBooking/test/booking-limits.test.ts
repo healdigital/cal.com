@@ -19,7 +19,6 @@ import {
   mockSuccessfulVideoMeetingCreation,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { BookingStatus, PeriodType } from "@calcom/prisma/enums";
 import { expectBookingToBeInDatabase } from "@calcom/testing/lib/bookingScenario/expects";
 import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";

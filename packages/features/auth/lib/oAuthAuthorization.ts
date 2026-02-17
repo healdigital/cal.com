@@ -1,4 +1,3 @@
-import process from "node:process";
 import prisma from "@calcom/prisma";
 import type { OAuthTokenPayload } from "@calcom/types/oauth";
 import jwt from "jsonwebtoken";

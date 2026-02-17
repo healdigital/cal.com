@@ -1,4 +1,3 @@
-import process from "node:process";
 import { ErrorCode } from "@calcom/features/auth/lib/ErrorCode";
 import { verifyPassword } from "@calcom/features/auth/lib/verifyPassword";
 import { deleteUser } from "@calcom/features/users/lib/deleteUser";

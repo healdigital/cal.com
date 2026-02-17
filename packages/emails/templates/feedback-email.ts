@@ -1,4 +1,3 @@
-import process from "node:process";
 import { EMAIL_FROM_NAME } from "@calcom/lib/constants";
 import renderEmail from "../src/renderEmail";
 import BaseEmail from "./_base-email";

@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { CookieOption, CookiesOptions } from "next-auth";
 
 /**

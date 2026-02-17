@@ -1,4 +1,3 @@
-import process from "node:process";
 
 const { execSync } = require("node:child_process");
 

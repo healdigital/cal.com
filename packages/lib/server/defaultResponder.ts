@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { TraceContext } from "@calcom/lib/tracing";
 import { TracedError } from "@calcom/lib/tracing/error";
 import { distributedTracing } from "@calcom/lib/tracing/factory";

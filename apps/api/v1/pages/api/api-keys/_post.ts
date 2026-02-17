@@ -1,4 +1,3 @@
-import process from "node:process";
 import { generateUniqueAPIKey } from "@calcom/features/api-keys/lib/apiKeys";
 import { HttpError } from "@calcom/lib/http-error";
 import { defaultResponder } from "@calcom/lib/server/defaultResponder";

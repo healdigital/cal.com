@@ -1,4 +1,3 @@
-import process from "node:process";
 import { getCalendar } from "@calcom/app-store/_utils/getCalendar";
 import { OAuth2UniversalSchema } from "@calcom/app-store/_utils/oauth/universalSchema";
 import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";

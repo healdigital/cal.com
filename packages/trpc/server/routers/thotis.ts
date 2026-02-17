@@ -1,4 +1,3 @@
-import process from "node:process";
 import { AnalyticsRepository } from "@calcom/features/thotis/repositories/AnalyticsRepository";
 import { ProfileRepository } from "@calcom/features/thotis/repositories/ProfileRepository";
 import { SessionRatingRepository } from "@calcom/features/thotis/repositories/SessionRatingRepository";

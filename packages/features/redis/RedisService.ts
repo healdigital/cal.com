@@ -1,4 +1,3 @@
-import process from "node:process";
 import { Redis } from "@upstash/redis";
 import type { IRedisService } from "./IRedisService";
 

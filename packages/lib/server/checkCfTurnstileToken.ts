@@ -1,4 +1,3 @@
-import process from "node:process";
 import { HttpError } from "../http-error";
 
 const TURNSTILE_SECRET_ID = process.env.CLOUDFLARE_TURNSTILE_SECRET;

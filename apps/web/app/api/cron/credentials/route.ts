@@ -4,7 +4,6 @@
  * It also deletes Credential records for all members of an organization that has delegation credentials disabled.
  */
 
-import process from "node:process";
 import { CredentialRepository } from "@calcom/features/credentials/repositories/CredentialRepository";
 import { buildCredentialCreateData } from "@calcom/features/credentials/services/CredentialDataService";
 import { HttpError } from "@calcom/lib/http-error";

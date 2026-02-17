@@ -1,4 +1,3 @@
-import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // We want to test that the UID cookie set by reserveSlotHandler is configured with the correct

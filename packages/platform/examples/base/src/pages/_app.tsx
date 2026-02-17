@@ -8,7 +8,6 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import "@calcom/atoms/globals.min.css";
-import process from "node:process";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "800"] });
 type TUser = Data["users"][0];

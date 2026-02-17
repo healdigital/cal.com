@@ -15,7 +15,6 @@ import {
   mockCalendarToHaveNoBusySlots,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { resetTestEmails } from "@calcom/lib/testEmails";
 import { BookingStatus } from "@calcom/prisma/enums";
 import { expectBookingToBeInDatabase } from "@calcom/testing/lib/bookingScenario/expects";

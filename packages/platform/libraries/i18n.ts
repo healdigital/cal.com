@@ -1,4 +1,3 @@
-import process from "node:process";
 /* eslint-disable @typescript-eslint/no-require-imports */
 import i18nConfig from "@calcom/config/next-i18next.config";
 import { WEBAPP_URL } from "@calcom/lib/constants";

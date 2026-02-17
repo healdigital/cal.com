@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import process from "node:process";
 import { glob } from "glob";
 import { describe, expect, it } from "vitest";
 

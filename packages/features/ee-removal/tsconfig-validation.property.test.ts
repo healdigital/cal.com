@@ -1,4 +1,3 @@
-import process from "node:process";
 import fs from "fs";
 import { glob } from "glob";
 import path from "path";

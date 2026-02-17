@@ -1,4 +1,3 @@
-import process from "node:process";
 import schedulePayload from "./schedulePayload";
 import sendPayload from "./sendPayload";
 

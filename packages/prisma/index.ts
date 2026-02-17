@@ -1,4 +1,3 @@
-import process from "node:process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { bookingIdempotencyKeyExtension } from "./extensions/booking-idempotency-key";

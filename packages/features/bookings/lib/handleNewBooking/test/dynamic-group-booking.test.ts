@@ -17,7 +17,6 @@ import {
   mockCalendar,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { BookingStatus } from "@calcom/prisma/enums";
 import { expectBookingToBeInDatabase } from "@calcom/testing/lib/bookingScenario/expects";

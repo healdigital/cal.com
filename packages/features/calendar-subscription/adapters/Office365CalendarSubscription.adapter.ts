@@ -1,4 +1,3 @@
-import process from "node:process";
 import logger from "@calcom/lib/logger";
 import type { SelectedCalendar } from "@calcom/prisma/client";
 import type {

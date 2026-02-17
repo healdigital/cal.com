@@ -1,4 +1,3 @@
-import process from "node:process";
 import {
   APP_CREDENTIAL_SHARING_ENABLED,
   CREDENTIAL_SYNC_SECRET,

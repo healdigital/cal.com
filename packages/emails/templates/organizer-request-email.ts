@@ -1,4 +1,3 @@
-import process from "node:process";
 import { checkIfUserHasFeatureController } from "@calcom/features/flags/operations/check-if-user-has-feature.controller";
 import { EMAIL_FROM_NAME } from "@calcom/lib/constants";
 import { getReplyToHeader } from "@calcom/lib/getReplyToHeader";

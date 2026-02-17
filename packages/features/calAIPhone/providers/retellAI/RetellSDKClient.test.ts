@@ -1,4 +1,3 @@
-import process from "node:process";
 import logger from "@calcom/lib/logger";
 import { Retell } from "retell-sdk";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

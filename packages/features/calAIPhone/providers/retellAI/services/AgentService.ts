@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from "node:crypto";
-import process from "node:process";
 // import { PrismaApiKeyRepository } from "@calcom/features/ee/api-keys/repositories/PrismaApiKeyRepository";
 import { EventTypeRepository } from "@calcom/features/eventtypes/repositories/eventTypeRepository";
 import { RETELL_AI_TEST_EVENT_TYPE_MAP, RETELL_AI_TEST_MODE } from "@calcom/lib/constants";

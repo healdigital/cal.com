@@ -1,6 +1,5 @@
 import "../__mocks__/CalendarAuth";
 
-import process from "node:process";
 import dayjs from "@calcom/dayjs";
 import type { SelectedCalendar } from "@calcom/prisma/client";
 import type { CredentialForCalendarServiceWithEmail } from "@calcom/types/Credential";

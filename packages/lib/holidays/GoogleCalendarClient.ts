@@ -1,4 +1,3 @@
-import process from "node:process";
 import dayjs from "@calcom/dayjs";
 import { GOOGLE_HOLIDAY_CALENDARS } from "./constants";
 

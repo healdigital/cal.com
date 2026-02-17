@@ -1,5 +1,4 @@
 import prismock from "@calcom/testing/lib/__mocks__/prisma";
-import process from "node:process";
 import { TimeUnit, WorkflowActions, WorkflowTemplates, WorkflowTriggerEvents } from "@calcom/prisma/enums";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { iffyScanBody, scanWorkflowBody } from "../scanWorkflowBody";

@@ -1,4 +1,3 @@
-import process from "node:process";
 import { captureException, startSpan } from "@sentry/nextjs";
 import logger from "./logger";
 import { redactSensitiveData } from "./redactSensitiveData";

@@ -1,4 +1,3 @@
-import process from "node:process";
 import { WebhookTriggerEvents } from "@calcom/prisma/enums";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebhookSubscriber } from "../dto/types";

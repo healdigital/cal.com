@@ -1,4 +1,3 @@
-import process from "node:process";
 import { CalendarAuth } from "@calcom/app-store/googlecalendar/lib/CalendarAuth";
 import dayjs from "@calcom/dayjs";
 import { CalendarCacheEventService } from "@calcom/features/calendar-subscription/lib/cache/CalendarCacheEventService";

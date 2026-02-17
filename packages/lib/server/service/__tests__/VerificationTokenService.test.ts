@@ -1,4 +1,3 @@
-import process from "node:process";
 import { VerificationTokenRepository } from "@calcom/lib/server/repository/verificationToken";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { VerificationTokenService } from "../VerificationTokenService";

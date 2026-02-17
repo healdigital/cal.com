@@ -1,4 +1,3 @@
-import process from "node:process";
 import { updateProfilePhotoGoogle } from "@calcom/app-store/_utils/oauth/updateProfilePhotoGoogle";
 import {
   createGoogleCalendarServiceWithGoogleType,

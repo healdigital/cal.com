@@ -1,6 +1,5 @@
 "use client";
 
-import process from "node:process";
 import { useCreateEventType } from "@calcom/features/eventtypes/hooks/useCreateEventType";
 import { useOrgBranding } from "@calcom/features/organizations/context/provider";
 import { TeamEventTypeForm } from "@calcom/features/teams/components/TeamEventTypeForm";

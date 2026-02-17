@@ -19,7 +19,6 @@ vi.mock("@calcom/features/watchlist/lib/telemetry", () => ({
   sentrySpan: vi.fn(),
 }));
 
-import process from "node:process";
 import { CredentialRepository } from "@calcom/features/credentials/repositories/CredentialRepository";
 import { symmetricDecrypt } from "@calcom/lib/crypto";
 import type { DestinationCalendar } from "@calcom/prisma/client";

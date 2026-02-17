@@ -1,4 +1,3 @@
-import process from "node:process";
 import { HttpError } from "@calcom/lib/http-error";
 import prisma from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";

@@ -3,7 +3,6 @@
 
 import { createRequire } from "node:module";
 import * as path from "node:path";
-import process from "node:process";
 import { $ } from "execa";
 import glob from "fast-glob";
 import fsExtra from "fs-extra";

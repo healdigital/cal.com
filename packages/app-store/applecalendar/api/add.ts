@@ -1,4 +1,3 @@
-import process from "node:process";
 import { symmetricDecrypt, symmetricEncrypt } from "@calcom/lib/crypto";
 import logger from "@calcom/lib/logger";
 import prisma from "@calcom/prisma";

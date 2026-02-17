@@ -7,7 +7,6 @@ import {
   TestData,
   Timezones,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
 // TODO: we should rename this - it doesnt get a mockRequestDataForBooking - it just gets mock booking data.
 import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";

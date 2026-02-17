@@ -1,4 +1,3 @@
-import process from "node:process";
 import { WEBAPP_URL } from "@calcom/lib/constants";
 import prisma from "@calcom/prisma";
 import type { NextApiRequest, NextApiResponse } from "next";

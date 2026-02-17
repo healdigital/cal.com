@@ -1,5 +1,4 @@
 import type { IncomingHttpHeaders } from "node:http";
-import process from "node:process";
 import type { EventTypeRepository } from "@calcom/features/eventtypes/repositories/eventTypeRepository";
 import type { FeaturesRepository } from "@calcom/features/flags/features.repository";
 import { ErrorCode } from "@calcom/lib/errorCodes";

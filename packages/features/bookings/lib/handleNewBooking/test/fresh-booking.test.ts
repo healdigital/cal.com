@@ -29,7 +29,6 @@ import {
   mockVideoAppToCrashOnCreateMeeting,
   TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
 import { handleStripePaymentSuccess } from "@calcom/features/payments/api/webhook";
 import { createWatchlistEntry } from "@calcom/features/watchlist/lib/testUtils";

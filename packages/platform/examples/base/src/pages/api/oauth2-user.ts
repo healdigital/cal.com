@@ -1,6 +1,5 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 
-import process from "node:process";
 import { X_CAL_CLIENT_ID, X_CAL_SECRET_KEY } from "@calcom/platform-constants";
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "../../lib/prismaClient";

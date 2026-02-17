@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
 import { APP_NAME, WEBAPP_URL } from "@calcom/lib/constants";
 import { serverConfig } from "@calcom/lib/serverConfig";
 import Handlebars from "handlebars";

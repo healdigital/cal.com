@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from "node:crypto";
-import process from "node:process";
 import { VerificationTokenRepository } from "../repository/verificationToken";
 
 export class VerificationTokenService {

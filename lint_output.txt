@@ -1,0 +1,364 @@
+• turbo 2.7.1
+• Packages in scope: @calcom/trpc
+• Running lint in 1 packages
+• Remote caching disabled
+@calcom/trpc:lint: cache miss, executing 328be0f56d74cfb4
+@calcom/trpc:lint: components/QueryCell.tsx:48:8 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     46 │ ): JSXElementOrNull;
+@calcom/trpc:lint:     47 │ /** @deprecated Use `trpc.useQuery` instead. */
+@calcom/trpc:lint:   > 48 │ export function QueryCell<TData, TError extends ErrorLike>(
+@calcom/trpc:lint:        │        ^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     49 │   opts: QueryCellOptionsNoEmpty<TData, TError> | QueryCellOptionsWithEmpty<TData, TError>
+@calcom/trpc:lint:     50 │ ) {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: components/QueryCell.tsx:56:27 lint/nursery/noTernary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Unexpected ternary operator.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     55 │   if (!isLocaleReady) {
+@calcom/trpc:lint:   > 56 │     return opts.loading?.(query.status === "pending" ? query : null) ?? StatusLoader;
+@calcom/trpc:lint:        │                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     57 │   }
+@calcom/trpc:lint:     58 │   if (query.status === "pending") {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Ternary operators can lead to unclear code. Use if-else statement instead.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/hooks/useEmailVerifyCheck.ts:3:8 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     1 │ import { trpc } from "../trpc";
+@calcom/trpc:lint:     2 │ 
+@calcom/trpc:lint:   > 3 │ export function useEmailVerifyCheck() {
+@calcom/trpc:lint:       │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     4 │   const emailCheck = trpc.viewer.me.shouldVerifyEmail.useQuery(undefined, {
+@calcom/trpc:lint:     5 │     retry(failureCount) {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/hooks/useEmailVerifyCheck.ts:5:5 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     3 │ export function useEmailVerifyCheck() {
+@calcom/trpc:lint:     4 │   const emailCheck = trpc.viewer.me.shouldVerifyEmail.useQuery(undefined, {
+@calcom/trpc:lint:   > 5 │     retry(failureCount) {
+@calcom/trpc:lint:       │     ^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:   > 6 │       return failureCount > 3;
+@calcom/trpc:lint:   > 7 │     },
+@calcom/trpc:lint:       │     ^
+@calcom/trpc:lint:     8 │   });
+@calcom/trpc:lint:     9 │ 
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/hooks/useMeQuery.ts:3:8 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     1 │ import { trpc } from "../trpc";
+@calcom/trpc:lint:     2 │ 
+@calcom/trpc:lint:   > 3 │ export function useMeQuery() {
+@calcom/trpc:lint:       │        ^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     4 │   const meQuery = trpc.viewer.me.get.useQuery(undefined, {
+@calcom/trpc:lint:     5 │     retry(failureCount) {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/hooks/useMeQuery.ts:5:5 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     3 │ export function useMeQuery() {
+@calcom/trpc:lint:     4 │   const meQuery = trpc.viewer.me.get.useQuery(undefined, {
+@calcom/trpc:lint:   > 5 │     retry(failureCount) {
+@calcom/trpc:lint:       │     ^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:   > 6 │       return failureCount > 3;
+@calcom/trpc:lint:   > 7 │     },
+@calcom/trpc:lint:       │     ^
+@calcom/trpc:lint:     8 │   });
+@calcom/trpc:lint:     9 │ 
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:24:33 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter has an any type.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     22 │ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+@calcom/trpc:lint:     23 │ // biome-ignore lint/suspicious/noExplicitAny: internal trpc types are complex
+@calcom/trpc:lint:   > 24 │ const resolveEndpoint = (links: any) => {
+@calcom/trpc:lint:        │                                 ^^^
+@calcom/trpc:lint:     25 │   // TODO: Update our trpc routes so they are more clear.
+@calcom/trpc:lint:     26 │   // This function parses paths like the following and maps them
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Replace any with unknown or a more specific type.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:32:10 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     30 │   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+@calcom/trpc:lint:     31 │   // biome-ignore lint/suspicious/noExplicitAny: internal trpc types are complex
+@calcom/trpc:lint:   > 32 │   return (ctx: any) => {
+@calcom/trpc:lint:        │          ^^^^^^^^^^^^^^^
+@calcom/trpc:lint:   > 33 │     const parts = ctx.op.path.split(".");
+@calcom/trpc:lint:         ...
+@calcom/trpc:lint:   > 43 │     return links[endpoint]({ ...ctx, op: { ...ctx.op, path } });
+@calcom/trpc:lint:   > 44 │   };
+@calcom/trpc:lint:        │   ^
+@calcom/trpc:lint:     45 │ };
+@calcom/trpc:lint:     46 │ 
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:55:3 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:      53 │   NextPageContext
+@calcom/trpc:lint:      54 │ >({
+@calcom/trpc:lint:    > 55 │   config() {
+@calcom/trpc:lint:         │   ^^^^^^^^^^
+@calcom/trpc:lint:    > 56 │     let url = `${process.env.NEXT_PUBLIC_WEBAPP_URL}/api/trpc`;
+@calcom/trpc:lint:          ...
+@calcom/trpc:lint:   > 129 │     };
+@calcom/trpc:lint:   > 130 │   },
+@calcom/trpc:lint:         │   ^
+@calcom/trpc:lint:     131 │   /**
+@calcom/trpc:lint:     132 │    * @link https://trpc.io/docs/ssr
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:74:21 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     72 │         // adds pretty logs to your console in development and logs errors in production
+@calcom/trpc:lint:     73 │         loggerLink({
+@calcom/trpc:lint:   > 74 │           enabled: (opts) =>
+@calcom/trpc:lint:        │                     ^^^^
+@calcom/trpc:lint:     75 │             (typeof process.env.NEXT_PUBLIC_LOGGER_LEVEL === "number" &&
+@calcom/trpc:lint:     76 │               process.env.NEXT_PUBLIC_LOGGER_LEVEL >= 0) ||
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the parameter.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:81:23 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     79 │         splitLink({
+@calcom/trpc:lint:     80 │           // check for context property `skipBatch`
+@calcom/trpc:lint:   > 81 │           condition: (op) => !!op.context.skipBatch,
+@calcom/trpc:lint:        │                       ^^
+@calcom/trpc:lint:     82 │           // when condition is true, use normal request
+@calcom/trpc:lint:     83 │           true: (runtime) => {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the parameter.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:83:18 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     81 │           condition: (op) => !!op.context.skipBatch,
+@calcom/trpc:lint:     82 │           // when condition is true, use normal request
+@calcom/trpc:lint:   > 83 │           true: (runtime) => {
+@calcom/trpc:lint:        │                  ^^^^^^^
+@calcom/trpc:lint:     84 │             const links = Object.fromEntries(
+@calcom/trpc:lint:     85 │               ENDPOINTS.map((endpoint) => [endpoint, httpLink({ url: `${url}/${endpoint}` })(runtime)])
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the parameter.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:90:19 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     88 │           },
+@calcom/trpc:lint:     89 │           // when condition is false, use batch request
+@calcom/trpc:lint:   > 90 │           false: (runtime) => {
+@calcom/trpc:lint:        │                   ^^^^^^^
+@calcom/trpc:lint:     91 │             const links = Object.fromEntries(
+@calcom/trpc:lint:     92 │               ENDPOINTS.map((endpoint) => [endpoint, httpBatchLink({ url: `${url}/${endpoint}` })(runtime)])
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the parameter.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:112:13 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     110 │              * Retry `useQuery()` calls depending on this function
+@calcom/trpc:lint:     111 │              */
+@calcom/trpc:lint:   > 112 │             retry(failureCount, _err) {
+@calcom/trpc:lint:         │             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:   > 113 │               const err = _err as never as Maybe<TRPCClientErrorLike<AppRouter>>;
+@calcom/trpc:lint:          ...
+@calcom/trpc:lint:   > 120 │               return failureCount < MAX_QUERY_RETRIES;
+@calcom/trpc:lint:   > 121 │             },
+@calcom/trpc:lint:         │             ^
+@calcom/trpc:lint:     122 │           },
+@calcom/trpc:lint:     123 │         },
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: react/trpc.ts:137:14 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The variable doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     135 │ });
+@calcom/trpc:lint:     136 │ 
+@calcom/trpc:lint:   > 137 │ export const transformer = superjson;
+@calcom/trpc:lint:         │              ^^^^^^^^^^^
+@calcom/trpc:lint:     138 │ 
+@calcom/trpc:lint:     139 │ export type RouterInputs = inferRouterInputs<AppRouter>;
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the variable.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: server/createContext.ts:98:19 lint/nursery/noTernary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Unexpected ternary operator.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:      96 │   // TODO: @sean - figure out a way to make getIP be happy with trpc req. params
+@calcom/trpc:lint:      97 │   const sourceIp = getIP(req as NextApiRequest);
+@calcom/trpc:lint:    > 98 │   const session = sessionGetter ? await sessionGetter({ req, res }) : null;
+@calcom/trpc:lint:         │                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:      99 │   const contextInner = await createContextInner({ locale, session, sourceIp });
+@calcom/trpc:lint:     100 │   return {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Ternary operators can lead to unclear code. Use if-else statement instead.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: server/createNextApiHandler.ts:10:8 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:      8 │  * Creates an API handler executed by Next.js.
+@calcom/trpc:lint:      9 │  */
+@calcom/trpc:lint:   > 10 │ export function createNextApiHandler(router: AnyRouter, isPublic = false, namespace = "") {
+@calcom/trpc:lint:        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     11 │   return _createNextApiHandler({
+@calcom/trpc:lint:     12 │     router,
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the function.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: server/createNextApiHandler.ts:16:21 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i The parameter doesn't have a type defined.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     14 │      * @link https://trpc.io/docs/context
+@calcom/trpc:lint:     15 │      */
+@calcom/trpc:lint:   > 16 │     createContext: (opts) => {
+@calcom/trpc:lint:        │                     ^^^^
+@calcom/trpc:lint:     17 │       return createTrpcContext(opts);
+@calcom/trpc:lint:     18 │     },
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a type to the parameter.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: server/createNextApiHandler.ts:32:5 lint/nursery/useExplicitType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Missing return type on member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     30 │      * @link https://trpc.io/docs/caching#api-response-caching
+@calcom/trpc:lint:     31 │      */
+@calcom/trpc:lint:   > 32 │     responseMeta({ ctx, paths, type, errors }) {
+@calcom/trpc:lint:        │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:   > 33 │       const allOk = errors.length === 0;
+@calcom/trpc:lint:         ...
+@calcom/trpc:lint:   > 85 │       return defaultHeaders;
+@calcom/trpc:lint:   > 86 │     },
+@calcom/trpc:lint:        │     ^
+@calcom/trpc:lint:     87 │   });
+@calcom/trpc:lint:     88 │ }
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Declaring the type makes the code self-documented and can speed up TypeScript type checking.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Add a return type to the member.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: server/createNextApiHandler.ts:54:11 lint/nursery/noTernary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   i Unexpected ternary operator.
+@calcom/trpc:lint:   
+@calcom/trpc:lint:     52 │         const ONE_YEAR_IN_SECONDS = 31536000;
+@calcom/trpc:lint:     53 │         const SETTING_FOR_CACHED_BY_VERSION =
+@calcom/trpc:lint:   > 54 │           process.env.NODE_ENV === "development" ? "no-cache" : `max-age=${ONE_YEAR_IN_SECONDS}`;
+@calcom/trpc:lint:        │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+@calcom/trpc:lint:     55 │ 
+@calcom/trpc:lint:     56 │         const cacheRules = {
+@calcom/trpc:lint:   
+@calcom/trpc:lint:   i Ternary operators can lead to unclear code. Use if-else statement instead.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+@calcom/trpc:lint: Diagnostics not shown: 1066.
+@calcom/trpc:lint: Checked 522 files in 101ms. No fixes applied.
+@calcom/trpc:lint: Found 2 errors.
+@calcom/trpc:lint: Found 231 warnings.
+@calcom/trpc:lint: Found 853 infos.
+@calcom/trpc:lint: lint ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@calcom/trpc:lint: 
+@calcom/trpc:lint:   × Some errors were emitted while running checks.
+@calcom/trpc:lint:   
+@calcom/trpc:lint: 
+@calcom/trpc:lint: ERROR: command finished with error: command (/Users/leoturbetdelof/Downloads/A trier/Thotis Final/cal.com-main/packages/trpc) /private/var/folders/lf/_1ctg98j7pnd72hph771429h0000gn/T/xfs-a5358f35/yarn run lint exited (1)
+@calcom/trpc#lint: command (/Users/leoturbetdelof/Downloads/A trier/Thotis Final/cal.com-main/packages/trpc) /private/var/folders/lf/_1ctg98j7pnd72hph771429h0000gn/T/xfs-a5358f35/yarn run lint exited (1)
+
+ Tasks:    0 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    1.046s 
+Failed:    @calcom/trpc#lint
+
+ ERROR  run failed: command  exited (1)

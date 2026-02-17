@@ -7,7 +7,6 @@
 // 2. Delete recordings from the JSON file (shows preview first, then prompts for confirmation):
 //    ts-node packages/app-store/dailyvideo/lib/scripts/deleteRecordings.ts delete
 
-import process from "node:process";
 
 interface Recording {
   id: string;

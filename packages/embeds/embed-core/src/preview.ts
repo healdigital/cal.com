@@ -1,5 +1,4 @@
 // We can't import @calcom/lib/constants here yet as this file is compiled using Vite
-import process from "node:process";
 
 const WEBAPP_URL = process.env.EMBED_PUBLIC_WEBAPP_URL || "";
 if (!WEBAPP_URL) {

@@ -1,4 +1,3 @@
-import process from "node:process";
 import { WEBSITE_URL } from "@calcom/lib/constants";
 import { SignJWT } from "jose";
 

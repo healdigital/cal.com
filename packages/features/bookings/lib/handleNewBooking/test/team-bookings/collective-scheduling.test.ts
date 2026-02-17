@@ -15,7 +15,6 @@ import {
   TestData,
   Timezones,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
 import { OrganizerDefaultConferencingAppType } from "@calcom/app-store/locations";
 import { WEBAPP_URL, WEBSITE_URL } from "@calcom/lib/constants";

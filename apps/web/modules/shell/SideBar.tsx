@@ -1,4 +1,3 @@
-import process from "node:process";
 import { useFlagMap } from "@calcom/features/flags/context/provider";
 import { ENABLE_PROFILE_SWITCHER, IS_VISUAL_REGRESSION_TESTING } from "@calcom/lib/constants";
 import { getPlaceholderAvatar } from "@calcom/lib/defaultAvatarImage";

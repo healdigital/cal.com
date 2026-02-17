@@ -1,4 +1,3 @@
-import process from "node:process";
 import i18n from "../../i18n.json" with { type: "json" };
 
 /** @type {import("next-i18next").UserConfig} */

@@ -1,4 +1,3 @@
-import process from "node:process";
 import { HttpError } from "@calcom/lib/http-error";
 import logger from "@calcom/lib/logger";
 import { Retell } from "retell-sdk";

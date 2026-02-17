@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { Credential, DestinationCalendar, EventType, SelectedCalendar } from "@calcom/prisma/client";
 import type { CalendarEvent } from "@calcom/types/Calendar";
 

@@ -1,4 +1,3 @@
-import process from "node:process";
 import { describe, expect, it, vi } from "vitest";
 import { checkRateLimitAndThrowError } from "./checkRateLimitAndThrowError";
 import type { RatelimitResponse } from "./rateLimit";

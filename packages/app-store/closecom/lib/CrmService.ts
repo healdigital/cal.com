@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { CloseComFieldOptions } from "@calcom/lib/CloseCom";
 import CloseCom from "@calcom/lib/CloseCom";
 import { getCustomActivityTypeInstanceData } from "@calcom/lib/CloseComeUtils";

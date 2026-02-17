@@ -1,4 +1,3 @@
-import process from "node:process";
 import { eventTypeMetaDataSchemaWithTypedApps } from "@calcom/app-store/zod-utils";
 import {
   getEventTypeHosts,

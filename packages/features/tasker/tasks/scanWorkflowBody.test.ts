@@ -1,5 +1,4 @@
 import prismaMock from "@calcom/testing/lib/__mocks__/prismaMock";
-import process from "node:process";
 import { LockReason, lockUser } from "@calcom/features/api-keys/lib/autoLock";
 import { scheduleWorkflowNotifications } from "@calcom/features/workflows/lib/scheduleWorkflowNotifications";
 import { beforeEach, describe, expect, it, vi } from "vitest";

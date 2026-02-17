@@ -1,4 +1,3 @@
-import process from "node:process";
 import logger from "@calcom/lib/logger";
 import client from "@sendgrid/client";
 import type { ClientRequest } from "@sendgrid/client/src/request";

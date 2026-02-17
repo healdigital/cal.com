@@ -1,4 +1,3 @@
-import process from "node:process";
 import { symmetricEncrypt } from "@calcom/lib/crypto";
 import { HttpError } from "@calcom/lib/http-error";
 import logger from "@calcom/lib/logger";

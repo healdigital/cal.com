@@ -1,4 +1,3 @@
-import process from "node:process";
 import { createModule } from "@calcom/features/di/di";
 import { DI_TOKENS } from "@calcom/features/di/tokens";
 import { NoopRedisService } from "../NoopRedisService";

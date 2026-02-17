@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { Feedback } from "@calcom/emails/templates/feedback-email";
 import { FormbricksAPI } from "@formbricks/api";
 

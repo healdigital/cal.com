@@ -12,7 +12,6 @@ import {
   TestData,
   Timezones,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import process from "node:process";
 import { resetTestSMS } from "@calcom/lib/testSMS";
 import { SchedulingType, SMSLockState } from "@calcom/prisma/enums";
 import {

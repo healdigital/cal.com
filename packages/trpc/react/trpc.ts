@@ -1,4 +1,3 @@
-import process from "node:process";
 import { httpBatchLink, httpLink, loggerLink, splitLink } from "@trpc/client";
 import type { CreateTRPCNext } from "@trpc/next";
 import { createTRPCNext } from "@trpc/next";

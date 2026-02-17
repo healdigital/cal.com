@@ -22,7 +22,6 @@ vi.mock("@calcom/lib/constants", () => ({
   WEBAPP_URL: "https://app.cal.com",
 }));
 
-import process from "node:process";
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import prisma from "@calcom/prisma";
 import { getStripeAppKeys } from "../../../lib/getStripeAppKeys";

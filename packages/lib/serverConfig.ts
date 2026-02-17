@@ -1,4 +1,3 @@
-import process from "node:process";
 import { isENVDev } from "@calcom/lib/env";
 import type SendmailTransport from "nodemailer/lib/sendmail-transport";
 import type SMTPConnection from "nodemailer/lib/smtp-connection";
