@@ -36,6 +36,9 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
   CSP_POLICY=$CSP_POLICY \
   HUSKY=0
 
+# Cache buster to force Docker to re-copy source files on each deploy
+ARG CACHEBUST=1
+
 # Copy all source files needed for the build
 COPY package.json yarn.lock .yarnrc.yml playwright.config.ts turbo.json i18n.json ./
 COPY .yarn ./.yarn
