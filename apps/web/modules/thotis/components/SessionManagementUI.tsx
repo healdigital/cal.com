@@ -6,7 +6,7 @@ import type { BookingStatus } from "@calcom/prisma/enums";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
-import { DatePicker } from "@calcom/ui/components/form/datepicker";
+import { DatePicker } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { useCallback, useMemo, useState } from "react";
 import { PostSessionForm } from "./PostSessionForm";
