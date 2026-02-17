@@ -263,6 +263,48 @@ const nextConfig = (phase: string): NextConfig => {
       unoptimized: true,
     },
     turbopack: {},
+    // Handle node: protocol imports for webpack (used with --webpack flag)
+    webpack: (config, { isServer }) => {
+      // Webpack doesn't support node: protocol URIs natively.
+      // Map node:xyz imports to their non-prefixed equivalents.
+      if (!config.resolve) config.resolve = {};
+      if (!config.resolve.alias) config.resolve.alias = {};
+      const nodeModules = [
+        "process",
+        "crypto",
+        "stream",
+        "buffer",
+        "util",
+        "events",
+        "path",
+        "os",
+        "fs",
+        "http",
+        "https",
+        "net",
+        "tls",
+        "zlib",
+        "url",
+        "querystring",
+        "string_decoder",
+        "assert",
+        "child_process",
+        "dns",
+        "dgram",
+        "cluster",
+        "readline",
+        "tty",
+        "v8",
+        "vm",
+        "perf_hooks",
+        "worker_threads",
+        "async_hooks",
+      ];
+      for (const mod of nodeModules) {
+        config.resolve.alias[`node:${mod}`] = mod;
+      }
+      return config;
+    },
     async rewrites() {
       const { orgSlug } = nextJsOrgRewriteConfig;
       const beforeFiles = [
