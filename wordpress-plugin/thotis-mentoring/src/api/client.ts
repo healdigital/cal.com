@@ -18,7 +18,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${getApiUrl()}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
+    ...((options.headers ?? {}) as Record<string, string>),
   };
 
   const response = await fetch(url, {
@@ -27,11 +27,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    let message = `HTTP ${response.status}`;
+    try {
+      const body: unknown = await response.json();
+      if (body && typeof body === "object" && "error" in body) {
+        const errorField = (body as { error: unknown }).error;
+        if (typeof errorField === "string") {
+          message = errorField;
+        }
+      }
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 function withToken(token: string): Record<string, string> {

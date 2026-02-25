@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import type { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
@@ -63,7 +64,7 @@ export function IncidentsPageClient() {
   const pageSize = 20;
 
   // Filters
-  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<MentorIncidentType | "">("");
   const [resolvedFilter, setResolvedFilter] = useState<string>("");
 
   // Suspension confirm state
@@ -114,12 +115,12 @@ export function IncidentsPageClient() {
   };
 
   // Extract unique incident types for the filter dropdown
-  const typeOptions = [
+  const typeOptions: { label: string; value: MentorIncidentType | "" }[] = [
     { label: t("thotis_admin_all_types"), value: "" },
     { label: "NO_SHOW", value: "NO_SHOW" },
+    { label: "LATE_ARRIVAL", value: "LATE_ARRIVAL" },
     { label: "INAPPROPRIATE_BEHAVIOR", value: "INAPPROPRIATE_BEHAVIOR" },
     { label: "POOR_QUALITY", value: "POOR_QUALITY" },
-    { label: "TECHNICAL_ISSUE", value: "TECHNICAL_ISSUE" },
     { label: "OTHER", value: "OTHER" },
   ];
 
@@ -167,7 +168,7 @@ export function IncidentsPageClient() {
             options={typeOptions}
             value={typeOptions.find((o) => o.value === typeFilter)}
             onChange={(opt) => {
-              setTypeFilter(opt?.value || "");
+              setTypeFilter((opt?.value || "") as MentorIncidentType | "");
               setPage(1);
             }}
           />

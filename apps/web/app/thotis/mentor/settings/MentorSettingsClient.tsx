@@ -9,7 +9,7 @@ import { Icon } from "@calcom/ui/components/icon";
 import { showToast } from "@calcom/ui/components/toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -21,9 +21,13 @@ const mentorSettingsSchema = z.object({
     .min(50, "Bio must be at least 50 characters")
     .max(1000, "Bio must not exceed 1000 characters"),
   fieldOfStudy: z.nativeEnum(AcademicField),
-  yearOfStudy: z.coerce.number().int().min(1).max(10),
-  expertise: z.string().optional(),
-  linkedInUrl: z.string().url().optional().or(z.literal("")),
+  yearOfStudy: z.coerce.number().int().min(1).max(15),
+  expertise: z.string().max(500).optional(),
+  linkedInUrl: z
+    .string()
+    .url("Please enter a valid URL")
+    .optional()
+    .or(z.literal("")),
   isActive: z.boolean(),
 });
 
@@ -74,28 +78,42 @@ export const MentorSettingsClient = () => {
     }
   }, [profile, reset]);
 
-  const onSubmit = (data: MentorSettingsForm) => {
-    const expertiseArray = data.expertise
-      ? data.expertise
-          .split(",")
-          .map((e) => e.trim())
-          .filter(Boolean)
-      : undefined;
+  // Warn user about unsaved changes before navigating away
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
-    updateProfile.mutate({
-      university: data.university,
-      degree: data.degree,
-      bio: data.bio,
-      fieldOfStudy: data.fieldOfStudy,
-      yearOfStudy: data.yearOfStudy,
-      expertise: expertiseArray,
-      isActive: data.isActive,
-    });
-  };
+  const onSubmit = useCallback(
+    (data: MentorSettingsForm) => {
+      const expertiseArray = data.expertise
+        ? data.expertise
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean)
+        : undefined;
+
+      updateProfile.mutate({
+        university: data.university,
+        degree: data.degree,
+        bio: data.bio,
+        fieldOfStudy: data.fieldOfStudy,
+        yearOfStudy: data.yearOfStudy,
+        expertise: expertiseArray,
+        isActive: data.isActive,
+      });
+    },
+    [updateProfile]
+  );
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t("loading")}>
         <div className="border-emphasis h-10 w-10 animate-spin rounded-full border-b-2 border-t-2" />
       </div>
     );
@@ -134,8 +152,10 @@ export const MentorSettingsClient = () => {
         <div className="rounded-lg border border-subtle bg-default p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-emphasis">{t("thotis_availability_status")}</h3>
-              <p className="text-xs text-subtle">
+              <h3 className="text-sm font-semibold text-emphasis" id="availability-label">
+                {t("thotis_availability_status")}
+              </h3>
+              <p className="text-xs text-subtle" id="availability-description">
                 {isActive ? t("thotis_profile_visible") : t("thotis_profile_hidden")}
               </p>
             </div>
@@ -143,10 +163,14 @@ export const MentorSettingsClient = () => {
               <input
                 type="checkbox"
                 className="peer sr-only"
+                role="switch"
+                aria-labelledby="availability-label"
+                aria-describedby="availability-description"
+                aria-checked={isActive}
                 {...register("isActive")}
                 onChange={(e) => setValue("isActive", e.target.checked, { shouldDirty: true })}
               />
-              <div className="peer h-6 w-11 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-green-500 peer-checked:after:translate-x-full" />
+              <div className="peer h-6 w-11 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2" />
             </label>
           </div>
         </div>
@@ -167,10 +191,15 @@ export const MentorSettingsClient = () => {
             />
 
             <div>
-              <label className="font-medium text-default text-sm">{t("thotis_field_of_study")}</label>
+              <label htmlFor="fieldOfStudy" className="font-medium text-default text-sm">
+                {t("thotis_field_of_study")}
+              </label>
               <select
+                id="fieldOfStudy"
                 {...register("fieldOfStudy")}
-                className="mt-1 block w-full rounded-md border border-default bg-default p-2 text-sm">
+                aria-invalid={!!errors.fieldOfStudy}
+                aria-describedby={errors.fieldOfStudy ? "fieldOfStudy-error" : undefined}
+                className="mt-1 block w-full rounded-md border border-default bg-default p-2 text-sm focus:border-blue-500 focus:ring-blue-500">
                 {Object.values(AcademicField).map((f) => (
                   <option key={f} value={f}>
                     {t(`thotis_field_${f.toLowerCase()}`)}
@@ -178,7 +207,9 @@ export const MentorSettingsClient = () => {
                 ))}
               </select>
               {errors.fieldOfStudy && (
-                <p className="mt-1 text-sm text-red-600">{errors.fieldOfStudy.message}</p>
+                <p id="fieldOfStudy-error" className="mt-1 text-sm text-red-600">
+                  {errors.fieldOfStudy.message}
+                </p>
               )}
             </div>
 
@@ -203,6 +234,7 @@ export const MentorSettingsClient = () => {
               label={t("thotis_expertise")}
               placeholder={t("thotis_expertise_placeholder")}
               {...register("expertise")}
+              error={errors.expertise?.message}
             />
 
             <TextField

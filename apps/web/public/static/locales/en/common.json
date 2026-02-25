@@ -4723,6 +4723,8 @@
   "thotis_error_loading_mentors": "Failed to load mentors. Please try again.",
   "thotis_all_mentors": "All Mentors",
   "thotis_mentors_in": "Mentors in {{field}}",
+  "thotis_pagination": "Mentor list pagination",
+  "thotis_page_of": "Page {{current}} of {{total}}",
   "thotis_admin_navigation": "Admin Dashboard",
   "thotis_admin_status_all": "All",
   "thotis_admin_status_accepted": "Accepted",

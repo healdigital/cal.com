@@ -46,8 +46,9 @@ async function handler(request: NextRequest) {
   }
 
   // Check email matches
-  const responses = booking.responses as { email?: string } | null;
-  if (responses?.email !== magicLink.guest.email) {
+  const responses = booking.responses as Record<string, unknown> | null;
+  const bookingEmail = typeof responses?.email === "string" ? responses.email : null;
+  if (bookingEmail !== magicLink.guest.email) {
     throw ApiError.forbidden("You do not have access to this booking");
   }
 

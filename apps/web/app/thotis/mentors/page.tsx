@@ -5,9 +5,12 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { AcademicField } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Icon } from "@calcom/ui/components/icon";
+import { Button } from "@calcom/ui/components/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { MentorSearchFilters, type MentorSearchFiltersState } from "~/thotis/components/MentorSearchFilters";
+
+const PAGE_SIZE = 12;
 
 interface ThotisIntent {
   targetFields: string[];
@@ -21,6 +24,8 @@ export default function MentorsPage() {
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [filters, setFilters] = useState<MentorSearchFiltersState>({
     fieldOfStudy: searchParams?.get("field") || "",
@@ -65,11 +70,14 @@ export default function MentorsPage() {
     fieldOfStudy: (filters.fieldOfStudy || undefined) as AcademicField | undefined,
     university: filters.university || undefined,
     minRating: filters.minRating || undefined,
+    page: currentPage,
+    pageSize: PAGE_SIZE,
   });
 
   const handleFiltersChange = useCallback(
     (newFilters: MentorSearchFiltersState) => {
       setFilters(newFilters);
+      setCurrentPage(1);
 
       // Sync filters to URL params
       const params = new URLSearchParams();
@@ -141,6 +149,29 @@ export default function MentorsPage() {
           total={data?.total || 0}
           onBookSession={handleBookSession}
         />
+
+        {/* Pagination */}
+        {(data?.total ?? 0) > PAGE_SIZE && (
+          <nav aria-label={t("thotis_pagination")} className="mt-8 flex items-center justify-center gap-4">
+            <Button
+              color="secondary"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+              <Icon name="arrow-left" className="mr-1 h-4 w-4" />
+              {t("previous")}
+            </Button>
+            <span className="text-sm text-subtle">
+              {t("thotis_page_of", { current: currentPage, total: Math.ceil((data?.total ?? 0) / PAGE_SIZE) })}
+            </span>
+            <Button
+              color="secondary"
+              disabled={currentPage >= Math.ceil((data?.total ?? 0) / PAGE_SIZE)}
+              onClick={() => setCurrentPage((p) => p + 1)}>
+              {t("next")}
+              <Icon name="arrow-right" className="ml-1 h-4 w-4" />
+            </Button>
+          </nav>
+        )}
       </div>
     </div>
   );

@@ -30,17 +30,23 @@ class Thotis_SEO {
             // Mentor profile page — fetch data server-side for SEO
             $profile = self::fetch_mentor_profile($mentor_username);
             if ($profile) {
-                $name = esc_attr($profile['user']['name'] ?? $mentor_username);
-                $bio = esc_attr(wp_trim_words($profile['bio'] ?? '', 30));
-                $university = esc_attr($profile['university'] ?? '');
-                $photo = esc_url($profile['profilePhotoUrl'] ?? '');
+                $name = $profile['user']['name'] ?? $mentor_username;
+                $bio = wp_trim_words($profile['bio'] ?? '', 30);
+                $university = $profile['university'] ?? '';
+                $photo = $profile['profilePhotoUrl'] ?? '';
 
-                echo '<meta name="description" content="' . $name . ' — Mentor ' . $university . '. ' . $bio . '" />' . "\n";
-                echo '<meta property="og:title" content="' . $name . ' | Mentorat Thotis" />' . "\n";
-                echo '<meta property="og:description" content="' . $bio . '" />' . "\n";
+                // Escape the full assembled attribute value to prevent XSS
+                $description = esc_attr($name . ' — Mentor ' . $university . '. ' . $bio);
+                $og_title = esc_attr($name . ' | Mentorat Thotis');
+                $og_desc = esc_attr($bio);
+                $og_image = esc_url($photo);
+
+                echo '<meta name="description" content="' . $description . '" />' . "\n";
+                echo '<meta property="og:title" content="' . $og_title . '" />' . "\n";
+                echo '<meta property="og:description" content="' . $og_desc . '" />' . "\n";
                 echo '<meta property="og:type" content="profile" />' . "\n";
-                if ($photo) {
-                    echo '<meta property="og:image" content="' . $photo . '" />' . "\n";
+                if ($og_image) {
+                    echo '<meta property="og:image" content="' . $og_image . '" />' . "\n";
                 }
             }
             return;
@@ -53,15 +59,15 @@ class Thotis_SEO {
         }
 
         if (has_shortcode($post->post_content, 'thotis_mentors')) {
-            echo '<meta name="description" content="Trouvez le mentor idéal pour votre orientation. Parcourez nos profils de mentors étudiants et réservez une session gratuite de 15 minutes." />' . "\n";
+            echo '<meta name="description" content="Trouvez le mentor id&#233;al pour votre orientation. Parcourez nos profils de mentors &#233;tudiants et r&#233;servez une session gratuite de 15 minutes." />' . "\n";
             echo '<meta property="og:title" content="Nos Mentors | Thotis Media" />' . "\n";
-            echo '<meta property="og:description" content="Trouvez le mentor idéal parmi nos étudiants ambassadeurs." />' . "\n";
+            echo '<meta property="og:description" content="Trouvez le mentor id&#233;al parmi nos &#233;tudiants ambassadeurs." />' . "\n";
         }
 
         if (has_shortcode($post->post_content, 'thotis_landing')) {
-            echo '<meta name="description" content="Thotis Mentorat — Échangez avec des étudiants de grandes écoles et universités pour votre orientation post-bac." />' . "\n";
-            echo '<meta property="og:title" content="Mentorat Étudiant | Thotis Media" />' . "\n";
-            echo '<meta property="og:description" content="Réservez un appel gratuit de 15 minutes avec un étudiant mentor." />' . "\n";
+            echo '<meta name="description" content="Thotis Mentorat &#8212; &#201;changez avec des &#233;tudiants de grandes &#233;coles et universit&#233;s pour votre orientation post-bac." />' . "\n";
+            echo '<meta property="og:title" content="Mentorat &#201;tudiant | Thotis Media" />' . "\n";
+            echo '<meta property="og:description" content="R&#233;servez un appel gratuit de 15 minutes avec un &#233;tudiant mentor." />' . "\n";
         }
     }
 
@@ -74,7 +80,7 @@ class Thotis_SEO {
             $profile = self::fetch_mentor_profile($mentor_username);
             if ($profile) {
                 $name = $profile['user']['name'] ?? $mentor_username;
-                $title['title'] = $name . ' — Mentor Thotis';
+                $title['title'] = esc_html($name) . ' — Mentor Thotis';
             }
         }
         return $title;
@@ -101,6 +107,11 @@ class Thotis_SEO {
      * Fetch mentor profile from the API (cached for 5 minutes).
      */
     private static function fetch_mentor_profile(string $username): ?array {
+        // Validate username format to prevent injection in URL
+        if (!preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $username)) {
+            return null;
+        }
+
         $cache_key = 'thotis_mentor_' . sanitize_key($username);
         $cached = get_transient($cache_key);
         if ($cached !== false) {
@@ -113,16 +124,34 @@ class Thotis_SEO {
             'headers' => ['Accept' => 'application/json'],
         ]);
 
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+        if (is_wp_error($response)) {
+            error_log('[Thotis SEO] API request failed for mentor "' . $username . '": ' . $response->get_error_message());
+            return null;
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        if ($status_code !== 200) {
+            error_log('[Thotis SEO] API returned status ' . $status_code . ' for mentor "' . $username . '"');
             return null;
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        $profile = $body['profile'] ?? null;
 
-        if ($profile) {
-            set_transient($cache_key, $profile, 5 * MINUTE_IN_SECONDS);
+        // Validate response structure before caching
+        if (!is_array($body) || !isset($body['profile']) || !is_array($body['profile'])) {
+            error_log('[Thotis SEO] Invalid API response structure for mentor "' . $username . '"');
+            return null;
         }
+
+        $profile = $body['profile'];
+
+        // Ensure required nested structure exists
+        if (!isset($profile['user']) || !is_array($profile['user'])) {
+            error_log('[Thotis SEO] Missing user data in profile for mentor "' . $username . '"');
+            return null;
+        }
+
+        set_transient($cache_key, $profile, 5 * MINUTE_IN_SECONDS);
 
         return $profile;
     }

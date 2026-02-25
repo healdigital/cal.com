@@ -2,12 +2,29 @@ import { useState } from "react";
 
 import { useSessionsByEmail, useSessionsByToken } from "../hooks/useSessions";
 import type { Session } from "../types";
+import { ErrorBoundary } from "./common/ErrorBoundary";
 import { GuestAccessForm } from "./GuestAccessForm";
 import { RatingForm } from "./RatingForm";
 import { SessionCard } from "./SessionCard";
 import { LoadingSpinner } from "./common/LoadingSpinner";
 
 type TabId = "upcoming" | "past" | "cancelled";
+
+function safeGetItem(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage full or disabled — silently ignore
+  }
+}
 
 interface SessionsDashboardProps {
   token?: string;
@@ -16,15 +33,16 @@ interface SessionsDashboardProps {
 export function SessionsDashboard({ token: initialToken }: SessionsDashboardProps) {
   const [tab, setTab] = useState<TabId>("upcoming");
   const [token, setToken] = useState(initialToken ?? "");
-  const [email, setEmail] = useState(() => localStorage.getItem("thotis_email") ?? "");
+  const [email, setEmail] = useState(() => safeGetItem("thotis_email"));
   const [ratingSession, setRatingSession] = useState<Session | null>(null);
 
-  // Determine access method
+  // Determine access method: token takes priority over email
   const hasToken = !!token;
-  const hasEmail = !!email;
+  const hasEmail = !hasToken && !!email;
 
-  const tokenQuery = useSessionsByToken(token, tab);
-  const emailQuery = useSessionsByEmail(email, hasToken ? undefined : tab);
+  // Only enable the relevant query to prevent race conditions
+  const tokenQuery = useSessionsByToken(token, hasToken ? tab : undefined);
+  const emailQuery = useSessionsByEmail(email, hasEmail ? tab : undefined);
 
   const activeQuery = hasToken ? tokenQuery : emailQuery;
   const sessions = activeQuery.data?.sessions ?? [];
@@ -32,8 +50,6 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
   // Handle cancel
   const handleCancel = (session: Session) => {
     if (!confirm(`Annuler la session avec ${session.user.name ?? "le mentor"} ?`)) return;
-    // Cancel is handled by the guestApi or bookingApi depending on access method
-    // For simplicity, we navigate to the confirmation flow
     const cancelUrl = hasToken
       ? `${window.thotisConfig?.wpUrl}/mentorat/mes-sessions/?action=cancel&booking=${session.id}&token=${token}`
       : `${window.thotisConfig?.wpUrl}/mentorat/mes-sessions/?action=cancel&booking=${session.id}`;
@@ -54,9 +70,10 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
         </div>
 
         <div className="th-mx-auto th-max-w-md th-space-y-4">
-          {/* Quick email access */}
           <div>
+            <label htmlFor="thotis-email-input" className="th-sr-only">Email de réservation</label>
             <input
+              id="thotis-email-input"
               type="email"
               placeholder="Ton email de réservation"
               className="th-w-full th-rounded-lg th-border th-border-thotis-gray-200 th-px-4 th-py-3 th-text-sm th-outline-none focus:th-border-thotis-blue"
@@ -64,7 +81,7 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
                 if (e.key === "Enter") {
                   const val = (e.target as HTMLInputElement).value;
                   if (val.includes("@")) {
-                    localStorage.setItem("thotis_email", val);
+                    safeSetItem("thotis_email", val);
                     setEmail(val);
                   }
                 }
@@ -87,15 +104,30 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
     );
   }
 
-  // Rating modal
+  // Rating modal wrapped in ErrorBoundary
   if (ratingSession) {
     return (
       <div className="th-mx-auto th-max-w-md">
-        <RatingForm
-          session={ratingSession}
-          token={token}
-          onBack={() => setRatingSession(null)}
-        />
+        <ErrorBoundary
+          fallback={
+            <div className="th-rounded-lg th-border th-border-red-200 th-bg-red-50 th-p-6 th-text-center">
+              <p className="th-text-red-700 th-font-medium">Erreur lors du chargement du formulaire</p>
+              <button
+                type="button"
+                onClick={() => setRatingSession(null)}
+                className="th-mt-4 th-rounded th-bg-thotis-blue th-px-4 th-py-2 th-text-sm th-text-white hover:th-bg-thotis-blue-dark"
+              >
+                Retour aux sessions
+              </button>
+            </div>
+          }
+        >
+          <RatingForm
+            session={ratingSession}
+            token={token}
+            onBack={() => setRatingSession(null)}
+          />
+        </ErrorBoundary>
       </div>
     );
   }
@@ -107,11 +139,13 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
       </h2>
 
       {/* Tabs */}
-      <div className="th-flex th-gap-1 th-rounded-lg th-bg-thotis-gray-100 th-p-1">
+      <div className="th-flex th-gap-1 th-rounded-lg th-bg-thotis-gray-100 th-p-1" role="tablist" aria-label="Filtrer les sessions">
         {(["upcoming", "past", "cancelled"] as const).map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={`th-flex-1 th-rounded-md th-py-2 th-text-sm th-font-medium th-transition-colors ${
               tab === t
@@ -131,13 +165,22 @@ export function SessionsDashboard({ token: initialToken }: SessionsDashboardProp
 
       {/* Error */}
       {activeQuery.error && (
-        <p className="th-text-sm th-text-red-600">
-          Erreur : {activeQuery.error.message}
-        </p>
+        <div className="th-rounded-lg th-border th-border-red-200 th-bg-red-50 th-p-4 th-text-center">
+          <p className="th-text-sm th-text-red-600">
+            Erreur lors du chargement des sessions.
+          </p>
+          <button
+            type="button"
+            onClick={() => activeQuery.refetch()}
+            className="th-mt-2 th-rounded th-bg-thotis-blue th-px-4 th-py-1.5 th-text-xs th-text-white hover:th-bg-thotis-blue-dark"
+          >
+            Réessayer
+          </button>
+        </div>
       )}
 
       {/* Empty */}
-      {!activeQuery.isPending && sessions.length === 0 && (
+      {!activeQuery.isPending && !activeQuery.error && sessions.length === 0 && (
         <div className="th-py-12 th-text-center">
           <p className="th-text-thotis-gray-500">Aucune session {tab === "upcoming" ? "à venir" : tab === "past" ? "passée" : "annulée"}</p>
           {tab === "upcoming" && (

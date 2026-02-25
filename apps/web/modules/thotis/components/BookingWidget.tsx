@@ -83,6 +83,34 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
     },
   });
 
+  // Pre-fetch 14-day availability to show indicators on date buttons
+  const overviewRange = useMemo(() => {
+    const start = dayjs().add(1, "day").startOf("day").toDate();
+    const end = dayjs().add(14, "day").endOf("day").toDate();
+    return { start, end };
+  }, []);
+
+  const { data: overviewAvailability } = trpc.thotis.booking.getAvailability.useQuery(
+    {
+      studentProfileId: studentProfileId || "",
+      start: overviewRange.start,
+      end: overviewRange.end,
+    },
+    { enabled: !!studentProfileId }
+  );
+
+  // Build a set of dates that have at least one available slot
+  const datesWithSlots = useMemo(() => {
+    if (!overviewAvailability) return new Set<string>();
+    const dates = new Set<string>();
+    for (const slot of overviewAvailability) {
+      if (slot.available) {
+        dates.add(dayjs(slot.start).format("YYYY-MM-DD"));
+      }
+    }
+    return dates;
+  }, [overviewAvailability]);
+
   // Compute date range for the selected date
   const dateRange = useMemo(() => {
     if (!selectedDate) return null;
@@ -91,7 +119,7 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
     return { start, end };
   }, [selectedDate]);
 
-  // Fetch real availability from backend
+  // Fetch real availability from backend for the selected date
   const { data: availabilityData, isPending: isPendingSlots } = trpc.thotis.booking.getAvailability.useQuery(
     {
       studentProfileId: studentProfileId || "",
@@ -231,23 +259,36 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
         <div className="animate-fade-in">
           <h2 className="mb-4 text-center text-lg font-semibold">{t("thotis_select_date")}</h2>
           <div className="grid grid-cols-3 gap-2">
-            {selectableDates.map((date) => (
-              <button
-                key={date.format("YYYY-MM-DD")}
-                type="button"
-                onClick={() => handleDateChange(date)}
-                className="rounded-lg border border-gray-200 px-3 py-3 text-center transition-colors hover:border-blue-500 hover:bg-blue-50"
-                style={{
-                  borderColor:
-                    selectedDate?.format("YYYY-MM-DD") === date.format("YYYY-MM-DD")
-                      ? BRANDING.colors.primary
-                      : undefined,
-                }}>
-                <div className="text-xs font-medium text-gray-500">{date.format("ddd")}</div>
-                <div className="text-lg font-bold text-gray-900">{date.format("D")}</div>
-                <div className="text-xs text-gray-500">{date.format("MMM")}</div>
-              </button>
-            ))}
+            {selectableDates.map((date) => {
+              const dateKey = date.format("YYYY-MM-DD");
+              const hasSlots = datesWithSlots.size === 0 || datesWithSlots.has(dateKey);
+              const isSelected = selectedDate?.format("YYYY-MM-DD") === dateKey;
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  onClick={() => handleDateChange(date)}
+                  disabled={datesWithSlots.size > 0 && !hasSlots}
+                  aria-label={`${date.format("dddd, MMMM D")}${hasSlots ? "" : ` - ${t("thotis_no_slots_available")}`}`}
+                  className={`rounded-lg border px-3 py-3 text-center transition-colors ${
+                    !hasSlots && datesWithSlots.size > 0
+                      ? "cursor-not-allowed border-gray-100 opacity-40"
+                      : "border-gray-200 hover:border-blue-500 hover:bg-blue-50"
+                  }`}
+                  style={{
+                    borderColor: isSelected ? BRANDING.colors.primary : undefined,
+                  }}>
+                  <div className="text-xs font-medium text-gray-500">{date.format("ddd")}</div>
+                  <div className={`text-lg font-bold ${hasSlots || datesWithSlots.size === 0 ? "text-gray-900" : "text-gray-400"}`}>
+                    {date.format("D")}
+                  </div>
+                  <div className="text-xs text-gray-500">{date.format("MMM")}</div>
+                  {hasSlots && datesWithSlots.size > 0 && (
+                    <div className="mx-auto mt-1 h-1.5 w-1.5 rounded-full bg-green-500" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

@@ -40,7 +40,7 @@ interface OrientationFormProps {
 
 export function OrientationForm({ onComplete }: OrientationFormProps) {
   const [step, setStep] = useState<"form" | "loading" | "done">("form");
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<OrientationIntent>({
+  const { register, handleSubmit, formState: { errors } } = useForm<OrientationIntent>({
     defaultValues: {
       targetFields: [],
       academicLevel: "",
@@ -53,7 +53,11 @@ export function OrientationForm({ onComplete }: OrientationFormProps) {
     setStep("loading");
     try {
       // Save to localStorage for persistence across pages
-      localStorage.setItem("thotis_intent", JSON.stringify(data));
+      try {
+        localStorage.setItem("thotis_intent", JSON.stringify(data));
+      } catch {
+        // Storage full or disabled — continue without persisting
+      }
 
       const result = await intentApi.submitAndGetRecommendations(data);
       onComplete?.(result.recommendations);

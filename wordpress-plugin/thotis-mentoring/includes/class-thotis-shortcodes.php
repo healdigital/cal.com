@@ -16,6 +16,8 @@ class Thotis_Shortcodes {
         add_shortcode('thotis_mentor_profile', [self::class, 'render_mentor_profile']);
         add_shortcode('thotis_sessions', [self::class, 'render_sessions']);
         add_shortcode('thotis_rating', [self::class, 'render_rating']);
+        add_shortcode('thotis_booking', [self::class, 'render_booking']);
+        add_shortcode('thotis_guest_access', [self::class, 'render_guest_access']);
     }
 
     /**
@@ -61,10 +63,14 @@ class Thotis_Shortcodes {
             'username' => '',
         ], $atts, 'thotis_mentor_profile');
 
-        // Try to get username from URL if not provided as attribute
         $username = $atts['username'];
         if (empty($username)) {
             $username = get_query_var('thotis_mentor', '');
+        }
+
+        // Validate username format
+        if (!empty($username) && !preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $username)) {
+            return '<div class="thotis-root"><p>Profil introuvable.</p></div>';
         }
 
         return sprintf(
@@ -80,7 +86,6 @@ class Thotis_Shortcodes {
     public static function render_sessions(array $atts = []): string {
         self::enqueue();
 
-        // Pass the guest token from URL if present
         $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
 
         return sprintf(
@@ -104,6 +109,11 @@ class Thotis_Shortcodes {
             $uid = get_query_var('thotis_rating_uid', '');
         }
 
+        // Validate uid format
+        if (!empty($uid) && !preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $uid)) {
+            return '<div class="thotis-root"><p>Session introuvable.</p></div>';
+        }
+
         $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
 
         return sprintf(
@@ -111,5 +121,34 @@ class Thotis_Shortcodes {
             esc_attr($uid),
             esc_attr($token)
         );
+    }
+
+    /**
+     * [thotis_booking profile_id="..." mentor_name="Jean"] — Standalone booking widget.
+     */
+    public static function render_booking(array $atts = []): string {
+        self::enqueue();
+        $atts = shortcode_atts([
+            'profile_id' => '',
+            'mentor_name' => 'le mentor',
+        ], $atts, 'thotis_booking');
+
+        if (empty($atts['profile_id'])) {
+            return '';
+        }
+
+        return sprintf(
+            '<div id="thotis-booking" class="thotis-root" data-profile-id="%s" data-mentor-name="%s"></div>',
+            esc_attr($atts['profile_id']),
+            esc_attr($atts['mentor_name'])
+        );
+    }
+
+    /**
+     * [thotis_guest_access] — Guest magic link access form.
+     */
+    public static function render_guest_access(array $atts = []): string {
+        self::enqueue();
+        return '<div id="thotis-guest-access" class="thotis-root"></div>';
     }
 }

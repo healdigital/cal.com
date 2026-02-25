@@ -24,11 +24,34 @@ class Thotis_Admin {
         );
     }
 
+    /**
+     * Sanitize API URL: only allow https:// protocol.
+     */
+    public static function sanitize_api_url(string $url): string {
+        $url = esc_url_raw($url, ['https']);
+
+        // Strip trailing slash
+        $url = rtrim($url, '/');
+
+        // Reject non-https URLs
+        if (!empty($url) && strpos($url, 'https://') !== 0) {
+            add_settings_error(
+                'thotis_api_url',
+                'invalid_protocol',
+                __('L\'URL de l\'API doit utiliser le protocole HTTPS.', 'thotis-mentoring'),
+                'error'
+            );
+            return get_option('thotis_api_url', 'https://meet.heal-digital.com/api/thotis');
+        }
+
+        return $url;
+    }
+
     public static function register_settings(): void {
         register_setting('thotis_mentoring', 'thotis_api_url', [
             'type'              => 'string',
             'default'           => 'https://meet.heal-digital.com/api/thotis',
-            'sanitize_callback' => 'esc_url_raw',
+            'sanitize_callback' => [self::class, 'sanitize_api_url'],
         ]);
 
         add_settings_section(
@@ -55,7 +78,7 @@ class Thotis_Admin {
             '<input type="url" name="thotis_api_url" value="%s" class="regular-text" placeholder="https://meet.heal-digital.com/api/thotis" />',
             esc_attr($value)
         );
-        echo '<p class="description">' . esc_html__('L\'URL de base de l\'API REST Thotis (sans slash final).', 'thotis-mentoring') . '</p>';
+        echo '<p class="description">' . esc_html__('L\'URL de base de l\'API REST Thotis (sans slash final). HTTPS requis.', 'thotis-mentoring') . '</p>';
     }
 
     public static function render_page(): void {
@@ -108,6 +131,16 @@ class Thotis_Admin {
                         <td><code>[thotis_rating]</code></td>
                         <td><?php esc_html_e('Formulaire de notation post-session', 'thotis-mentoring'); ?></td>
                         <td><code>uid</code> (ou via URL)</td>
+                    </tr>
+                    <tr>
+                        <td><code>[thotis_booking]</code></td>
+                        <td><?php esc_html_e('Widget de réservation autonome', 'thotis-mentoring'); ?></td>
+                        <td><code>profile_id</code>, <code>mentor_name</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>[thotis_guest_access]</code></td>
+                        <td><?php esc_html_e('Formulaire d\'accès invité (lien magique)', 'thotis-mentoring'); ?></td>
+                        <td>—</td>
                     </tr>
                 </tbody>
             </table>
