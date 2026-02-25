@@ -34,11 +34,13 @@ export function BookingWidget({ profileId, mentorName }: BookingWidgetProps) {
 
   const { register, handleSubmit, formState: { errors } } = useForm<BookingFormData>();
 
-  // Generate next 14 weekdays
+  const BOOKING_DAYS_AHEAD = 14;
+
+  // Generate next weekdays
   const dates = useMemo(() => {
     const result: Date[] = [];
     let d = new Date();
-    while (result.length < 14) {
+    while (result.length < BOOKING_DAYS_AHEAD) {
       d = addDays(d, 1);
       if (!isWeekend(d)) result.push(new Date(d));
     }
@@ -173,30 +175,42 @@ export function BookingWidget({ profileId, mentorName }: BookingWidgetProps) {
             </button>
           </div>
 
-          <input
-            {...register("name", { required: "Ton prénom est requis" })}
-            placeholder="Ton prénom"
-            className="th-w-full th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
-          />
-          {errors.name && <p className="th-text-xs th-text-red-600">{errors.name.message}</p>}
+          <div>
+            <label htmlFor="booking-name" className="th-sr-only">Prénom</label>
+            <input
+              id="booking-name"
+              {...register("name", { required: "Ton prénom est requis" })}
+              placeholder="Ton prénom"
+              className="th-w-full th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
+            />
+            {errors.name && <p className="th-text-xs th-text-red-600">{errors.name.message}</p>}
+          </div>
 
-          <input
-            {...register("email", {
-              required: "Ton email est requis",
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Email invalide" },
-            })}
-            type="email"
-            placeholder="Ton email"
-            className="th-w-full th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
-          />
-          {errors.email && <p className="th-text-xs th-text-red-600">{errors.email.message}</p>}
+          <div>
+            <label htmlFor="booking-email" className="th-sr-only">Email</label>
+            <input
+              id="booking-email"
+              {...register("email", {
+                required: "Ton email est requis",
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Email invalide" },
+              })}
+              type="email"
+              placeholder="Ton email"
+              className="th-w-full th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
+            />
+            {errors.email && <p className="th-text-xs th-text-red-600">{errors.email.message}</p>}
+          </div>
 
-          <textarea
-            {...register("question")}
-            placeholder="Ta question pour le mentor (facultatif)"
-            rows={3}
-            className="th-w-full th-resize-none th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
-          />
+          <div>
+            <label htmlFor="booking-question" className="th-sr-only">Question pour le mentor</label>
+            <textarea
+              id="booking-question"
+              {...register("question")}
+              placeholder="Ta question pour le mentor (facultatif)"
+              rows={3}
+              className="th-w-full th-resize-none th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue"
+            />
+          </div>
 
           <button
             type="submit"

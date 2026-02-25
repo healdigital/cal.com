@@ -6,11 +6,24 @@ import { ApiError } from "./cors";
 /**
  * Parse and validate query parameters against a Zod schema.
  */
+/**
+ * Sanitize Zod validation errors to avoid leaking schema internals.
+ * Only returns field path and a generic message type.
+ */
+function formatZodErrors(issues: z.ZodIssue[]): string {
+  return issues
+    .map((i) => {
+      const field = i.path.length > 0 ? i.path.join(".") : "input";
+      return `${field}: ${i.message}`;
+    })
+    .join(", ");
+}
+
 export function parseQuery<T extends z.ZodTypeAny>(request: NextRequest, schema: T): z.infer<T> {
   const params = Object.fromEntries(new URL(request.url).searchParams);
   const result = schema.safeParse(params);
   if (!result.success) {
-    throw ApiError.badRequest(`Invalid query parameters: ${result.error.issues.map((i) => i.message).join(", ")}`);
+    throw ApiError.badRequest(`Invalid query parameters: ${formatZodErrors(result.error.issues)}`);
   }
   return result.data;
 }
@@ -27,7 +40,7 @@ export async function parseBody<T extends z.ZodTypeAny>(request: NextRequest, sc
   }
   const result = schema.safeParse(body);
   if (!result.success) {
-    throw ApiError.badRequest(`Invalid request body: ${result.error.issues.map((i) => i.message).join(", ")}`);
+    throw ApiError.badRequest(`Invalid request body: ${formatZodErrors(result.error.issues)}`);
   }
   return result.data;
 }

@@ -33,7 +33,7 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
   const [page, setPage] = useState(1);
 
   const { data: universities } = useUniversities();
-  const { data, isPending, error } = useMentorSearch({
+  const { data, isPending, error, refetch } = useMentorSearch({
     q: query || undefined,
     field: field || undefined,
     university: university || undefined,
@@ -47,15 +47,19 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
   return (
     <div className="th-space-y-6">
       {/* Search & Filters */}
-      <div className="th-flex th-flex-col th-gap-3 sm:th-flex-row">
+      <div className="th-flex th-flex-col th-gap-3 sm:th-flex-row" role="search" aria-label="Recherche de mentors">
+        <label htmlFor="mentor-search" className="th-sr-only">Rechercher un mentor</label>
         <input
+          id="mentor-search"
           type="search"
           placeholder="Rechercher un mentor..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); setPage(1); }}
           className="th-flex-1 th-rounded-lg th-border th-border-thotis-gray-200 th-px-4 th-py-2.5 th-text-sm th-outline-none focus:th-border-thotis-blue focus:th-ring-1 focus:th-ring-thotis-blue"
         />
+        <label htmlFor="mentor-field" className="th-sr-only">Filière</label>
         <select
+          id="mentor-field"
           value={field}
           onChange={(e) => { setField(e.target.value); setPage(1); }}
           className="th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm"
@@ -66,7 +70,9 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
             </option>
           ))}
         </select>
+        <label htmlFor="mentor-university" className="th-sr-only">Université</label>
         <select
+          id="mentor-university"
           value={university}
           onChange={(e) => { setUniversity(e.target.value); setPage(1); }}
           className="th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm"
@@ -78,7 +84,9 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
             </option>
           ))}
         </select>
+        <label htmlFor="mentor-sort" className="th-sr-only">Trier par</label>
         <select
+          id="mentor-sort"
           value={sort}
           onChange={(e) => setSort(e.target.value as typeof sort)}
           className="th-rounded-lg th-border th-border-thotis-gray-200 th-px-3 th-py-2.5 th-text-sm"
@@ -91,7 +99,7 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
 
       {/* Results count */}
       {data && (
-        <p className="th-text-sm th-text-thotis-gray-500">
+        <p className="th-text-sm th-text-thotis-gray-500" aria-live="polite">
           {data.total} mentor{data.total > 1 ? "s" : ""} trouvé{data.total > 1 ? "s" : ""}
         </p>
       )}
@@ -100,9 +108,18 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
       {isPending && <LoadingSpinner />}
 
       {error && (
-        <p className="th-rounded-lg th-bg-red-50 th-p-4 th-text-sm th-text-red-600">
-          Erreur lors du chargement : {error.message}
-        </p>
+        <div className="th-rounded-lg th-bg-red-50 th-p-4 th-text-center">
+          <p className="th-text-sm th-text-red-600">
+            Erreur lors du chargement des mentors.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="th-mt-2 th-rounded th-bg-thotis-blue th-px-4 th-py-1.5 th-text-xs th-text-white hover:th-bg-thotis-blue-dark"
+          >
+            Réessayer
+          </button>
+        </div>
       )}
 
       {data && data.profiles.length === 0 && (
@@ -121,7 +138,7 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="th-flex th-items-center th-justify-center th-gap-2">
+        <nav className="th-flex th-items-center th-justify-center th-gap-2" aria-label="Pagination">
           <button
             type="button"
             disabled={page <= 1}
@@ -141,7 +158,7 @@ export function MentorGrid({ initialField = "", initialLimit = 20 }: MentorGridP
           >
             Suivant
           </button>
-        </div>
+        </nav>
       )}
     </div>
   );

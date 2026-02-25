@@ -40,7 +40,9 @@ export function GuestAccessForm({ onTokenReceived }: GuestAccessFormProps) {
         Recevoir un lien magique par email
       </p>
       <div className="th-flex th-gap-2">
+        <label htmlFor="guest-email" className="th-sr-only">Email</label>
         <input
+          id="guest-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

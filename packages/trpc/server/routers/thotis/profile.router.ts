@@ -16,6 +16,7 @@ export const profileRouter = router({
         university: z.string(),
         degree: z.string(),
         profilePhotoUrl: z.string().optional(),
+        expertise: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

@@ -56,7 +56,7 @@ export default function ThotisLandingPage() {
                     <Icon name="calendar" className="h-4 w-4" />
                     Mes Sessions
                   </Button>
-                  <Button onClick={() => router.push("/thotis/dashboard")} className="gap-2">
+                  <Button onClick={() => router.push("/thotis/mentor-dashboard")} className="gap-2">
                     <Icon name="users" className="h-4 w-4" />
                     Dashboard Mentor
                   </Button>
