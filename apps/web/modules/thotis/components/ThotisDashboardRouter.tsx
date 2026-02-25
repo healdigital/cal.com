@@ -1,6 +1,6 @@
 "use client";
 
-import AdminDashboard from "~/thotis/components/AdminDashboard";
+import { AdminDashboard } from "~/thotis/components/AdminDashboard";
 import { MentorDashboard } from "~/thotis/components/MentorDashboard";
 import { StudentDashboard } from "~/thotis/components/StudentDashboard";
 import { trpc } from "@calcom/trpc/react";
