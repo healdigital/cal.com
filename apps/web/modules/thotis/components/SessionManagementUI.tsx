@@ -2,6 +2,7 @@
 
 import dayjs from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import type { Prisma } from "@calcom/prisma/client";
 import type { BookingStatus } from "@calcom/prisma/enums";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
@@ -26,6 +27,14 @@ interface SessionBookingResponses {
   [key: string]: unknown;
 }
 
+/** Narrow an unknown JSON value to an object type, returning null if it's not an object */
+function narrowJson<T>(val: unknown): T | null {
+  if (val && typeof val === "object" && !Array.isArray(val)) {
+    return val as T;
+  }
+  return null;
+}
+
 interface SessionBooking {
   id: number;
   uid: string;
@@ -33,8 +42,8 @@ interface SessionBooking {
   startTime: Date | string;
   endTime: Date | string;
   status: BookingStatus | string;
-  metadata: SessionBookingMetadata | null | any; // allow any for Prisma Json compatibility
-  responses: SessionBookingResponses | null | any; // allow any for Prisma Json compatibility
+  metadata: unknown;
+  responses: unknown;
   cancellationReason?: string | null;
   thotisSessionSummary?: { id: number } | null;
 }
@@ -69,14 +78,18 @@ export const SessionManagementUI = ({
   const [incidentDescription, setIncidentDescription] = useState("");
   const utils = trpc.useUtils();
 
+  // Narrow Prisma JsonValue to typed objects early so all downstream access is type-safe
+  const metadata = narrowJson<SessionBookingMetadata>(booking.metadata);
+  const responses = narrowJson<SessionBookingResponses>(booking.responses);
+
   const { data: monthAvailability, isPending: isMonthLoading } = trpc.thotis.booking.getAvailability.useQuery(
     {
-      studentProfileId: (booking.metadata?.studentProfileId as string) || "",
+      studentProfileId: (metadata?.studentProfileId as string) || "",
       start: dayjs().startOf("day").toDate(),
       end: dayjs().add(30, "day").endOf("day").toDate(),
     },
     {
-      enabled: !!booking.metadata?.studentProfileId && modalState === "reschedule",
+      enabled: !!metadata?.studentProfileId && modalState === "reschedule",
     }
   );
 
@@ -93,12 +106,12 @@ export const SessionManagementUI = ({
   const { data: availability, isPending: isAvailabilityLoading } =
     trpc.thotis.booking.getAvailability.useQuery(
       {
-        studentProfileId: (booking.metadata?.studentProfileId as string) || "",
+        studentProfileId: (metadata?.studentProfileId as string) || "",
         start: selectedDate ? dayjs(selectedDate).startOf("day").toDate() : new Date(),
         end: selectedDate ? dayjs(selectedDate).endOf("day").toDate() : new Date(),
       },
       {
-        enabled: !!selectedDate && !!booking.metadata?.studentProfileId && modalState === "reschedule",
+        enabled: !!selectedDate && !!metadata?.studentProfileId && modalState === "reschedule",
       }
     );
 
@@ -106,8 +119,6 @@ export const SessionManagementUI = ({
   const endTime = dayjs(booking.endTime);
   const isPast = endTime.isBefore(dayjs());
   const isCancelled = booking.status === "CANCELLED";
-  const metadata = booking.metadata;
-  const responses = booking.responses;
 
   const cancelMutation = trpc.thotis.booking.cancelSession.useMutation({
     onSuccess: () => {
@@ -308,8 +319,13 @@ export const SessionManagementUI = ({
   const canReschedule = !isCancelled && !metadata?.completedAt && !isPastStrict;
   const canComplete = !isCancelled && !metadata?.completedAt && (isPastStrict || isInGracePeriod); // Can complete during grace period too
 
+  const sessionLabel = `${responses?.name ? responses.name : booking.title} — ${startTime.format("ddd, MMM D")} ${startTime.format("HH:mm")}`;
+
   return (
-    <div className="bg-default border-subtle rounded-lg border p-4">
+    <article
+      className="bg-default border-subtle rounded-lg border p-4"
+      aria-label={sessionLabel}
+      role="region">
       {/* Success/Error Messages */}
       {successMessage && (
         <div className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
@@ -645,6 +661,6 @@ export const SessionManagementUI = ({
           <strong>{t("thotis_cancel_reason")}:</strong> {booking.cancellationReason}
         </div>
       )}
-    </div>
+    </article>
   );
 };

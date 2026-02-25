@@ -1,6 +1,8 @@
 "use client";
 
 import { MentorListView } from "@calcom/features/thotis/components/MentorListView";
+import { useLocale } from "@calcom/lib/hooks/useLocale";
+import type { AcademicField } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Icon } from "@calcom/ui/components/icon";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,6 +18,7 @@ interface ThotisIntent {
 }
 
 export default function MentorsPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -49,7 +52,7 @@ export default function MentorsPage() {
   const { data: recommendations, isLoading: isRefLoading } = trpc.thotis.intent.getRecommended.useQuery(
     {
       targetFields: effectiveIntent?.targetFields || [],
-      academicLevel: (effectiveIntent?.academicLevel || undefined) as any,
+      academicLevel: effectiveIntent?.academicLevel || "",
       zone: effectiveIntent?.zone,
     },
     {
@@ -59,7 +62,7 @@ export default function MentorsPage() {
   );
 
   const { data, isLoading, error } = trpc.thotis.profile.search.useQuery({
-    fieldOfStudy: (filters.fieldOfStudy || undefined) as any,
+    fieldOfStudy: (filters.fieldOfStudy || undefined) as AcademicField | undefined,
     university: filters.university || undefined,
     minRating: filters.minRating || undefined,
   });
@@ -90,7 +93,7 @@ export default function MentorsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-10 text-center">
-        <h2 className="font-semibold text-red-600 text-xl">Error loading mentors</h2>
+        <h2 className="font-semibold text-red-600 text-xl">{t("thotis_error_loading_mentors")}</h2>
         <p className="text-gray-600">{error.message}</p>
       </div>
     );
@@ -100,8 +103,8 @@ export default function MentorsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h1 className="mb-2 font-bold text-3xl text-gray-900">Our Mentors</h1>
-          <p className="text-gray-600">Find the right mentor to help you in your academic journey.</p>
+          <h1 className="mb-2 font-bold text-3xl text-gray-900">{t("thotis_our_mentors")}</h1>
+          <p className="text-gray-600">{t("thotis_find_right_mentor")}</p>
         </div>
 
         {/* Recommendations Section */}
@@ -109,7 +112,7 @@ export default function MentorsPage() {
           <div className="mb-10">
             <div className="mb-4 flex items-center gap-2">
               <Icon name="sparkles" className="h-5 w-5 text-blue-600" />
-              <h2 className="font-bold text-gray-900 text-xl">Recommended for your orientation</h2>
+              <h2 className="font-bold text-gray-900 text-xl">{t("thotis_recommended_for_you")}</h2>
             </div>
             <MentorListView
               profiles={recommendations || []}
@@ -129,7 +132,7 @@ export default function MentorsPage() {
         {/* All Mentors List */}
         <div className="mb-4 flex items-center gap-2">
           <h2 className="font-bold text-gray-900 text-xl">
-            {filters.fieldOfStudy ? `Mentors in ${filters.fieldOfStudy}` : "All Mentors"}
+            {filters.fieldOfStudy ? `${t("thotis_mentors_in")} ${filters.fieldOfStudy}` : t("thotis_all_mentors")}
           </h2>
         </div>
         <MentorListView

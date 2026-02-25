@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { ErrorWithCode } from "@calcom/lib/errors";
+import logger from "@calcom/lib/logger";
 import prisma from "@calcom/prisma";
-import { TRPCError } from "@trpc/server";
+
+const log = logger.getSubLogger({ prefix: ["ThotisGuestService"] });
 
 export class ThotisGuestService {
   private readonly TOKEN_TTL_MINUTES = 15;
@@ -26,7 +30,7 @@ export class ThotisGuestService {
     }
 
     if (guest.blocked) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      throw new ErrorWithCode(ErrorCode.Forbidden, "Access denied");
     }
 
     // 2. Rate limiting (anti-abuse)
@@ -43,19 +47,18 @@ export class ThotisGuestService {
 
     // Limit to 3 magic links per hour (Strict anti-abuse)
     if (recentRequests >= 3) {
-      throw new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message:
-          "Maximum number of magic links per hour reached. Please check your inbox or try again later.",
-      });
+      throw new ErrorWithCode(
+        ErrorCode.BadRequest,
+        "Maximum number of magic links per hour reached. Please check your inbox or try again later."
+      );
     }
 
     // Secondary check: prevent spamming every few seconds
     if (now.getTime() - guest.lastRequestAt.getTime() < 30 * 1000) {
-      throw new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message: "Please wait 30 seconds before requesting another link",
-      });
+      throw new ErrorWithCode(
+        ErrorCode.BadRequest,
+        "Please wait 30 seconds before requesting another link"
+      );
     }
 
     // Update last request
@@ -83,9 +86,8 @@ export class ThotisGuestService {
 
     // 6. Return raw token for internal use (e.g. cron jobs)
     // Security: This token MUST NOT be returned to the client in public TRPC routes.
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[ThotisGuestService] Magic link token for ${normalizedEmail}: ${tokenRaw}`);
-    }
+    // Only log email (never the token itself) to avoid leaking secrets in logs
+    log.debug("Magic link generated", { email: normalizedEmail, expiresAt: expiresAt.toISOString() });
 
     return { success: true, token: tokenRaw };
   }
@@ -119,16 +121,16 @@ export class ThotisGuestService {
     });
 
     if (!magicLink) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
+      throw new ErrorWithCode(ErrorCode.Unauthorized, "Invalid token");
     }
 
     if (magicLink.invalidated || magicLink.usedAt || magicLink.expiresAt < new Date()) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Token expired or used" });
+      throw new ErrorWithCode(ErrorCode.Unauthorized, "Token expired or used");
     }
 
     // Enforce booking scope if the token was restricted to a specific booking
     if (magicLink.bookingId && bookingId && magicLink.bookingId !== bookingId) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "This link is restricted to another session" });
+      throw new ErrorWithCode(ErrorCode.Forbidden, "This link is restricted to another session");
     }
 
     return magicLink;

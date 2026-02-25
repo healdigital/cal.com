@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { EditMentorProfileModal } from "./EditMentorProfileModal";
 import { MentorScheduleModal } from "./MentorScheduleModal";
@@ -139,7 +139,7 @@ const IncidentsModal: React.FC<{
                 <div className="flex justify-between items-center text-xs">
                   <span
                     className={`px-2 py-0.5 rounded-full ${
-                      incident.resolved ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"
+                      incident.resolved ? "bg-success text-inverted" : "bg-attention text-attention"
                     }`}>
                     {incident.resolved ? t("thotis_admin_resolved") : t("thotis_admin_pending")}
                   </span>
@@ -161,10 +161,43 @@ const IncidentsModal: React.FC<{
   );
 };
 
+/** Confirmation dialog for status changes */
+const StatusConfirmDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  status: string;
+  isPending: boolean;
+}> = ({ isOpen, onClose, onConfirm, status, isPending }) => {
+  const { t } = useLocale();
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader title={t("thotis_admin_confirm_status_change", { status })} />
+        <p className="py-4 text-sm text-subtle">{t("thotis_admin_confirm_status_desc")}</p>
+        <DialogFooter>
+          <Button onClick={onClose} color="secondary">
+            {t("cancel")}
+          </Button>
+          <Button
+            onClick={onConfirm}
+            loading={isPending}
+            color={status === "SUSPENDED" ? "destructive" : "primary"}>
+            {t("confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export const AmbassadorManagement: React.FC = () => {
   const { t } = useLocale();
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [fieldOfStudy, setFieldOfStudy] = useState<AcademicField | undefined>(undefined);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
   const [selectedAmbassador, setSelectedAmbassador] = useState<{ id: string; name: string } | null>(null);
   const [editProfile, setEditProfile] = useState<{
@@ -177,22 +210,48 @@ export const AmbassadorManagement: React.FC = () => {
     currentYear: number | null;
   } | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<{ userId: number; name: string } | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{
+    profileId: string;
+    status: MentorStatus;
+  } | null>(null);
+
+  // Debounce search input (300ms)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   const utils = trpc.useUtils();
 
   const { data } = trpc.thotis.admin.listAmbassadors.useQuery({
-    page: 1,
+    page,
+    pageSize,
     fieldOfStudy,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   });
+
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
   const updateStatusMutation = trpc.thotis.admin.updateStatus.useMutation({
     onSuccess: () => {
       showToast(t("thotis_admin_status_updated_success"), "success");
       utils.thotis.admin.listAmbassadors.invalidate();
+      setStatusConfirm(null);
     },
     onError: (error) => {
       showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+      setStatusConfirm(null);
     },
   });
 
@@ -205,10 +264,24 @@ export const AmbassadorManagement: React.FC = () => {
     },
   });
 
+  const handleStatusChange = (profileId: string, newStatus: MentorStatus) => {
+    setStatusConfirm({ profileId, status: newStatus });
+  };
+
+  const confirmStatusChange = () => {
+    if (!statusConfirm) return;
+    updateStatusMutation.mutate({ profileId: statusConfirm.profileId, status: statusConfirm.status });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">{t("thotis_admin_ambassadors_management")}</h2>
+        <div>
+          <h2 className="text-xl font-semibold">{t("thotis_admin_ambassadors_management")}</h2>
+          {data?.total !== undefined && (
+            <p className="text-sm text-subtle">{t("thotis_admin_total_ambassadors", { count: data.total })}</p>
+          )}
+        </div>
         <Button color="primary" onClick={() => setIsProvisionModalOpen(true)}>
           {t("thotis_admin_add_ambassador")}
         </Button>
@@ -219,13 +292,16 @@ export const AmbassadorManagement: React.FC = () => {
           <TextField
             placeholder={t("thotis_admin_search_placeholder")}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
         <div className="w-64">
           <Select
             options={Object.values(AcademicField).map((f) => ({ label: f, value: f }))}
-            onChange={(option) => setFieldOfStudy(option?.value)}
+            onChange={(option) => {
+              setFieldOfStudy(option?.value);
+              setPage(1);
+            }}
             placeholder={t("thotis_admin_filter_field")}
           />
         </div>
@@ -233,81 +309,114 @@ export const AmbassadorManagement: React.FC = () => {
 
       <Table>
         <Table.Header>
-          <Table.ColumnTitle>{t("thotis_admin_ambassador")}</Table.ColumnTitle>
-          <Table.ColumnTitle>{t("thotis_admin_field_university")}</Table.ColumnTitle>
-          <Table.ColumnTitle>{t("thotis_admin_status")}</Table.ColumnTitle>
-          <Table.ColumnTitle>{t("thotis_admin_actions")}</Table.ColumnTitle>
+          <Table.Row>
+            <Table.ColumnTitle>{t("thotis_admin_ambassador")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("thotis_admin_field_university")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("thotis_admin_status")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("thotis_admin_actions")}</Table.ColumnTitle>
+          </Table.Row>
         </Table.Header>
         <Table.Body>
-          {data?.profiles.map((profile) => (
-            <Table.Row key={profile.id}>
-              <Table.Cell>
-                <div>
-                  <div className="font-medium text-default">{profile.user.name}</div>
-                  <div className="text-muted text-sm">{profile.user.email}</div>
-                </div>
-              </Table.Cell>
-              <Table.Cell>
-                <div>
-                  <div className="text-default">{profile.field}</div>
-                  <div className="text-muted text-xs">{profile.university}</div>
-                </div>
-              </Table.Cell>
-              <Table.Cell>
-                <Select
-                  value={{ label: profile.status, value: profile.status }}
-                  options={Object.values(MentorStatus).map((s) => ({ label: s, value: s }))}
-                  onChange={(option) => {
-                    if (option) {
-                      updateStatusMutation.mutate({ profileId: profile.id, status: option.value });
-                    }
-                  }}
-                />
-              </Table.Cell>
-              <Table.Cell>
-                <div className="flex flex-wrap gap-1">
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    onClick={() =>
-                      setEditProfile({
-                        id: profile.id,
-                        bio: profile.bio,
-                        university: profile.university,
-                        degree: profile.degree,
-                        field: profile.field,
-                        expertise: profile.expertise,
-                        currentYear: profile.currentYear,
-                      })
-                    }>
-                    {t("thotis_admin_edit_profile")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    onClick={() =>
-                      setScheduleTarget({ userId: profile.userId, name: profile.user.name || "" })
-                    }>
-                    {t("thotis_admin_schedule")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    onClick={() => resetPasswordMutation.mutate({ userId: profile.userId })}>
-                    {t("thotis_admin_reset_password")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    onClick={() => setSelectedAmbassador({ id: profile.id, name: profile.user.name || "" })}>
-                    {t("thotis_admin_view_incidents")}
-                  </Button>
-                </div>
-              </Table.Cell>
+          {!data?.profiles || data.profiles.length === 0 ? (
+            <Table.Row>
+              <td colSpan={4} className="px-6 py-10 text-center text-subtle">
+                {t("thotis_no_mentors_found")}
+              </td>
             </Table.Row>
-          ))}
+          ) : (
+            data.profiles.map((profile) => (
+              <Table.Row key={profile.id}>
+                <Table.Cell>
+                  <div>
+                    <div className="font-medium text-default">{profile.user.name}</div>
+                    <div className="text-muted text-sm">{profile.user.email}</div>
+                  </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <div>
+                    <div className="text-default">{profile.field}</div>
+                    <div className="text-muted text-xs">{profile.university}</div>
+                  </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <Select
+                    value={{ label: profile.status, value: profile.status }}
+                    options={Object.values(MentorStatus).map((s) => ({ label: s, value: s }))}
+                    onChange={(option) => {
+                      if (option && option.value !== profile.status) {
+                        handleStatusChange(profile.id, option.value);
+                      }
+                    }}
+                  />
+                </Table.Cell>
+                <Table.Cell>
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      color="secondary"
+                      onClick={() =>
+                        setEditProfile({
+                          id: profile.id,
+                          bio: profile.bio,
+                          university: profile.university,
+                          degree: profile.degree,
+                          field: profile.field,
+                          expertise: profile.expertise,
+                          currentYear: profile.currentYear,
+                        })
+                      }>
+                      {t("thotis_admin_edit_profile")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="secondary"
+                      onClick={() =>
+                        setScheduleTarget({ userId: profile.userId, name: profile.user.name || "" })
+                      }>
+                      {t("thotis_admin_schedule")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="secondary"
+                      onClick={() => resetPasswordMutation.mutate({ userId: profile.userId })}>
+                      {t("thotis_admin_reset_password")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="secondary"
+                      onClick={() => setSelectedAmbassador({ id: profile.id, name: profile.user.name || "" })}>
+                      {t("thotis_admin_view_incidents")}
+                    </Button>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            ))
+          )}
         </Table.Body>
       </Table>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4">
+          <Button
+            color="minimal"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            {t("thotis_admin_previous")}
+          </Button>
+          <span className="text-sm text-subtle">
+            {page} / {totalPages} ({data?.total} total)
+          </span>
+          <Button
+            color="minimal"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}>
+            {t("thotis_admin_next")}
+          </Button>
+        </div>
+      )}
 
       <ProvisionAmbassadorModal
         isOpen={isProvisionModalOpen}
@@ -332,6 +441,14 @@ export const AmbassadorManagement: React.FC = () => {
         onClose={() => setScheduleTarget(null)}
         mentorUserId={scheduleTarget?.userId || null}
         mentorName={scheduleTarget?.name || null}
+      />
+
+      <StatusConfirmDialog
+        isOpen={!!statusConfirm}
+        onClose={() => setStatusConfirm(null)}
+        onConfirm={confirmStatusChange}
+        status={statusConfirm?.status || ""}
+        isPending={updateStatusMutation.isPending}
       />
     </div>
   );

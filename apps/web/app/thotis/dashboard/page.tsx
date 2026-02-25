@@ -16,9 +16,9 @@ export default async function ThotisDashboardPage() {
 
   return (
     <ThotisDashboardRouter
-      userRole={session.user.role}
+      userRole={session.user.role ?? "USER"}
       userId={session.user.id}
-      userEmail={session.user.email}
+      userEmail={session.user.email ?? ""}
     />
   );
 }

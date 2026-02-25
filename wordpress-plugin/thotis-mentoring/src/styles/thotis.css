@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset only within Thotis containers to avoid WordPress conflicts */
+.thotis-root {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #1a1a2e;
+}
+
+.thotis-root *,
+.thotis-root *::before,
+.thotis-root *::after {
+  box-sizing: border-box;
+}
+
+.thotis-root img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Custom font for headings */
+.thotis-root .th-font-heading {
+  font-family: "Outfit", "Inter", sans-serif;
+}

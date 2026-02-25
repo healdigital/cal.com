@@ -3,7 +3,9 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Icon } from "@calcom/ui/components/icon";
+import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,11 +19,55 @@ interface Incident {
   studentProfileId: string;
 }
 
+const RESOLVED_OPTIONS = [
+  { label: "thotis_admin_status_all", value: "" },
+  { label: "thotis_admin_resolved_only", value: "true" },
+  { label: "thotis_admin_unresolved_only", value: "false" },
+];
+
+/** Custom confirmation dialog for suspension (replaces window.confirm) */
+function SuspendConfirmDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  const { t } = useLocale();
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader title={t("thotis_admin_confirm_suspend_title")} />
+        <p className="py-4 text-sm text-subtle">{t("thotis_admin_confirm_suspend_desc")}</p>
+        <DialogFooter>
+          <Button onClick={onClose} color="secondary">
+            {t("cancel")}
+          </Button>
+          <Button onClick={onConfirm} loading={isPending} color="destructive">
+            {t("thotis_admin_suspend_confirm_button")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function IncidentsPageClient() {
   const { t } = useLocale();
   const router = useRouter();
-  const [page] = useState(1);
+  const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [resolvedFilter, setResolvedFilter] = useState<string>("");
+
+  // Suspension confirm state
+  const [suspendTarget, setSuspendTarget] = useState<string | null>(null);
 
   const {
     data: incidentsData,
@@ -31,15 +77,19 @@ export function IncidentsPageClient() {
   } = trpc.thotis.admin.listIncidents.useQuery({
     page,
     pageSize,
+    type: typeFilter || undefined,
+    resolved: resolvedFilter === "" ? undefined : resolvedFilter === "true",
   });
 
   const moderationMutation = trpc.thotis.admin.takeModerationAction.useMutation({
     onSuccess: () => {
       showToast(t("thotis_moderation_action_success"), "success");
+      setSuspendTarget(null);
       refetch();
     },
     onError: (err) => {
       showToast(err.message, "error");
+      setSuspendTarget(null);
     },
   });
 
@@ -53,10 +103,32 @@ export function IncidentsPageClient() {
     },
   });
 
+  const handleSuspendConfirm = () => {
+    if (!suspendTarget) return;
+    moderationMutation.mutate({
+      studentProfileId: suspendTarget,
+      actionType: "SUSPENSION",
+      updateStatusTo: "SUSPENDED",
+      reason: t("thotis_admin_suspension_reason_incident"),
+    });
+  };
+
+  // Extract unique incident types for the filter dropdown
+  const typeOptions = [
+    { label: t("thotis_admin_all_types"), value: "" },
+    { label: "NO_SHOW", value: "NO_SHOW" },
+    { label: "INAPPROPRIATE_BEHAVIOR", value: "INAPPROPRIATE_BEHAVIOR" },
+    { label: "POOR_QUALITY", value: "POOR_QUALITY" },
+    { label: "TECHNICAL_ISSUE", value: "TECHNICAL_ISSUE" },
+    { label: "OTHER", value: "OTHER" },
+  ];
+
+  const totalPages = incidentsData ? Math.ceil((incidentsData.total || 0) / pageSize) : 0;
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
+        <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
       </div>
     );
   }
@@ -78,13 +150,53 @@ export function IncidentsPageClient() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/thotis/admin")}
             className="mb-2 flex items-center text-sm text-subtle hover:text-emphasis">
             <Icon name="arrow-left" className="mr-1 h-4 w-4" />
             {t("back")}
           </button>
           <h1 className="font-bold text-2xl text-emphasis">{t("thotis_all_incidents")}</h1>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-end gap-4">
+        <div className="w-48">
+          <Label>{t("thotis_admin_filter_type")}</Label>
+          <Select
+            options={typeOptions}
+            value={typeOptions.find((o) => o.value === typeFilter)}
+            onChange={(opt) => {
+              setTypeFilter(opt?.value || "");
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="w-48">
+          <Label>{t("thotis_admin_filter_resolved")}</Label>
+          <Select
+            options={RESOLVED_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            value={RESOLVED_OPTIONS.map((o) => ({ ...o, label: t(o.label) })).find(
+              (o) => o.value === resolvedFilter
+            )}
+            onChange={(opt) => {
+              setResolvedFilter(opt?.value ?? "");
+              setPage(1);
+            }}
+          />
+        </div>
+        {(typeFilter || resolvedFilter) && (
+          <Button
+            color="minimal"
+            size="sm"
+            onClick={() => {
+              setTypeFilter("");
+              setResolvedFilter("");
+              setPage(1);
+            }}>
+            {t("clear_filters")}
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border border-subtle bg-default">
@@ -102,8 +214,9 @@ export function IncidentsPageClient() {
             <tbody className="divide-y divide-subtle">
               {incidents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-subtle">
-                    {t("thotis_no_incidents_found")}
+                  <td colSpan={5} className="px-6 py-10 text-center">
+                    <p className="font-medium text-emphasis">{t("thotis_admin_no_incidents_empty")}</p>
+                    <p className="mt-1 text-sm text-subtle">{t("thotis_admin_no_incidents_empty_desc")}</p>
                   </td>
                 </tr>
               ) : (
@@ -122,7 +235,9 @@ export function IncidentsPageClient() {
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
-                          incident.resolved ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          incident.resolved
+                            ? "bg-success text-inverted"
+                            : "bg-error text-inverted"
                         }`}>
                         {incident.resolved ? t("resolved") : t("unresolved")}
                       </span>
@@ -141,7 +256,7 @@ export function IncidentsPageClient() {
                               resolveMutation.variables?.incidentId === incident.id
                             }
                             onClick={() => resolveMutation.mutate({ incidentId: incident.id })}>
-                            {t("thotis_resolve")}
+                            {t("thotis_admin_resolve_incident")}
                           </Button>
                         )}
                         <Button
@@ -156,30 +271,16 @@ export function IncidentsPageClient() {
                             moderationMutation.mutate({
                               studentProfileId: incident.studentProfileId,
                               actionType: "WARNING",
-                              reason: "Moderation action from incident report",
+                              reason: t("thotis_admin_moderation_reason_incident"),
                             })
                           }>
-                          {t("thotis_warn")}
+                          {t("thotis_admin_warn_mentor")}
                         </Button>
                         <Button
                           size="sm"
                           color="destructive"
-                          loading={
-                            moderationMutation.isPending &&
-                            moderationMutation.variables?.studentProfileId === incident.studentProfileId &&
-                            moderationMutation.variables?.actionType === "SUSPENSION"
-                          }
-                          onClick={() => {
-                            if (confirm(t("thotis_confirm_suspend_mentor"))) {
-                              moderationMutation.mutate({
-                                studentProfileId: incident.studentProfileId,
-                                actionType: "SUSPENSION",
-                                updateStatusTo: "SUSPENDED",
-                                reason: "Suspended due to incident report",
-                              });
-                            }
-                          }}>
-                          {t("thotis_suspend")}
+                          onClick={() => setSuspendTarget(incident.studentProfileId)}>
+                          {t("thotis_admin_suspend_mentor")}
                         </Button>
                       </div>
                     </td>
@@ -190,6 +291,37 @@ export function IncidentsPageClient() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <Button
+            color="minimal"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            {t("thotis_admin_previous")}
+          </Button>
+          <span className="text-sm text-subtle">
+            {page} / {totalPages} ({incidentsData?.total || 0} total)
+          </span>
+          <Button
+            color="minimal"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}>
+            {t("thotis_admin_next")}
+          </Button>
+        </div>
+      )}
+
+      {/* Suspension confirmation dialog */}
+      <SuspendConfirmDialog
+        isOpen={!!suspendTarget}
+        onClose={() => setSuspendTarget(null)}
+        onConfirm={handleSuspendConfirm}
+        isPending={moderationMutation.isPending}
+      />
     </div>
   );
 }

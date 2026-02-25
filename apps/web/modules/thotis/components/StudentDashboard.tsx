@@ -4,8 +4,9 @@ import dayjs from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
+import { Label, TextField } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { SessionManagementUI } from "./SessionManagementUI";
 import { StudentOnboarding } from "./StudentOnboarding";
 import { StudentSettings } from "./StudentSettings";
@@ -35,14 +36,18 @@ const RequestLinkInline = () => {
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-sm">
+      <Label htmlFor="guest-email" className="sr-only">
+        {t("email")}
+      </Label>
       <div className="flex gap-2">
-        <input
+        <TextField
+          id="guest-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t("email_placeholder")}
           required
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          containerClassName="flex-1"
         />
         <Button type="submit" loading={mutation.isPending}>
           {t("thotis_send_link")}

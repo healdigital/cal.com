@@ -7,6 +7,7 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Table } from "@calcom/ui/components/table";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Bar,
@@ -91,7 +92,7 @@ const StatsOverview = ({ stats }: { stats: PlatformStats | undefined }) => {
   return (
     <div className="space-y-4">
       {(stats?.dataQuality?.issues?.length ?? 0) > 0 && (
-        <div className="bg-error-subtle text-error p-3 rounded-md border border-error flex items-center gap-2 text-sm">
+        <div className="bg-attention text-attention p-3 rounded-md border border-attention flex items-center gap-2 text-sm">
           <span>⚠️</span>
           <div>
             <strong>{t("thotis_data_quality_warning")}:</strong>
@@ -318,6 +319,7 @@ const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
 
 const RecentIncidents = () => {
   const { t } = useLocale();
+  const router = useRouter();
   const { data: incidentsData, isPending } = trpc.thotis.admin.listIncidents.useQuery({
     page: 1,
     pageSize: 5,
@@ -325,7 +327,7 @@ const RecentIncidents = () => {
   });
 
   if (isPending)
-    return <div className="border-subtle bg-default rounded-md border p-4">Loading incidents...</div>;
+    return <div className="border-subtle bg-default rounded-md border p-4">{t("loading")}...</div>;
 
   const incidents = incidentsData?.incidents || [];
 
@@ -342,7 +344,11 @@ const RecentIncidents = () => {
           <p className="text-subtle text-sm text-center py-8">{t("thotis_no_recent_incidents")}</p>
         ) : (
           incidents.map((incident: IncidentData) => (
-            <div key={incident.id} className="p-3 bg-subtle rounded-md border border-subtle">
+            <button
+              key={incident.id}
+              type="button"
+              onClick={() => router.push("/thotis/admin/incidents")}
+              className="w-full text-left p-3 bg-subtle rounded-md border border-subtle hover:border-emphasis transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
                   {incident.type}
@@ -352,13 +358,13 @@ const RecentIncidents = () => {
                 </span>
               </div>
               <p className="text-xs text-default line-clamp-2 mb-2 italic">
-                "{incident.description || t("thotis_no_description")}"
+                &ldquo;{incident.description || t("thotis_no_description")}&rdquo;
               </p>
               <div className="text-[10px] text-muted flex justify-between">
                 <span>{incident.studentProfile?.university}</span>
                 <span className="font-medium text-emphasis">{incident.studentProfile?.user?.name}</span>
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -404,7 +410,11 @@ export const AdminDashboard = () => {
   };
 
   if (isPendingStats || isPendingProfiles) {
-    return <div className="p-8 text-center">Loading dashboard...</div>;
+    return (
+      <div className="p-8 text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
+      </div>
+    );
   }
 
   return (
@@ -427,11 +437,14 @@ export const AdminDashboard = () => {
             onClick={() => setActiveTab("bookings")}>
             {t("thotis_tab_bookings")}
           </Button>
-          <div className="ml-4 border-l pl-4">
-            <Button color="secondary" onClick={handleExportCSV}>
-              {t("thotis_export_csv")}
-            </Button>
-          </div>
+          {/* CSV export only visible on insights tab */}
+          {activeTab === "insights" && (
+            <div className="ml-4 border-l pl-4">
+              <Button color="secondary" onClick={handleExportCSV}>
+                {t("thotis_export_csv")}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

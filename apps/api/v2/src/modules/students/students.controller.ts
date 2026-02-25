@@ -55,9 +55,51 @@ export class StudentsController {
     }
   }
 
+  @Get("by-user/:userId")
+  async getStudentByUserId(@Param("userId") userId: string) {
+    const parsed = parseInt(userId, 10);
+    if (Number.isNaN(parsed)) {
+      throw new BadRequestException("userId must be a number");
+    }
+
+    try {
+      const profile = await this.profileService.getProfile(parsed);
+      if (!profile) {
+        throw new NotFoundException("Profile not found");
+      }
+      return { status: "success", data: profile };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
+      throw new HttpException(
+        { status: "error", message: error instanceof Error ? error.message : "Unknown error" },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get("by-profile/:profileId")
+  async getStudentByProfileId(@Param("profileId") profileId: string) {
+    try {
+      const profile = await this.profileService.getProfileById(profileId);
+      if (!profile) {
+        throw new NotFoundException("Profile not found");
+      }
+      return { status: "success", data: profile };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new HttpException(
+        { status: "error", message: error instanceof Error ? error.message : "Unknown error" },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * @deprecated Use GET /by-user/:userId or GET /by-profile/:profileId instead.
+   * Kept for backwards compatibility — resolves numeric IDs as userId, strings as profileId.
+   */
   @Get(":id")
   async getStudent(@Param("id") id: string) {
-    // Try as userId first if it's a number, otherwise as profileId string
     const idAsNumber = parseInt(id, 10);
     const isNumeric = !Number.isNaN(idAsNumber) && String(idAsNumber) === id;
 
@@ -69,10 +111,7 @@ export class StudentsController {
       if (!profile) {
         throw new NotFoundException("Profile not found");
       }
-      return {
-        status: "success",
-        data: profile,
-      };
+      return { status: "success", data: profile };
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new HttpException(
@@ -165,8 +204,7 @@ export class StudentsController {
         status: "success",
         data: profile,
       };
-    } catch (error: any) {
-      console.error(error);
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       if (message.includes("already exists")) {
         throw new BadRequestException(message);
@@ -194,7 +232,7 @@ export class StudentsController {
         status: "success",
         data: profile,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       if (message === "Profile not found") throw new NotFoundException("Profile not found");
       throw new HttpException({ status: "error", message }, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -227,7 +265,7 @@ export class StudentsController {
         status: "success",
         data: profile,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       throw new HttpException({ status: "error", message }, HttpStatus.INTERNAL_SERVER_ERROR);
     }

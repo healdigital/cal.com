@@ -8,27 +8,28 @@ import { Table } from "@calcom/ui/components/table";
 import { useState } from "react";
 import { BookingDetailSheet } from "./BookingDetailSheet";
 
-const STATUS_OPTIONS = [
-  { label: "All", value: "" },
-  { label: "Accepted", value: "ACCEPTED" },
-  { label: "Pending", value: "PENDING" },
-  { label: "Cancelled", value: "CANCELLED" },
-];
-
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLocale();
   const colorMap: Record<string, string> = {
-    ACCEPTED: "bg-green-100 text-green-700",
-    PENDING: "bg-yellow-100 text-yellow-700",
-    CANCELLED: "bg-red-100 text-red-700",
-    REJECTED: "bg-red-100 text-red-700",
+    ACCEPTED: "bg-success text-inverted",
+    PENDING: "bg-attention text-attention",
+    CANCELLED: "bg-error text-inverted",
+    REJECTED: "bg-error text-inverted",
+  };
+
+  const labelMap: Record<string, string> = {
+    ACCEPTED: t("thotis_admin_status_accepted"),
+    PENDING: t("thotis_admin_status_pending"),
+    CANCELLED: t("thotis_admin_status_cancelled"),
+    REJECTED: t("thotis_admin_status_rejected"),
   };
 
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
-        colorMap[status] || "bg-gray-100 text-gray-700"
+        colorMap[status] || "bg-subtle text-subtle"
       }`}>
-      {status}
+      {labelMap[status] || status}
     </span>
   );
 }
@@ -41,6 +42,13 @@ export function AdminBookingList() {
   const [dateTo, setDateTo] = useState<string>("");
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const pageSize = 20;
+
+  const STATUS_OPTIONS = [
+    { label: t("thotis_admin_status_all"), value: "" },
+    { label: t("thotis_admin_status_accepted"), value: "ACCEPTED" },
+    { label: t("thotis_admin_status_pending"), value: "PENDING" },
+    { label: t("thotis_admin_status_cancelled"), value: "CANCELLED" },
+  ];
 
   const { data, isLoading } = trpc.thotis.admin.listBookings.useQuery({
     page,
@@ -107,25 +115,28 @@ export function AdminBookingList() {
 
       {isLoading ? (
         <div className="flex justify-center py-10">
-          <div className="h-8 w-8 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
+          <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
         </div>
       ) : (
         <>
           <Table>
             <Table.Header>
-              <Table.ColumnTitle>{t("thotis_admin_col_datetime")}</Table.ColumnTitle>
-              <Table.ColumnTitle>{t("thotis_admin_col_mentor")}</Table.ColumnTitle>
-              <Table.ColumnTitle>{t("thotis_admin_col_student")}</Table.ColumnTitle>
-              <Table.ColumnTitle>{t("thotis_admin_col_status")}</Table.ColumnTitle>
-              <Table.ColumnTitle>{t("thotis_admin_col_rating")}</Table.ColumnTitle>
-              <Table.ColumnTitle>{t("thotis_admin_actions")}</Table.ColumnTitle>
+              <Table.Row>
+                <Table.ColumnTitle>{t("thotis_admin_col_datetime")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_col_mentor")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_col_student")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_col_status")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_col_rating")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_actions")}</Table.ColumnTitle>
+              </Table.Row>
             </Table.Header>
             <Table.Body>
               {!data?.bookings || data.bookings.length === 0 ? (
                 <Table.Row>
-                  <Table.Cell>
-                    <span className="text-subtle">{t("thotis_admin_no_bookings")}</span>
-                  </Table.Cell>
+                  <td colSpan={6} className="px-6 py-10 text-center">
+                    <p className="font-medium text-emphasis">{t("thotis_admin_no_bookings")}</p>
+                    <p className="mt-1 text-sm text-subtle">{t("thotis_admin_no_bookings_empty_desc")}</p>
+                  </td>
                 </Table.Row>
               ) : (
                 data.bookings.map((booking) => (

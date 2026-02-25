@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { UserAvatar } from "@calcom/ui/components/avatar";
@@ -10,6 +11,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { BookingWidget } from "~/thotis/components/BookingWidget";
 
 export default function MentorProfilePage() {
+  const { t } = useLocale();
   const params = useParams();
   const username = params?.username as string;
   const router = useRouter();
@@ -52,10 +54,10 @@ export default function MentorProfilePage() {
   if (error || !profile) {
     return (
       <div className="container mx-auto py-10 px-4 text-center">
-        <h2 className="text-xl font-semibold text-red-600">Mentor not found</h2>
-        <p className="text-gray-600">The mentor you are looking for doesn't exist or is not active.</p>
+        <h2 className="text-xl font-semibold text-red-600">{t("thotis_mentor_not_found")}</h2>
+        <p className="text-gray-600">{t("thotis_mentor_not_found_desc")}</p>
         <Button className="mt-4" onClick={() => router.push("/thotis/mentors")}>
-          Back to Mentors
+          {t("thotis_back_to_mentors")}
         </Button>
       </div>
     );
@@ -81,7 +83,7 @@ export default function MentorProfilePage() {
             onClick={() => router.push("/thotis/mentors")}
             className="flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors">
             <Icon name="arrow-left" className="h-4 w-4 mr-1" />
-            Back to Mentors
+            {t("thotis_back_to_mentors")}
           </button>
         </div>
 
@@ -100,7 +102,7 @@ export default function MentorProfilePage() {
                     <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
                     <div className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 border border-green-100">
                       <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <span className="text-xs font-semibold text-green-700">Available</span>
+                      <span className="text-xs font-semibold text-green-700">{t("thotis_available")}</span>
                     </div>
                   </div>
 
@@ -114,7 +116,7 @@ export default function MentorProfilePage() {
                       <span className="text-sm">{profile.degree}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium">{profile.currentYear} Year Student</span>
+                      <span className="text-sm font-medium">{t("thotis_year", { count: profile.currentYear })}</span>
                     </div>
                   </div>
 
@@ -123,11 +125,11 @@ export default function MentorProfilePage() {
                       <Icon name="star" className="h-4 w-4 fill-orange-400 text-orange-400" />
                       <span className="text-lg font-bold text-gray-900">{formattedRating}</span>
                     </div>
-                    <span className="text-sm text-gray-500">({totalRatings} reviews)</span>
+                    <span className="text-sm text-gray-500">({t("thotis_reviews_count", { count: totalRatings })})</span>
                   </div>
 
                   <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                    <h3 className="text-gray-900 font-semibold mb-2">About Me</h3>
+                    <h3 className="text-gray-900 font-semibold mb-2">{t("thotis_about_me")}</h3>
                     <p>{profile.bio}</p>
                   </div>
                 </div>
@@ -135,14 +137,14 @@ export default function MentorProfilePage() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Academic Background</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">{t("thotis_academic_background")}</h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
                   <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <Icon name="book" className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900">Field of Study</h4>
+                    <h4 className="text-sm font-semibold text-gray-900">{t("thotis_field_of_study")}</h4>
                     <p className="text-sm text-gray-600">{profile.field}</p>
                   </div>
                 </div>
@@ -152,13 +154,13 @@ export default function MentorProfilePage() {
                       <Icon name="link" className="h-4 w-4 text-blue-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-900">LinkedIn Profile</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">{t("thotis_linkedin_profile")}</h4>
                       <a
                         href={profile.linkedInUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 hover:underline">
-                        View Professional Profile
+                        {t("thotis_view_professional_profile")}
                       </a>
                     </div>
                   </div>

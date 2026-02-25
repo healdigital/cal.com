@@ -3292,6 +3292,10 @@ model StudentProfile {
   linkedInUrl     String?
   expertise       String[] @default([])
 
+  // Preferences
+  timezone         String  @default("Europe/Paris")
+  marketingConsent Boolean @default(false)
+
   // Status
   isActive Boolean      @default(true)
   status   MentorStatus @default(PENDING_VERIFICATION)

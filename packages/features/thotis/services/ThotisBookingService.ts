@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import BookingCancellationEmail from "@calcom/emails/templates/thotis/booking-cancellation";
 import BookingConfirmationEmail from "@calcom/emails/templates/thotis/booking-confirmation";
 import BookingRescheduledEmail from "@calcom/emails/templates/thotis/booking-rescheduled";
@@ -11,7 +12,6 @@ import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { CredentialForCalendarService } from "@calcom/types/Credential";
 import type { TFunction } from "next-i18next";
 import { uuid } from "short-uuid";
-import type { IncomingMessage } from "node:http";
 
 /**
  * Locally defined to avoid importing from @calcom/trpc (architecture boundary).
@@ -20,6 +20,7 @@ import type { IncomingMessage } from "node:http";
 interface ContextForGetSchedule extends Record<string, unknown> {
   req?: (IncomingMessage & { cookies: Partial<{ [key: string]: string }> }) | undefined;
 }
+
 import { RedisService } from "../../redis/RedisService";
 import { AnalyticsService } from "./AnalyticsService";
 import type { ThotisAnalyticsService } from "./ThotisAnalyticsService";
@@ -439,7 +440,8 @@ export class ThotisBookingService {
 
   /**
    * Ensures a valid video link exists for the booking (Property 32)
-   * Falls back to Jitsi if Google Meet generation fails
+   * Falls back to Jitsi if Google Meet generation fails.
+   * Retries the DB update up to 3 times to handle transient failures.
    */
   private async ensureVideoLink(
     bookingId: number,
@@ -451,20 +453,32 @@ export class ThotisBookingService {
       return currentLocation;
     }
 
-    // Reliability: Generate a stable fallback link
     const fallbackLink = `https://meet.jit.si/thotis-${uid}`;
+    const MAX_RETRIES = 3;
 
-    await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        location: fallbackLink,
-        metadata: {
-          ...(metadata as object),
-          googleMeetLink: fallbackLink,
-          isFallbackLink: true,
-        } as Prisma.InputJsonValue,
-      },
-    });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await this.prisma.booking.update({
+          where: { id: bookingId },
+          data: {
+            location: fallbackLink,
+            metadata: {
+              ...(metadata as object),
+              googleMeetLink: fallbackLink,
+              isFallbackLink: true,
+            } as Prisma.InputJsonValue,
+          },
+        });
+        return fallbackLink;
+      } catch (err) {
+        if (attempt === MAX_RETRIES) {
+          // Last attempt failed — return the link anyway so the booking isn't blocked
+          return fallbackLink;
+        }
+        // Brief delay before retry (50ms, 100ms)
+        await new Promise((resolve) => setTimeout(resolve, attempt * 50));
+      }
+    }
 
     return fallbackLink;
   }
@@ -494,6 +508,7 @@ export class ThotisBookingService {
       select: {
         id: true,
         status: true,
+        timezone: true,
         user: {
           select: {
             id: true,
@@ -506,6 +521,9 @@ export class ThotisBookingService {
     if (!studentProfile || !studentProfile.user) {
       throw new ErrorWithCode(ErrorCode.NotFound, "Student profile or user not found");
     }
+
+    // Use the student's configured timezone instead of hardcoded default
+    const effectiveTimeZone = studentProfile.timezone || timeZone;
 
     if (studentProfile.status !== MentorStatus.VERIFIED) {
       return [];

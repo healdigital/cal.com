@@ -1,28 +1,32 @@
 "use client";
 
+import { AcademicFieldSchema } from "@calcom/prisma/zod/inputTypeSchemas/AcademicFieldSchema";
 import { Button } from "@calcom/ui/components/button";
 import { Label, Select } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { useState } from "react";
 
-// Need to check where AcademicField enum is available for frontend,
-// usually imported from client-side types or manually defined if not exposed.
-// For now, hardcoding common fields based on known fields.
-const fields = [
-  { value: "MEDICINE", label: "Medicine" },
-  { value: "LAW", label: "Law" },
-  { value: "ENGINEERING", label: "Engineering" },
-  { value: "COMPUTER_SCIENCE", label: "Computer Science" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "PSYCHOLOGY", label: "Psychology" },
-  { value: "POLITICAL_SCIENCE", label: "Political Science" },
-  { value: "ECONOMICS", label: "Economics" },
-  { value: "ARTS", label: "Arts" },
-  { value: "LANGUAGES", label: "Languages" },
-  { value: "EDUCATION", label: "Education" },
-  { value: "SCIENCES", label: "Sciences" },
-  { value: "OTHER", label: "Other" },
-];
+// Derived from Prisma AcademicField enum — single source of truth
+const FIELD_LABELS: Record<string, string> = {
+  LAW: "Law",
+  MEDICINE: "Medicine",
+  ENGINEERING: "Engineering",
+  BUSINESS: "Business",
+  COMPUTER_SCIENCE: "Computer Science",
+  PSYCHOLOGY: "Psychology",
+  EDUCATION: "Education",
+  ARTS: "Arts",
+  SCIENCES: "Sciences",
+  POLITICAL_SCIENCE: "Political Science",
+  ECONOMICS: "Economics",
+  LANGUAGES: "Languages",
+  OTHER: "Other",
+};
+
+const fields = AcademicFieldSchema.options.map((value) => ({
+  value,
+  label: FIELD_LABELS[value] || value.replace(/_/g, " "),
+}));
 
 export interface OrientationIntentData {
   targetFields: string[];

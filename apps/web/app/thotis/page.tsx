@@ -40,6 +40,15 @@ export default function ThotisLandingPage() {
             <div className="flex gap-3">
               {session ? (
                 <>
+                  {session.user?.role === "ADMIN" && (
+                    <Button
+                      color="minimal"
+                      onClick={() => router.push("/thotis/admin")}
+                      className="gap-2">
+                      <Icon name="settings" className="h-4 w-4" />
+                      Admin
+                    </Button>
+                  )}
                   <Button
                     color="minimal"
                     onClick={() => router.push("/thotis/my-sessions")}

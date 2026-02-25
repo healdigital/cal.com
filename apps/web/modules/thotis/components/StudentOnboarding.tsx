@@ -1,15 +1,14 @@
 "use client";
 
+import type { OrientationIntentData } from "@calcom/features/thotis/components/OrientationIntentForm";
+import { OrientationIntentForm } from "@calcom/features/thotis/components/OrientationIntentForm";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
-import { Form, Label, TextField } from "@calcom/ui/components/form";
-import { Switch } from "@calcom/ui/components/form";
+import { Form, Label, Switch, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import type { OrientationIntentData } from "@calcom/features/thotis/components/OrientationIntentForm";
-import { OrientationIntentForm } from "@calcom/features/thotis/components/OrientationIntentForm";
 
 interface StudentOnboardingProps {
   onComplete?: () => void;
@@ -48,7 +47,13 @@ export function StudentOnboarding({ onComplete }: StudentOnboardingProps) {
 
   const [marketingConsent, setMarketingConsent] = useState(false);
 
+  const updateStudentPreferencesMutation = trpc.thotis.profile.updatePreferences.useMutation();
+
   const handleAccountSubmit = (data: { name: string }) => {
+    // Persist marketing consent alongside profile update
+    if (marketingConsent) {
+      updateStudentPreferencesMutation.mutate({ marketingConsent: true });
+    }
     updateProfileMutation.mutate({
       name: data.name,
     });

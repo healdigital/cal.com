@@ -20,6 +20,8 @@ const studentProfileSelect = {
   cancelledSessions: true,
   averageRating: true,
   totalRatings: true,
+  timezone: true,
+  marketingConsent: true,
   createdAt: true,
   updatedAt: true,
   user: {

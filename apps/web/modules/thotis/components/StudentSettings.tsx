@@ -3,10 +3,9 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
-import { Form, Label, TextField } from "@calcom/ui/components/form";
-import { Switch } from "@calcom/ui/components/form";
+import { Form, Label, Switch, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 interface StudentSettingsProps {
@@ -21,6 +20,9 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
 
+  // Load student profile preferences from DB via existing profile.get route
+  const { data: studentProfile } = trpc.thotis.profile.get.useQuery();
+
   const form = useForm({
     defaultValues: {
       name: user.name || "",
@@ -29,15 +31,37 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
 
   const updateProfileMutation = trpc.viewer.me.updateProfile.useMutation({
     onSuccess: () => {
-      showToast(t("thotis_profile_updated"), "success"); // "Profile updated"
+      showToast(t("thotis_profile_updated"), "success");
       utils.viewer.me.get.invalidate();
     },
-    onError: (err) => {
+    onError: (err: { message: string }) => {
       showToast(err.message, "error");
     },
   });
 
-  const [marketingConsent, setMarketingConsent] = useState(false); // detailed consent storage would need DB schema update
+  const updateStudentPreferencesMutation = trpc.thotis.profile.updatePreferences.useMutation({
+    onSuccess: () => {
+      showToast(t("thotis_profile_updated"), "success");
+      utils.thotis.profile.get.invalidate();
+    },
+    onError: (err: { message: string }) => {
+      showToast(err.message, "error");
+    },
+  });
+
+  const [marketingConsent, setMarketingConsent] = useState(false);
+
+  // Sync local state with DB value once loaded
+  useEffect(() => {
+    if (studentProfile?.marketingConsent !== undefined) {
+      setMarketingConsent(studentProfile.marketingConsent);
+    }
+  }, [studentProfile?.marketingConsent]);
+
+  const handleMarketingConsentChange = (checked: boolean) => {
+    setMarketingConsent(checked);
+    updateStudentPreferencesMutation.mutate({ marketingConsent: checked });
+  };
 
   const onSubmit = (data: { name: string }) => {
     updateProfileMutation.mutate({
@@ -68,7 +92,7 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
               <p className="text-emphasis text-sm font-medium">{t("thotis_marketing_consent")}</p>
               <p className="text-subtle text-xs">{t("thotis_marketing_consent_desc")}</p>
             </div>
-            <Switch checked={marketingConsent} onCheckedChange={setMarketingConsent} />
+            <Switch checked={marketingConsent} onCheckedChange={handleMarketingConsentChange} />
           </div>
           <p className="text-subtle text-xs mt-4">{t("thotis_gdpr_note")}</p>
         </div>

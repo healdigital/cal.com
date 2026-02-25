@@ -48,7 +48,6 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
         }))
       );
     } else if (schedule && !schedule.hasSchedule) {
-      // Default availability for new mentors: weekdays 9-17
       setSlots([{ days: [1, 2, 3, 4, 5], startTime: "09:00", endTime: "17:00" }]);
     }
   }, [schedule]);
@@ -105,20 +104,22 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
+            <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
           </div>
         ) : (
           <div className="max-h-[70vh] space-y-4 overflow-y-auto py-4">
             {schedule?.timeZone && (
               <p className="text-subtle text-xs">
-                Timezone: <span className="font-medium">{schedule.timeZone}</span>
+                {t("thotis_admin_timezone")}: <span className="font-medium">{schedule.timeZone}</span>
               </p>
             )}
 
             {slots.map((slot, index) => (
               <div key={index} className="space-y-3 rounded-md border border-subtle p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-emphasis text-xs uppercase">Slot {index + 1}</span>
+                  <span className="font-semibold text-emphasis text-xs uppercase">
+                    {t("thotis_admin_slot_number", { number: index + 1 })}
+                  </span>
                   {slots.length > 1 && (
                     <Button size="sm" color="destructive" onClick={() => removeSlot(index)}>
                       {t("thotis_admin_remove_slot")}
@@ -134,7 +135,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
                       onClick={() => toggleDay(index, dayIndex)}
                       className={`rounded-md px-2.5 py-1 font-medium text-xs transition-colors ${
                         slot.days.includes(dayIndex)
-                          ? "bg-blue-600 text-white"
+                          ? "bg-brand-default text-brand"
                           : "bg-subtle text-subtle hover:bg-emphasis/10"
                       }`}>
                       {dayName}

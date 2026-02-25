@@ -17,7 +17,7 @@ export function ThotisDashboardRouter({ userRole, userId, userEmail }: ThotisDas
   if (isLoadingProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-emphasis" />
       </div>
     );
   }

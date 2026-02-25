@@ -6,8 +6,10 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 /**
  * Thotis Branding Constants
@@ -22,6 +24,32 @@ const BRANDING = {
     secondary: "Inter, sans-serif",
   },
 };
+
+/** Derive the parent frame origin from document.referrer for secure postMessage. */
+function getParentOrigin(): string {
+  try {
+    if (typeof document !== "undefined" && document.referrer) {
+      return new URL(document.referrer).origin;
+    }
+  } catch {
+    // Invalid referrer URL — fall back to configured app URL
+  }
+  // Never use wildcard "*" — restrict to the configured webapp origin
+  return process.env.NEXT_PUBLIC_WEBAPP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+}
+
+/** Strip HTML tags and limit length to prevent XSS from URL params */
+function sanitizeInput(value: string, maxLength = 200): string {
+  return value.replace(/<[^>]*>/g, "").trim().slice(0, maxLength);
+}
+
+const bookingFormSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().min(1, "Email is required").email("Please enter a valid email"),
+  notes: z.string().max(1000).optional().default(""),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
 type WidgetStep = "loading" | "date" | "time" | "form" | "confirming" | "success" | "error";
 
@@ -46,7 +74,8 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm({
+  } = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -84,7 +113,10 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
   useEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        window.parent.postMessage({ type: "THOTIS_RESIZE", height: entry.contentRect.height }, "*");
+        window.parent.postMessage(
+          { type: "THOTIS_RESIZE", height: entry.contentRect.height },
+          getParentOrigin()
+        );
       }
     });
 
@@ -96,15 +128,15 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
     return () => resizeObserver.disconnect();
   }, [step]);
 
-  // URL Param Pre-filling
+  // URL Param Pre-filling (sanitized to prevent XSS)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const name = params.get("name");
       const email = params.get("email");
 
-      if (name) setValue("name", name);
-      if (email) setValue("email", email);
+      if (name) setValue("name", sanitizeInput(name));
+      if (email) setValue("email", sanitizeInput(email));
     }
   }, [setValue]);
 
@@ -122,7 +154,7 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
           bookingId: data.bookingId,
           googleMeetLink: data.googleMeetLink,
         },
-        "*"
+        getParentOrigin()
       );
     },
     onError: (error) => {
@@ -134,7 +166,7 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
   const trackEvent = trpc.thotis.analytics.track.useMutation();
   const isPendingBooking = createBookingMutation.isPending;
 
-  const onSubmit = (data: { name: string; email: string; notes: string }) => {
+  const onSubmit = (data: BookingFormValues) => {
     if (!selectedSlot || !studentProfileId) return;
 
     setStep("confirming");
@@ -171,15 +203,12 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
     }
   };
 
-  // Generate next 14 days for date selection
+  // Generate next 14 days for date selection.
+  // All days are shown — the backend availability API determines which have slots.
   const selectableDates = useMemo(() => {
     const dates: Dayjs[] = [];
     for (let i = 1; i <= 14; i++) {
-      const d = dayjs().add(i, "day");
-      // Skip weekends
-      if (d.day() !== 0 && d.day() !== 6) {
-        dates.push(d);
-      }
+      dates.push(dayjs().add(i, "day"));
     }
     return dates;
   }, []);
@@ -298,10 +327,12 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
             </label>
             <input
               id="name"
-              {...register("name", { required: true })}
+              {...register("name")}
               className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? "name-error" : undefined}
             />
-            {errors.name && <span className="text-xs text-red-500">{t("thotis_this_field_required")}</span>}
+            {errors.name && <span id="name-error" className="text-xs text-red-500">{errors.name.message}</span>}
           </div>
 
           <div>
@@ -311,10 +342,12 @@ export const BookingWidget = ({ studentProfileId, initialStep = "date" }: Bookin
             <input
               id="email"
               type="email"
-              {...register("email", { required: true })}
+              {...register("email")}
               className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
             />
-            {errors.email && <span className="text-xs text-red-500">{t("thotis_this_field_required")}</span>}
+            {errors.email && <span id="email-error" className="text-xs text-red-500">{errors.email.message}</span>}
           </div>
 
           <div>

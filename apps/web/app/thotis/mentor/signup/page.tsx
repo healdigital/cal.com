@@ -5,8 +5,10 @@ import { AcademicField } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { TextField, TextAreaField } from "@calcom/ui/components/form";
+import { showToast } from "@calcom/ui/components/toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -28,6 +30,18 @@ type MentorSignupForm = z.infer<typeof mentorSignupSchema>;
 export default function MentorSignupPage() {
   const { t } = useLocale();
   const router = useRouter();
+
+  // Check if user already has a profile - redirect if so
+  const { data: existingProfile, isLoading: isCheckingProfile } = trpc.thotis.profile.get.useQuery(undefined, {
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (existingProfile) {
+      router.replace("/thotis/mentor-dashboard");
+    }
+  }, [existingProfile, router]);
+
   const {
     register,
     handleSubmit,
@@ -38,7 +52,11 @@ export default function MentorSignupPage() {
 
   const createProfile = trpc.thotis.profile.create.useMutation({
     onSuccess: () => {
-      router.push("/thotis/dashboard");
+      showToast(t("thotis_profile_created"), "success");
+      router.push("/thotis/mentor-dashboard");
+    },
+    onError: (error) => {
+      showToast(error.message, "error");
     },
   });
 
@@ -51,6 +69,20 @@ export default function MentorSignupPage() {
       bio: data.bio,
     });
   };
+
+  // Show loading while checking existing profile
+  if (isCheckingProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  // Don't render form if profile exists (redirect is in progress)
+  if (existingProfile) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">

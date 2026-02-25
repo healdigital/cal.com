@@ -399,6 +399,7 @@ export class ThotisAdminService {
             description: true,
             resolved: true,
             createdAt: true,
+            studentProfileId: true,
           },
         },
       },

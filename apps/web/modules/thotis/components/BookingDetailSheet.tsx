@@ -39,6 +39,26 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
     },
   });
 
+  const resolveMutation = trpc.thotis.admin.resolveIncident.useMutation({
+    onSuccess: () => {
+      showToast(t("thotis_incident_resolved_success"), "success");
+      utils.thotis.admin.getBookingDetails.invalidate();
+    },
+    onError: (error) => {
+      showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+    },
+  });
+
+  const moderationMutation = trpc.thotis.admin.takeModerationAction.useMutation({
+    onSuccess: () => {
+      showToast(t("thotis_moderation_action_success"), "success");
+      utils.thotis.admin.getBookingDetails.invalidate();
+    },
+    onError: (error) => {
+      showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+    },
+  });
+
   const handleCancel = () => {
     if (!bookingId || !cancelReason.trim()) return;
     cancelMutation.mutate({ bookingId, reason: cancelReason });
@@ -51,7 +71,7 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
+            <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
           </div>
         ) : !booking ? (
           <p className="py-4 text-center text-subtle">{t("thotis_admin_no_bookings")}</p>
@@ -79,7 +99,7 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
                 <div>
                   <span className="text-subtle">{t("status")}:</span>{" "}
                   <span
-                    className={`font-medium ${booking.status === "CANCELLED" ? "text-red-600" : "text-green-600"}`}>
+                    className={`font-medium ${booking.status === "CANCELLED" ? "text-error" : "text-success"}`}>
                     {booking.status}
                   </span>
                 </div>
@@ -149,21 +169,50 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
               </div>
             )}
 
-            {/* Incidents */}
+            {/* Incidents - with actions */}
             {booking.mentorQualityIncidents && booking.mentorQualityIncidents.length > 0 && (
               <div className="rounded-md border border-subtle p-3">
                 <h4 className="mb-1 font-semibold text-subtle text-xs uppercase">
                   {t("thotis_admin_session_incidents")}
                 </h4>
                 {booking.mentorQualityIncidents.map((inc) => (
-                  <div key={inc.id} className="flex items-center justify-between py-1">
-                    <span className="text-default text-sm">{inc.type}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        inc.resolved ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}>
-                      {inc.resolved ? t("resolved") : t("unresolved")}
-                    </span>
+                  <div key={inc.id} className="flex items-center justify-between py-2 border-b border-subtle last:border-b-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-default text-sm font-medium">{inc.type}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          inc.resolved ? "bg-success text-inverted" : "bg-error text-inverted"
+                        }`}>
+                        {inc.resolved ? t("resolved") : t("unresolved")}
+                      </span>
+                    </div>
+                    {!inc.resolved && (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          color="secondary"
+                          loading={resolveMutation.isPending && resolveMutation.variables?.incidentId === inc.id}
+                          onClick={() => resolveMutation.mutate({ incidentId: inc.id })}>
+                          {t("thotis_admin_resolve_incident")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          color="secondary"
+                          loading={
+                            moderationMutation.isPending &&
+                            moderationMutation.variables?.actionType === "WARNING"
+                          }
+                          onClick={() =>
+                            moderationMutation.mutate({
+                              studentProfileId: inc.studentProfileId,
+                              actionType: "WARNING",
+                              reason: t("thotis_admin_moderation_reason_incident"),
+                            })
+                          }>
+                          {t("thotis_admin_warn_mentor")}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -171,11 +220,11 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
 
             {/* Cancellation reason */}
             {booking.cancellationReason && (
-              <div className="rounded-md border border-subtle bg-red-50 p-3">
-                <h4 className="mb-1 font-semibold text-red-600 text-xs uppercase">
+              <div className="rounded-md border border-error bg-error p-3">
+                <h4 className="mb-1 font-semibold text-inverted text-xs uppercase">
                   {t("thotis_admin_cancel_reason")}
                 </h4>
-                <p className="text-red-700 text-sm">{booking.cancellationReason}</p>
+                <p className="text-inverted text-sm">{booking.cancellationReason}</p>
               </div>
             )}
 
@@ -187,13 +236,13 @@ export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetail
             )}
 
             {showCancelConfirm && (
-              <div className="space-y-3 rounded-md border border-subtle bg-red-50 p-3">
-                <p className="font-medium text-red-700 text-sm">{t("thotis_admin_confirm_cancel")}</p>
+              <div className="space-y-3 rounded-md border border-error p-3 bg-error/5">
+                <p className="font-medium text-error text-sm">{t("thotis_admin_confirm_cancel")}</p>
                 <TextField
                   label={t("thotis_admin_cancel_reason")}
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Enter cancellation reason..."
+                  placeholder={t("thotis_admin_cancel_reason_placeholder")}
                 />
                 <div className="flex gap-2">
                   <Button

@@ -1,57 +1,29 @@
-"use client";
+import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
+import prisma from "@calcom/prisma";
+import { buildLegacyRequest } from "@lib/buildLegacyCtx";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { MentorDashboard } from "~/thotis/components/MentorDashboard";
-import { trpc } from "@calcom/trpc/react";
-import { Button } from "@calcom/ui/components/button";
-import { Icon } from "@calcom/ui/components/icon";
-import { useRouter } from "next/navigation";
+import { MentorDashboardClient } from "./MentorDashboardClient";
 
-export default function MentorDashboardPage() {
-  const router = useRouter();
+export default async function MentorDashboardPage() {
+  const session = await getServerSession({
+    req: buildLegacyRequest(await headers(), await cookies()),
+  });
 
-  // This page requires auth - the session user is the mentor
-  // We use the session hook that Cal.com provides through tRPC context
-  const { data: session, isLoading: isLoadingSession } = trpc.viewer.me.get.useQuery();
-
-  if (isLoadingSession) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
-      </div>
-    );
+  if (!session?.user) {
+    redirect("/auth/login?callbackUrl=/thotis/mentor-dashboard");
   }
 
-  if (!session) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-        <Icon name="lock" className="mb-4 h-12 w-12 text-gray-400" />
-        <h2 className="mb-2 text-xl font-semibold text-gray-900">Authentication Required</h2>
-        <p className="mb-6 text-center text-gray-600">
-          You need to be logged in as a mentor to access this dashboard.
-        </p>
-        <Button color="primary" onClick={() => router.push("/auth/login")}>
-          Sign In
-        </Button>
-      </div>
-    );
+  // Verify user has a mentor profile before granting access
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+
+  if (!profile) {
+    redirect("/thotis/mentor/signup");
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-10">
-        {/* Back navigation */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => router.push("/thotis")}
-            className="flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700">
-            <Icon name="arrow-left" className="mr-1 h-4 w-4" />
-            Back to Thotis
-          </button>
-        </div>
-
-        <MentorDashboard userId={session.id} />
-      </div>
-    </div>
-  );
+  return <MentorDashboardClient userId={session.user.id} />;
 }
