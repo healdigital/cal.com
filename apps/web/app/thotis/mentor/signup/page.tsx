@@ -15,6 +15,8 @@ export default function MentorSignupPage() {
   // Check if user already has a profile - redirect if so
   const { data: existingProfile, isLoading: isCheckingProfile } = trpc.thotis.profile.get.useQuery(undefined, {
     retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
   });
 
   useEffect(() => {

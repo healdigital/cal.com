@@ -192,7 +192,11 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
               {...profileForm.register("year")}
               error={profileForm.formState.errors.year?.message}
             />
-            <TextAreaField label={t("thotis_bio")} {...profileForm.register("bio")} />
+            <TextAreaField
+              label={t("thotis_bio")}
+              {...profileForm.register("bio")}
+              error={profileForm.formState.errors.bio?.message}
+            />
 
             <Button type="submit" color="primary" className="w-full" loading={createProfile.isPending}>
               {t("continue")}
