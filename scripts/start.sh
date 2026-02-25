@@ -25,6 +25,34 @@ else
   sleep 5
 fi
 
+# Clear any previously failed migrations (P3009) before deploying.
+# Failed migration records block prisma migrate deploy entirely.
+echo "Checking for failed migrations..."
+node -e '
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+(async () => {
+  try {
+    const failed = await prisma.$queryRawUnsafe(
+      "SELECT \"migration_name\" FROM \"_prisma_migrations\" WHERE \"rolled_back_at\" IS NULL AND \"finished_at\" IS NULL AND \"started_at\" IS NOT NULL"
+    );
+    if (failed.length > 0) {
+      console.log("Found " + failed.length + " failed migration(s):", failed.map(m => m.migration_name).join(", "));
+      await prisma.$executeRawUnsafe(
+        "UPDATE \"_prisma_migrations\" SET \"rolled_back_at\" = NOW() WHERE \"rolled_back_at\" IS NULL AND \"finished_at\" IS NULL AND \"started_at\" IS NOT NULL"
+      );
+      console.log("Marked failed migrations as rolled back.");
+    } else {
+      console.log("No failed migrations found.");
+    }
+  } catch (e) {
+    console.log("Could not check migrations table:", e.message);
+  } finally {
+    await prisma.$disconnect();
+  }
+})();
+' || echo "WARNING: Failed migration cleanup skipped"
+
 npx prisma migrate deploy --schema /calcom/packages/prisma/schema.prisma
 npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts
 yarn start
