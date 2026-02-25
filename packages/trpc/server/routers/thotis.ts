@@ -41,7 +41,7 @@ const analyticsRouter = router({
         bookingId: z.number().optional(),
         field: z.string().optional(),
         source: z.string().optional(),
-        metadata: z.any().optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -992,6 +992,7 @@ const adminRouter = router({
         pageSize: z.number().optional(),
         fieldOfStudy: z.nativeEnum(AcademicField).optional(),
         isActive: z.boolean().optional(),
+        search: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
@@ -1075,6 +1076,80 @@ const adminRouter = router({
         actionByUserId: ctx.user.id,
       });
     }),
+
+  listBookings: authedAdminProcedure
+    .input(
+      z.object({
+        page: z.number().optional(),
+        pageSize: z.number().optional(),
+        mentorUserId: z.number().optional(),
+        status: z.string().optional(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await adminService.listBookings(input);
+    }),
+
+  getBookingDetails: authedAdminProcedure
+    .input(z.object({ bookingId: z.number() }))
+    .query(async ({ input }) => {
+      return await adminService.getBookingDetails(input.bookingId);
+    }),
+
+  cancelBooking: authedAdminProcedure
+    .input(
+      z.object({
+        bookingId: z.number(),
+        reason: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.adminCancelBooking(input.bookingId, input.reason, ctx.user.id);
+    }),
+
+  updateMentorProfile: authedAdminProcedure
+    .input(
+      z.object({
+        profileId: z.string(),
+        bio: z.string().min(1).optional(),
+        university: z.string().min(1).optional(),
+        degree: z.string().min(1).optional(),
+        field: z.nativeEnum(AcademicField).optional(),
+        expertise: z.array(z.string()).optional(),
+        currentYear: z.number().min(1).max(10).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { profileId, ...data } = input;
+      return await adminService.updateMentorProfile(profileId, data);
+    }),
+
+  getMentorSchedule: authedAdminProcedure
+    .input(z.object({ mentorUserId: z.number() }))
+    .query(async ({ input }) => {
+      return await adminService.getMentorSchedule(input.mentorUserId);
+    }),
+
+  updateMentorSchedule: authedAdminProcedure
+    .input(
+      z.object({
+        mentorUserId: z.number(),
+        timeZone: z.string().optional(),
+        availability: z.array(
+          z.object({
+            days: z.array(z.number().min(0).max(6)),
+            startTime: z.string().regex(/^\d{2}:\d{2}$/),
+            endTime: z.string().regex(/^\d{2}:\d{2}$/),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { mentorUserId, ...scheduleData } = input;
+      return await adminService.updateMentorSchedule(mentorUserId, scheduleData);
+    }),
 });
 
 const intentRouter = router({
@@ -1085,7 +1160,7 @@ const intentRouter = router({
         academicLevel: z.string(),
         zone: z.string().optional().nullable(),
         goals: z.array(z.string()).optional(),
-        scheduleConstraints: z.any().optional(),
+        scheduleConstraints: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1105,7 +1180,7 @@ const intentRouter = router({
         academicLevel: z.string(),
         zone: z.string().optional().nullable(),
         goals: z.array(z.string()).optional(),
-        scheduleConstraints: z.any().optional(),
+        scheduleConstraints: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .query(async ({ input }) => {

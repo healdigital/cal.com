@@ -3330,6 +3330,8 @@ model SessionRating {
   feedback         String?  @db.Text
   prospectiveEmail String // Email of the prospective student who rated
   createdAt        DateTime @default(now())
+
+  @@index([studentProfileId])
 }
 
 model ThotisOrientationIntent {
@@ -3516,4 +3518,7 @@ model ThotisAnalyticsEvent {
   @@index([eventType, createdAt])
   @@index([profileId])
   @@index([field])
+  @@index([userId])
+  @@index([guestId])
+  @@index([bookingId])
 }

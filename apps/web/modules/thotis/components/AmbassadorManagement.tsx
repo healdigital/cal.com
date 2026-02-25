@@ -1,5 +1,6 @@
 "use client";
 
+import type { ProvisionAmbassadorInput } from "@calcom/features/thotis/services/ThotisAdminService";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
@@ -10,7 +11,8 @@ import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import type { ProvisionAmbassadorInput } from "@calcom/features/thotis/services/ThotisAdminService";
+import { EditMentorProfileModal } from "./EditMentorProfileModal";
+import { MentorScheduleModal } from "./MentorScheduleModal";
 
 const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -162,14 +164,26 @@ const IncidentsModal: React.FC<{
 export const AmbassadorManagement: React.FC = () => {
   const { t } = useLocale();
   const [fieldOfStudy, setFieldOfStudy] = useState<AcademicField | undefined>(undefined);
+  const [search, setSearch] = useState("");
   const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
   const [selectedAmbassador, setSelectedAmbassador] = useState<{ id: string; name: string } | null>(null);
+  const [editProfile, setEditProfile] = useState<{
+    id: string;
+    bio: string | null;
+    university: string | null;
+    degree: string | null;
+    field: string | null;
+    expertise: string[];
+    currentYear: number | null;
+  } | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<{ userId: number; name: string } | null>(null);
 
   const utils = trpc.useUtils();
 
   const { data } = trpc.thotis.admin.listAmbassadors.useQuery({
     page: 1,
     fieldOfStudy,
+    search: search || undefined,
   });
 
   const updateStatusMutation = trpc.thotis.admin.updateStatus.useMutation({
@@ -201,6 +215,13 @@ export const AmbassadorManagement: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-4">
+        <div className="w-64">
+          <TextField
+            placeholder={t("thotis_admin_search_placeholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         <div className="w-64">
           <Select
             options={Object.values(AcademicField).map((f) => ({ label: f, value: f }))}
@@ -244,7 +265,31 @@ export const AmbassadorManagement: React.FC = () => {
                 />
               </Table.Cell>
               <Table.Cell>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    onClick={() =>
+                      setEditProfile({
+                        id: profile.id,
+                        bio: profile.bio,
+                        university: profile.university,
+                        degree: profile.degree,
+                        field: profile.field,
+                        expertise: profile.expertise,
+                        currentYear: profile.currentYear,
+                      })
+                    }>
+                    {t("thotis_admin_edit_profile")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    onClick={() =>
+                      setScheduleTarget({ userId: profile.userId, name: profile.user.name || "" })
+                    }>
+                    {t("thotis_admin_schedule")}
+                  </Button>
                   <Button
                     size="sm"
                     color="secondary"
@@ -274,6 +319,19 @@ export const AmbassadorManagement: React.FC = () => {
         onClose={() => setSelectedAmbassador(null)}
         profileId={selectedAmbassador?.id || null}
         name={selectedAmbassador?.name || null}
+      />
+
+      <EditMentorProfileModal
+        isOpen={!!editProfile}
+        onClose={() => setEditProfile(null)}
+        profile={editProfile}
+      />
+
+      <MentorScheduleModal
+        isOpen={!!scheduleTarget}
+        onClose={() => setScheduleTarget(null)}
+        mentorUserId={scheduleTarget?.userId || null}
+        mentorName={scheduleTarget?.name || null}
       />
     </div>
   );

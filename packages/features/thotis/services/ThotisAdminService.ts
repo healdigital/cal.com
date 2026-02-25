@@ -8,6 +8,7 @@ import { prisma } from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";
 import {
   type AcademicField,
+  type BookingStatus,
   type MentorIncidentType,
   type MentorModerationActionType,
   MentorStatus,
@@ -165,6 +166,7 @@ export class ThotisAdminService {
     pageSize?: number;
     fieldOfStudy?: AcademicField;
     isActive?: boolean;
+    search?: string;
   }) {
     // We can reuse searchProfiles but we might want to include INACTIVE ones here by default if admin
     // So we'll add a specific method to ProfileRepository or use prisma directly here if needed.
@@ -176,6 +178,13 @@ export class ThotisAdminService {
     const where: Prisma.StudentProfileWhereInput = {};
     if (filters.fieldOfStudy) where.field = filters.fieldOfStudy;
     if (filters.isActive !== undefined) where.isActive = filters.isActive;
+    if (filters.search) {
+      where.OR = [
+        { user: { name: { contains: filters.search, mode: "insensitive" } } },
+        { user: { email: { contains: filters.search, mode: "insensitive" } } },
+        { university: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
 
     const [profiles, total] = await Promise.all([
       prisma.studentProfile.findMany({
@@ -188,6 +197,7 @@ export class ThotisAdminService {
           degree: true,
           currentYear: true,
           bio: true,
+          expertise: true,
           isActive: true,
           createdAt: true,
           updatedAt: true,
@@ -271,5 +281,311 @@ export class ThotisAdminService {
     }
 
     return action;
+  }
+
+  /**
+   * List all Thotis bookings with pagination and filters
+   */
+  async listBookings(filters: {
+    page?: number;
+    pageSize?: number;
+    mentorUserId?: number;
+    status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }) {
+    const page = filters.page || 1;
+    const pageSize = filters.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.BookingWhereInput = {
+      eventType: {
+        metadata: {
+          path: ["thotisEventType"],
+          equals: true,
+        },
+      },
+    };
+
+    if (filters.mentorUserId) {
+      where.userId = filters.mentorUserId;
+    }
+    if (filters.status) {
+      where.status = filters.status as BookingStatus;
+    }
+    if (filters.dateFrom || filters.dateTo) {
+      where.startTime = {};
+      if (filters.dateFrom) (where.startTime as Record<string, Date>).gte = filters.dateFrom;
+      if (filters.dateTo) (where.startTime as Record<string, Date>).lte = filters.dateTo;
+    }
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        select: {
+          id: true,
+          uid: true,
+          title: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          metadata: true,
+          responses: true,
+          cancellationReason: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          attendees: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          sessionRating: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+        orderBy: { startTime: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
+    return { bookings, total, page, pageSize };
+  }
+
+  /**
+   * Get detailed booking information for admin view
+   */
+  async getBookingDetails(bookingId: number) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        uid: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        metadata: true,
+        responses: true,
+        cancellationReason: true,
+        location: true,
+        userId: true,
+        user: {
+          select: { id: true, name: true, email: true, username: true },
+        },
+        attendees: {
+          select: { id: true, name: true, email: true },
+        },
+        sessionRating: {
+          select: { id: true, rating: true, feedback: true, createdAt: true },
+        },
+        thotisSessionSummary: {
+          select: { id: true, content: true, nextSteps: true, createdAt: true },
+        },
+        mentorQualityIncidents: {
+          select: {
+            id: true,
+            type: true,
+            description: true,
+            resolved: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Booking ${bookingId} not found`);
+    }
+
+    return booking;
+  }
+
+  /**
+   * Admin-initiated booking cancellation with audit trail
+   */
+  async adminCancelBooking(bookingId: number, reason: string, adminUserId: number) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        metadata: true,
+        userId: true,
+      },
+    });
+
+    if (!booking) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Booking ${bookingId} not found`);
+    }
+
+    if (booking.status === "CANCELLED") {
+      throw new ErrorWithCode(ErrorCode.BadRequest, "Booking is already cancelled");
+    }
+
+    const metadata = (booking.metadata as Record<string, unknown>) || {};
+    const studentProfileId = (metadata.studentProfileId as string) || undefined;
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "CANCELLED",
+        cancellationReason: reason,
+        metadata: {
+          ...metadata,
+          cancelledBy: "admin",
+          cancelledByAdminId: adminUserId,
+          cancelledAt: new Date().toISOString(),
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    if (studentProfileId) {
+      await prisma.studentProfile.update({
+        where: { id: studentProfileId },
+        data: { cancelledSessions: { increment: 1 } },
+      });
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Update a mentor profile (admin override)
+   */
+  async updateMentorProfile(
+    profileId: string,
+    data: {
+      bio?: string;
+      university?: string;
+      degree?: string;
+      field?: AcademicField;
+      expertise?: string[];
+      currentYear?: number;
+    }
+  ) {
+    const profile = await this.profileRepository.getProfile(profileId);
+    if (!profile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${profileId} not found`);
+    }
+
+    return this.profileRepository.updateProfile(profileId, data);
+  }
+
+  /**
+   * Get a mentor's schedule and availability configuration
+   */
+  async getMentorSchedule(mentorUserId: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: mentorUserId },
+      select: { defaultScheduleId: true, timeZone: true },
+    });
+
+    if (!user) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `User ${mentorUserId} not found`);
+    }
+
+    if (!user.defaultScheduleId) {
+      return {
+        id: null,
+        name: "No Schedule",
+        timeZone: user.timeZone || "Europe/Paris",
+        availability: [] as Array<{
+          id: number;
+          days: number[];
+          startTime: Date;
+          endTime: Date;
+          date: Date | null;
+        }>,
+        hasSchedule: false,
+      };
+    }
+
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: user.defaultScheduleId },
+      select: {
+        id: true,
+        name: true,
+        timeZone: true,
+        availability: {
+          select: {
+            id: true,
+            days: true,
+            startTime: true,
+            endTime: true,
+            date: true,
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      throw new ErrorWithCode(ErrorCode.NotFound, "Schedule not found");
+    }
+
+    return { ...schedule, hasSchedule: true };
+  }
+
+  /**
+   * Update a mentor's schedule availability (admin override)
+   */
+  async updateMentorSchedule(
+    mentorUserId: number,
+    scheduleData: {
+      timeZone?: string;
+      availability: Array<{
+        days: number[];
+        startTime: string;
+        endTime: string;
+      }>;
+    }
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: mentorUserId },
+      select: { defaultScheduleId: true },
+    });
+
+    if (!user) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `User ${mentorUserId} not found`);
+    }
+
+    if (!user.defaultScheduleId) {
+      throw new ErrorWithCode(ErrorCode.BadRequest, "User has no default schedule");
+    }
+
+    const scheduleId = user.defaultScheduleId;
+
+    await prisma.$transaction([
+      prisma.availability.deleteMany({
+        where: { scheduleId },
+      }),
+      prisma.availability.createMany({
+        data: scheduleData.availability.map((slot) => ({
+          scheduleId,
+          days: slot.days,
+          startTime: new Date(`1970-01-01T${slot.startTime}:00Z`),
+          endTime: new Date(`1970-01-01T${slot.endTime}:00Z`),
+        })),
+      }),
+    ]);
+
+    if (scheduleData.timeZone) {
+      await prisma.schedule.update({
+        where: { id: scheduleId },
+        data: { timeZone: scheduleData.timeZone },
+      });
+    }
+
+    return { success: true };
   }
 }

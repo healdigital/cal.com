@@ -249,6 +249,21 @@ export async function seedThotis(): Promise<void> {
   });
   console.log(`👤 Created Admin: ${adminEmail} (password: adminpassword)`);
 
+  // 5b. Create the Thotis dev admin account
+  const devAdminEmail = "dev@thotismedia.com";
+  await createUserAndEventType({
+    user: {
+      email: devAdminEmail,
+      username: "thotis-dev",
+      name: "Dev Thotis",
+      password: "!Th0T1$_2025!",
+      completedOnboarding: true,
+      theme: "dark",
+      role: "ADMIN",
+    },
+  });
+  console.log(`👤 Created Dev Admin: ${devAdminEmail}`);
+
   // 6. Verify all mentors have VERIFIED status
   const verifiedMentorsCount = await prisma.studentProfile.count({
     where: {

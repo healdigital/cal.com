@@ -1,68 +1,24 @@
-"use client";
+import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
+import { buildLegacyRequest } from "@lib/buildLegacyCtx";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import AdminDashboard from "~/thotis/components/AdminDashboard";
-import { MentorDashboard } from "~/thotis/components/MentorDashboard";
-import { StudentDashboard } from "~/thotis/components/StudentDashboard";
-import { trpc } from "@calcom/trpc/react";
-import { Button } from "@calcom/ui/components/button";
-import { Icon } from "@calcom/ui/components/icon";
-import { useRouter } from "next/navigation";
+import { ThotisDashboardRouter } from "~/thotis/components/ThotisDashboardRouter";
 
-export default function ThotisDashboardPage() {
-  const router = useRouter();
-  const { data: me, isLoading: isLoadingMe } = trpc.viewer.me.get.useQuery();
-  const { data: profile, isLoading: isLoadingProfile } = trpc.thotis.profile.get.useQuery();
+export default async function ThotisDashboardPage() {
+  const session = await getServerSession({
+    req: buildLegacyRequest(await headers(), await cookies()),
+  });
 
-  if (isLoadingMe || isLoadingProfile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
-      </div>
-    );
+  if (!session?.user) {
+    redirect("/auth/login");
   }
 
-  if (!me) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-        <Icon name="lock" className="mb-4 h-12 w-12 text-gray-400" />
-        <h2 className="mb-2 text-xl font-semibold text-gray-900">Authentication Required</h2>
-        <p className="mb-6 text-center text-gray-600">Please sign in to access your Thotis dashboard.</p>
-        <Button color="primary" onClick={() => router.push("/auth/login")}>
-          Sign In
-        </Button>
-      </div>
-    );
-  }
-
-  // Determine which dashboard to show
-  // 1. Admin Dashboard
-  if ("role" in me && me.role === "ADMIN") {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-10 px-4">
-          <AdminDashboard />
-        </div>
-      </div>
-    );
-  }
-
-  // 2. Mentor Dashboard if user has a student profile
-  if (profile) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-10 px-4">
-          <MentorDashboard userId={me.id} />
-        </div>
-      </div>
-    );
-  }
-
-  // 3. Default: Student Dashboard
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-10 px-4">
-        <StudentDashboard email={me.email} />
-      </div>
-    </div>
+    <ThotisDashboardRouter
+      userRole={session.user.role}
+      userId={session.user.id}
+      userEmail={session.user.email}
+    />
   );
 }

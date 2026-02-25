@@ -366,13 +366,14 @@ const RecentIncidents = () => {
   );
 };
 
+import { AdminBookingList } from "./AdminBookingList";
 import { AmbassadorManagement } from "./AmbassadorManagement";
 
 // --- Main Component ---
 
 export const AdminDashboard = () => {
   const { t } = useLocale();
-  const [activeTab, setActiveTab] = useState<"insights" | "ambassadors">("insights");
+  const [activeTab, setActiveTab] = useState<"insights" | "ambassadors" | "bookings">("insights");
   const { data: stats, isPending: isPendingStats } = trpc.thotis.statistics.platformStats.useQuery();
   const { data: searchData, isPending: isPendingProfiles } = trpc.thotis.profile.search.useQuery({
     page: 1,
@@ -421,6 +422,11 @@ export const AdminDashboard = () => {
             onClick={() => setActiveTab("ambassadors")}>
             {t("thotis_tab_ambassadors")}
           </Button>
+          <Button
+            color={activeTab === "bookings" ? "primary" : "minimal"}
+            onClick={() => setActiveTab("bookings")}>
+            {t("thotis_tab_bookings")}
+          </Button>
           <div className="ml-4 border-l pl-4">
             <Button color="secondary" onClick={handleExportCSV}>
               {t("thotis_export_csv")}
@@ -429,7 +435,7 @@ export const AdminDashboard = () => {
         </div>
       </div>
 
-      {activeTab === "insights" ? (
+      {activeTab === "insights" && (
         <>
           <StatsOverview stats={stats} />
 
@@ -442,9 +448,9 @@ export const AdminDashboard = () => {
 
           <MentorList profiles={searchData?.profiles || []} />
         </>
-      ) : (
-        <AmbassadorManagement />
       )}
+      {activeTab === "ambassadors" && <AmbassadorManagement />}
+      {activeTab === "bookings" && <AdminBookingList />}
     </div>
   );
 };
