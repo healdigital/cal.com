@@ -83,7 +83,7 @@ export function useBottomNavItems({
     isAdmin
       ? {
           name: "Ambassadeurs Thotis",
-          href: "/admin/thotis/ambassadors",
+          href: "/thotis/admin/ambassadors",
           icon: "users",
         }
       : null,

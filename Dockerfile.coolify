@@ -88,6 +88,11 @@ COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
 COPY scripts scripts
 RUN chmod +x scripts/*
 
+# Re-generate Prisma client in builder-two to ensure it matches this
+# stage's node_modules layout (the builder stage generated it but the
+# multi-stage copy can lose the generated output).
+RUN npx prisma generate --schema packages/prisma/schema.prisma
+
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
   BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 

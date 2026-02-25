@@ -301,7 +301,7 @@ export class ThotisAdminService {
     const where: Prisma.BookingWhereInput = {
       eventType: {
         metadata: {
-          path: ["thotisEventType"],
+          path: ["isThotisSession"],
           equals: true,
         },
       },

@@ -6,7 +6,7 @@ import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Icon } from "@calcom/ui/components/icon";
-import { Label, Select, TextField } from "@calcom/ui/components/form";
+import { Label, Select } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

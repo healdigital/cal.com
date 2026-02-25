@@ -25,11 +25,6 @@ else
   sleep 5
 fi
 
-# Ensure Prisma client is generated in the runner container.
-# The multi-stage Docker build may not carry over the generated client.
-echo "Generating Prisma client..."
-npx prisma generate --schema /calcom/packages/prisma/schema.prisma
-
 # Clear any previously failed migrations (P3009) before deploying.
 # Failed migration records block prisma migrate deploy entirely.
 echo "Checking for failed migrations..."
@@ -58,6 +53,10 @@ const prisma = new PrismaClient();
 })();
 ' || echo "WARNING: Failed migration cleanup skipped"
 
-npx prisma migrate deploy --schema /calcom/packages/prisma/schema.prisma
-npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts
+npx prisma migrate deploy --schema /calcom/packages/prisma/schema.prisma || \
+  echo "WARNING: prisma migrate deploy failed. Continuing anyway..."
+
+npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts || \
+  echo "WARNING: seed-app-store skipped (ts-node not available in slim image)"
+
 yarn start
