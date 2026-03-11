@@ -56,52 +56,26 @@ describe("thotisRouter - Public Sessions", () => {
     describe("getSessionsByToken", () => {
       it("should allow getting sessions via token as a guest", async () => {
         const token = "mock-token";
-        const email = "guest@example.com";
         const mockBookings = [{ id: 1, title: "Test Session" }];
-        const mockMagicLink = { guest: { email } };
-
-        vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue(mockMagicLink as any);
-
-        const prisma = (await import("@calcom/prisma")).default;
-        vi.mocked(prisma.booking.findMany).mockResolvedValue(mockBookings as any);
+        vi.mocked(ThotisBookingService.prototype.studentSessions).mockResolvedValue(mockBookings as never);
 
         const result = await caller.guest.getSessionsByToken({ token, status: "upcoming" });
 
-        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token);
-        expect(prisma.booking.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: expect.objectContaining({
-              responses: {
-                path: ["email"],
-                equals: email,
-              },
-            }),
-          })
-        );
+        expect(ThotisBookingService.prototype.studentSessions).toHaveBeenCalledWith({
+          token,
+          status: "upcoming",
+        });
         expect(result).toEqual(mockBookings);
       });
 
       it("should filter by bookingId if the token is scoped", async () => {
         const token = "scoped-token";
-        const bookingId = 123;
-        const mockBookings = [{ id: bookingId, title: "Scoped Session" }];
-        const mockMagicLink = { guest: { email: "guest@example.com" }, bookingId };
-
-        vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue(mockMagicLink as any);
-
-        const prisma = (await import("@calcom/prisma")).default;
-        vi.mocked(prisma.booking.findMany).mockResolvedValue(mockBookings as any);
+        const mockBookings = [{ id: 123, title: "Scoped Session" }];
+        vi.mocked(ThotisBookingService.prototype.studentSessions).mockResolvedValue(mockBookings as never);
 
         const result = await caller.guest.getSessionsByToken({ token });
 
-        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token);
-        expect(prisma.booking.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: expect.objectContaining({
-              id: bookingId,
-            }),
-          })
-        );
+        expect(ThotisBookingService.prototype.studentSessions).toHaveBeenCalledWith({ token });
         expect(result).toEqual(mockBookings);
       });
     });
@@ -121,7 +95,7 @@ describe("thotisRouter - Public Sessions", () => {
 
         const result = await caller.guest.cancelByToken(input);
 
-        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token);
+        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token, input.bookingId);
         expect(ThotisBookingService.prototype.cancelSession).toHaveBeenCalledWith(
           input.bookingId,
           input.reason,
@@ -140,12 +114,13 @@ describe("thotisRouter - Public Sessions", () => {
           token,
         };
 
-        vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue({
-          guest: { email },
-          bookingId: 456, // Different booking
-        } as any);
+        vi.mocked(ThotisGuestService.prototype.verifyToken).mockRejectedValue(
+          new Error("This link is restricted to another session")
+        );
 
-        await expect(caller.guest.cancelByToken(input)).rejects.toThrow("Token not valid for this booking");
+        await expect(caller.guest.cancelByToken(input)).rejects.toThrow(
+          "This link is restricted to another session"
+        );
       });
     });
 
@@ -170,7 +145,7 @@ describe("thotisRouter - Public Sessions", () => {
 
         const result = await caller.guest.rescheduleByToken(input);
 
-        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token);
+        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token, input.bookingId);
         expect(ThotisBookingService.prototype.rescheduleSession).toHaveBeenCalledWith(
           input.bookingId,
           input.newDateTime,
@@ -188,13 +163,12 @@ describe("thotisRouter - Public Sessions", () => {
           token,
         };
 
-        vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue({
-          guest: { email },
-          bookingId: 456, // Different booking
-        } as any);
+        vi.mocked(ThotisGuestService.prototype.verifyToken).mockRejectedValue(
+          new Error("This link is restricted to another session")
+        );
 
         await expect(caller.guest.rescheduleByToken(input)).rejects.toThrow(
-          "Token not valid for this booking"
+          "This link is restricted to another session"
         );
       });
     });
@@ -204,21 +178,34 @@ describe("thotisRouter - Public Sessions", () => {
         const token = "mock-token";
         const bookingId = 123;
         const email = "guest@example.com";
-        const mockSummary = { id: 1, content: "Summary" };
-        const mockResources = [{ id: 1, title: "Resource" }];
+        const createdAt = new Date("2024-01-01T10:00:00.000Z");
+        const mockSummary = {
+          id: "summary-1",
+          content: "Summary",
+          nextSteps: null,
+          createdAt,
+        };
+        const mockResources = [
+          { id: "resource-1", type: "link", title: "Resource", url: "https://example.com" },
+        ];
 
         vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue({ guest: { email } } as any);
 
         const prisma = (await import("@calcom/prisma")).default;
-        vi.mocked(prisma.booking.findUnique).mockResolvedValue({ responses: { email } } as any);
-        // @ts-expect-error
-        prisma.thotisSessionSummary = { findUnique: vi.fn().mockResolvedValue(mockSummary) };
-        // @ts-expect-error
-        prisma.thotisSessionResource = { findMany: vi.fn().mockResolvedValue(mockResources) };
+        vi.mocked(prisma.booking.findUnique).mockResolvedValue({
+          userId: 999,
+          responses: { email },
+          thotisSessionSummary: mockSummary,
+          thotisSessionResources: mockResources,
+        } as any);
 
         const result = await caller.guest.getPostSessionDataByToken({ token, bookingId });
 
-        expect(result).toEqual({ summary: mockSummary, resources: mockResources });
+        expect(ThotisGuestService.prototype.verifyToken).toHaveBeenCalledWith(token, bookingId);
+        expect(result).toEqual({
+          summary: { ...mockSummary, createdAt: createdAt.toISOString() },
+          resources: mockResources,
+        });
       });
 
       it("should deny access if token is scoped to a different booking", async () => {
@@ -226,13 +213,12 @@ describe("thotisRouter - Public Sessions", () => {
         const bookingId = 123;
         const email = "guest@example.com";
 
-        vi.mocked(ThotisGuestService.prototype.verifyToken).mockResolvedValue({
-          guest: { email },
-          bookingId: 456, // Different booking
-        } as any);
+        vi.mocked(ThotisGuestService.prototype.verifyToken).mockRejectedValue(
+          new Error("This link is restricted to another session")
+        );
 
         await expect(caller.guest.getPostSessionDataByToken({ token, bookingId })).rejects.toThrow(
-          "Token not valid for this booking"
+          "This link is restricted to another session"
         );
       });
 

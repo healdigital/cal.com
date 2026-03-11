@@ -7,9 +7,11 @@ import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Label, Select } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
+import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
 
 interface Incident {
   id: string;
@@ -25,6 +27,14 @@ const RESOLVED_OPTIONS = [
   { label: "thotis_admin_resolved_only", value: "true" },
   { label: "thotis_admin_unresolved_only", value: "false" },
 ];
+
+const INCIDENT_TYPE_OPTIONS = [
+  "NO_SHOW",
+  "LATE_ARRIVAL",
+  "INAPPROPRIATE_BEHAVIOR",
+  "POOR_QUALITY",
+  "OTHER",
+] as const satisfies readonly MentorIncidentType[];
 
 /** Custom confirmation dialog for suspension (replaces window.confirm) */
 function SuspendConfirmDialog({
@@ -117,11 +127,10 @@ export function IncidentsPageClient() {
   // Extract unique incident types for the filter dropdown
   const typeOptions: { label: string; value: MentorIncidentType | "" }[] = [
     { label: t("thotis_admin_all_types"), value: "" },
-    { label: "NO_SHOW", value: "NO_SHOW" },
-    { label: "LATE_ARRIVAL", value: "LATE_ARRIVAL" },
-    { label: "INAPPROPRIATE_BEHAVIOR", value: "INAPPROPRIATE_BEHAVIOR" },
-    { label: "POOR_QUALITY", value: "POOR_QUALITY" },
-    { label: "OTHER", value: "OTHER" },
+    ...INCIDENT_TYPE_OPTIONS.map((type) => ({
+      label: getMentorIncidentTypeLabel(t, type),
+      value: type,
+    })),
   ];
 
   const totalPages = incidentsData ? Math.ceil((incidentsData.total || 0) / pageSize) : 0;
@@ -200,96 +209,89 @@ export function IncidentsPageClient() {
         )}
       </div>
 
-      <div className="rounded-lg border border-subtle bg-default">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-subtle border-b bg-subtle text-subtle text-xs uppercase">
-              <tr>
-                <th className="px-6 py-3 font-semibold">{t("type")}</th>
-                <th className="px-6 py-3 font-semibold">{t("description")}</th>
-                <th className="px-6 py-3 font-semibold">{t("status")}</th>
-                <th className="px-6 py-3 font-semibold">{t("date")}</th>
-                <th className="px-6 py-3 font-semibold">{t("actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-subtle">
-              {incidents.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center">
-                    <p className="font-medium text-emphasis">{t("thotis_admin_no_incidents_empty")}</p>
-                    <p className="mt-1 text-sm text-subtle">{t("thotis_admin_no_incidents_empty_desc")}</p>
-                  </td>
-                </tr>
-              ) : (
-                incidents.map((incident: Incident) => (
-                  <tr key={incident.id} className="transition-colors hover:bg-subtle/50">
-                    <td className="px-6 py-4">
-                      <span className="font-medium text-emphasis">{incident.type}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div
-                        className="max-w-md truncate text-subtle"
-                        title={incident.description ?? undefined}>
-                        {incident.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
-                          incident.resolved ? "bg-success text-inverted" : "bg-error text-inverted"
-                        }`}>
-                        {incident.resolved ? t("resolved") : t("unresolved")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-subtle">
-                      {new Date(incident.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end gap-2">
-                        {!incident.resolved && (
-                          <Button
-                            size="sm"
-                            color="secondary"
-                            loading={
-                              resolveMutation.isPending &&
-                              resolveMutation.variables?.incidentId === incident.id
-                            }
-                            onClick={() => resolveMutation.mutate({ incidentId: incident.id })}>
-                            {t("thotis_admin_resolve_incident")}
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          color="secondary"
-                          loading={
-                            moderationMutation.isPending &&
-                            moderationMutation.variables?.studentProfileId === incident.studentProfileId &&
-                            moderationMutation.variables?.actionType === "WARNING"
-                          }
-                          onClick={() =>
-                            moderationMutation.mutate({
-                              studentProfileId: incident.studentProfileId,
-                              actionType: "WARNING",
-                              reason: t("thotis_admin_moderation_reason_incident"),
-                            })
-                          }>
-                          {t("thotis_admin_warn_mentor")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="destructive"
-                          onClick={() => setSuspendTarget(incident.studentProfileId)}>
-                          {t("thotis_admin_suspend_mentor")}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Table>
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnTitle>{t("type")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("description")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("status")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("date")}</Table.ColumnTitle>
+            <Table.ColumnTitle>{t("actions")}</Table.ColumnTitle>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {incidents.length === 0 ? (
+            <Table.Row>
+              <td colSpan={5} className="px-6 py-10 text-center">
+                <p className="font-medium text-emphasis">{t("thotis_admin_no_incidents_empty")}</p>
+                <p className="mt-1 text-sm text-subtle">{t("thotis_admin_no_incidents_empty_desc")}</p>
+              </td>
+            </Table.Row>
+          ) : (
+            incidents.map((incident: Incident) => (
+              <Table.Row key={incident.id}>
+                <Table.Cell>
+                  <span className="font-medium text-emphasis">
+                    {getMentorIncidentTypeLabel(t, incident.type)}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>
+                  <div className="max-w-md truncate text-subtle" title={incident.description ?? undefined}>
+                    {incident.description}
+                  </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
+                      incident.resolved ? "bg-success text-inverted" : "bg-error text-inverted"
+                    }`}>
+                    {incident.resolved ? t("resolved") : t("unresolved")}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>{new Date(incident.createdAt).toLocaleDateString()}</Table.Cell>
+                <Table.Cell>
+                  <div className="flex justify-end gap-2">
+                    {!incident.resolved && (
+                      <Button
+                        size="sm"
+                        color="secondary"
+                        loading={
+                          resolveMutation.isPending && resolveMutation.variables?.incidentId === incident.id
+                        }
+                        onClick={() => resolveMutation.mutate({ incidentId: incident.id })}>
+                        {t("thotis_admin_resolve_incident")}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      color="secondary"
+                      loading={
+                        moderationMutation.isPending &&
+                        moderationMutation.variables?.studentProfileId === incident.studentProfileId &&
+                        moderationMutation.variables?.actionType === "WARNING"
+                      }
+                      onClick={() =>
+                        moderationMutation.mutate({
+                          studentProfileId: incident.studentProfileId,
+                          actionType: "WARNING",
+                          reason: t("thotis_admin_moderation_reason_incident"),
+                        })
+                      }>
+                      {t("thotis_admin_warn_mentor")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="destructive"
+                      onClick={() => setSuspendTarget(incident.studentProfileId)}>
+                      {t("thotis_admin_suspend_mentor")}
+                    </Button>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            ))
+          )}
+        </Table.Body>
+      </Table>
 
       {/* Pagination */}
       {totalPages > 1 && (

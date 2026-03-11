@@ -1,284 +1,248 @@
 import { ErrorCode } from "@calcom/lib/errorCodes";
-import { ErrorWithCode } from "@calcom/lib/errors";
+import type { ErrorWithCode } from "@calcom/lib/errors";
 import type { PrismaClient } from "@prisma/client";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThotisBookingService } from "./ThotisBookingService";
+import type { ThotisEmailService } from "./ThotisEmailService";
+import type { ThotisGuestService } from "./ThotisGuestService";
 
-// Mock Prisma
+const mockAvailableSlotsService = {
+  getAvailableSlots: vi.fn(),
+};
+
+vi.mock("@calcom/features/di/containers/AvailableSlots", () => ({
+  getAvailableSlotsService: vi.fn(() => mockAvailableSlotsService),
+}));
+
+vi.mock("./ThotisWebhookClient", () => ({
+  thotisWebhooks: {
+    onBookingCancelled: vi.fn(),
+    onBookingCompleted: vi.fn(),
+    onBookingCreated: vi.fn(),
+    onBookingRescheduled: vi.fn(),
+  },
+}));
+
 const prismaMock = {
   booking: {
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-    findUnique: vi.fn(),
     create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
     update: vi.fn(),
+  },
+  credential: {
+    findMany: vi.fn(),
+  },
+  eventType: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  mentorQualityIncident: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
   },
   studentProfile: {
     findUnique: vi.fn(),
     update: vi.fn(),
   },
-  eventType: {
-    findFirst: vi.fn(),
-    create: vi.fn(),
+  user: {
+    findUnique: vi.fn(),
   },
-  $transaction: vi.fn((callback) => callback(prismaMock)),
 } as unknown as PrismaClient;
 
 describe("ThotisBookingService Properties", () => {
+  const emailServiceMock = {
+    sendCancellation: vi.fn(),
+    sendConfirmation: vi.fn(),
+    sendRescheduled: vi.fn(),
+  } as unknown as ThotisEmailService;
+  const guestServiceMock = {
+    requestInboxLink: vi.fn().mockResolvedValue({ token: "guest-token" }),
+    verifyToken: vi.fn(),
+  } as unknown as ThotisGuestService;
   let service: ThotisBookingService;
 
   beforeEach(() => {
-    service = new ThotisBookingService(prismaMock);
     vi.clearAllMocks();
-  });
-
-  // Property 8: Session Duration Invariant
-  it("should always create sessions exactly 15 minutes long", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc
-          .date({ min: new Date(Date.now() + 3 * 3600 * 1000) })
-          .filter((d) => !Number.isNaN(d.getTime())), // Future date > 2 hours
-        async (date) => {
-          // Setup mocks
-          (prismaMock.studentProfile.findUnique as any).mockResolvedValue({
-            id: "student-1",
-            userId: 1,
-            isActive: true,
-            user: { id: 1, email: "student@example.com", name: "Student" },
-          });
-
-          (prismaMock.booking.findFirst as any).mockResolvedValue(null); // No conflicts
-
-          (prismaMock.eventType.findFirst as any).mockResolvedValue({
-            id: 1,
-            length: 15,
-          });
-
-          (prismaMock.booking.create as any).mockImplementation((args: any) => ({
-            id: 1,
-            uid: "booking-uid",
-            startTime: args.data.startTime,
-            endTime: args.data.endTime,
-            status: "PENDING",
-          }));
-
-          const result = await service.createStudentSession({
-            studentProfileId: "student-1",
-            dateTime: date,
-            prospectiveStudent: {
-              name: "Test User",
-              email: "test@example.com",
-            },
-          });
-
-          // Verify length property
-          const createCall = (prismaMock.booking.create as any).mock.calls[0][0];
-          const startTime = createCall.data.startTime.getTime();
-          const endTime = createCall.data.endTime.getTime();
-
-          expect(endTime - startTime).toBe(15 * 60 * 1000);
-        }
-      )
+    service = new ThotisBookingService(
+      prismaMock,
+      undefined,
+      undefined,
+      undefined,
+      guestServiceMock,
+      emailServiceMock
     );
   });
 
-  // Property 14: Minimum Booking Notice
-  it("should reject bookings less than 2 hours in advance", async () => {
+  it("always creates sessions exactly 15 minutes long", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc
           .date({
-            min: new Date(),
-            max: new Date(Date.now() + 2 * 3600 * 1000 - 1000), // Now to < 2 hours
+            max: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            min: new Date(Date.now() + 3 * 60 * 60 * 1000),
           })
-          .filter((d) => !Number.isNaN(d.getTime())),
-        async (date) => {
-          // Setup mocks
-          (prismaMock.studentProfile.findUnique as any).mockResolvedValue({
+          .filter((date) => !Number.isNaN(date.getTime())),
+        async (dateTime) => {
+          const endTime = new Date(dateTime.getTime() + 15 * 60 * 1000);
+
+          vi.mocked(prismaMock.studentProfile.findUnique).mockResolvedValue({
             id: "student-1",
-            userId: 1,
             isActive: true,
-          });
-
-          try {
-            await service.createStudentSession({
-              studentProfileId: "student-1",
-              dateTime: date,
-              prospectiveStudent: {
-                name: "Test User",
-                email: "test@example.com",
-              },
-            });
-            // Should fail
-            expect(true).toBe(false);
-          } catch (error) {
-            expect(error).toBeInstanceOf(ErrorWithCode);
-            expect((error as ErrorWithCode).code).toBe(ErrorCode.BadRequest);
-          }
-        }
-      )
-    );
-  });
-
-  // Property 7: Double Booking Prevention
-  it("should detect overlapping bookings", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.date({ min: new Date(Date.now() + 3 * 3600 * 1000) }).filter((d) => !Number.isNaN(d.getTime())),
-        async (date) => {
-          // Setup mocks to simulate existing booking at requested time
-          (prismaMock.studentProfile.findUnique as any).mockResolvedValue({
-            id: "student-1",
+            status: "VERIFIED",
+            user: {
+              email: "mentor@example.com",
+              id: 1,
+              name: "Mentor",
+              studentProfile: { field: "COMPUTER_SCIENCE" },
+            },
             userId: 1,
-            isActive: true,
           });
-
-          // Mock finding a conflict
-          (prismaMock.booking.findFirst as any).mockResolvedValue({
-            id: 2,
-            startTime: date,
-            endTime: new Date(date.getTime() + 15 * 60 * 1000),
+          vi.mocked(prismaMock.booking.findFirst).mockResolvedValue(null);
+          vi.mocked(prismaMock.eventType.findFirst).mockResolvedValue({
+            id: 1,
+            length: 15,
           });
-
-          try {
-            await service.createStudentSession({
-              studentProfileId: "student-1",
-              dateTime: date,
-              prospectiveStudent: {
-                name: "Test User",
-                email: "test@example.com",
-              },
-            });
-            // Should fail
-            expect(true).toBe(false);
-          } catch (error) {
-            expect(error).toBeInstanceOf(ErrorWithCode);
-            expect((error as ErrorWithCode).code).toBe(ErrorCode.BookingConflict);
-          }
-        }
-      )
-    );
-  });
-
-  // Property 12: Availability Time Window
-  it("should reject availability queries beyond 30 days", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.date({ min: new Date() }), // Start date
-        fc.integer({ min: 31, max: 100 }), // Days in future > 30
-        async (startDate, daysInFuture) => {
-          const endDate = new Date(Date.now() + daysInFuture * 24 * 3600 * 1000 + 1000); // Add buffer
-
-          try {
-            await service.getStudentAvailability("student-1", {
-              start: startDate,
-              end: endDate,
-            });
-            expect(true).toBe(false);
-          } catch (error) {
-            expect(error).toBeInstanceOf(ErrorWithCode);
-            const code = (error as ErrorWithCode).code;
-            expect(code).toBe(ErrorCode.BadRequest);
-          }
-        }
-      )
-    );
-  });
-
-  // Property 30: Google Meet Link Uniqueness
-  it("should generate unique Google Meet links", async () => {
-    await fc.assert(
-      fc.asyncProperty(fc.date({ min: new Date(Date.now() + 3 * 3600 * 1000) }), async (date) => {
-        // Setup mocks
-        (prismaMock.studentProfile.findUnique as any).mockResolvedValue({
-          id: "student-1",
-          userId: 1,
-          isActive: true,
-          user: { id: 1, email: "student@example.com", name: "Student" },
-        });
-
-        (prismaMock.booking.findFirst as any).mockResolvedValue(null);
-
-        (prismaMock.eventType.findFirst as any).mockResolvedValue({
-          id: 1,
-          length: 15,
-        });
-
-        (prismaMock.booking.create as any).mockImplementation((args: any) => ({
-          id: Math.floor(Math.random() * 10000),
-          uid: "booking-uid",
-          startTime: args.data.startTime,
-          endTime: args.data.endTime,
-          status: "PENDING",
-        }));
-
-        const result1 = await service.createStudentSession({
-          studentProfileId: "student-1",
-          dateTime: date,
-          prospectiveStudent: {
-            name: "Test User 1",
-            email: "test1@example.com",
-          },
-        });
-
-        const result2 = await service.createStudentSession({
-          studentProfileId: "student-1",
-          dateTime: new Date(date.getTime() + 20 * 60 * 1000), // Different time
-          prospectiveStudent: {
-            name: "Test User 2",
-            email: "test2@example.com",
-          },
-        });
-
-        expect(result1.googleMeetLink).not.toBe(result2.googleMeetLink);
-        expect(result1.googleMeetLink).toMatch(/https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/);
-      })
-    );
-  });
-
-  // Property 32: Rescheduling Meet Link Regeneration
-  it("should regenerate Google Meet link on reschedule", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.date({ min: new Date(Date.now() + 3 * 3600 * 1000) }), // Original date
-        fc.date({ min: new Date(Date.now() + 3 * 3600 * 1000) }), // New date
-        async (originalDate, newDate) => {
-          // Ensure newDate is different enough to be a valid move (logic handled by service, mainly checks conflicts)
-          // We just need ANY valid reschedule to trigger link generation.
-
-          const bookingId = 123;
-          const originalLink = "https://meet.google.com/abc-defg-hij";
-
-          // Mock existing booking
-          (prismaMock.booking.findUnique as any).mockResolvedValue({
-            id: bookingId,
-            startTime: originalDate,
-            endTime: new Date(originalDate.getTime() + 15 * 60 * 1000),
+          vi.mocked(prismaMock.booking.create).mockImplementation(async ({ data }) => ({
+            description: "Student mentoring session",
+            endTime: data.endTime,
+            id: 1,
+            metadata: data.metadata,
+            responses: data.responses,
+            startTime: data.startTime,
             status: "PENDING",
-            metadata: {
-              googleMeetLink: originalLink,
-            },
-            eventType: {
-              userId: 1,
+            title: "Thotis Student Mentoring Session",
+            uid: "booking-uid",
+            userId: 1,
+          }));
+          vi.mocked(prismaMock.studentProfile.update).mockResolvedValue({ id: "student-1" });
+          vi.mocked(prismaMock.user.findUnique).mockResolvedValue({
+            email: "mentor@example.com",
+            locale: "fr",
+            name: "Mentor",
+            timeFormat: 24,
+            timeZone: "Europe/Paris",
+            username: "mentor",
+          });
+          vi.mocked(prismaMock.credential.findMany).mockResolvedValue([]);
+          vi.mocked(prismaMock.booking.findUnique).mockResolvedValue({
+            id: 1,
+            location: null,
+            metadata: { studentProfileId: "student-1" },
+            uid: "booking-uid",
+          });
+          vi.mocked(mockAvailableSlotsService.getAvailableSlots).mockResolvedValue({
+            slots: {
+              [dateTime.toISOString().split("T")[0]]: [{ time: dateTime.toISOString() }],
             },
           });
 
-          // Mock no conflict at new time
-          (prismaMock.booking.findFirst as any).mockResolvedValue(null);
+          await service.createStudentSession({
+            dateTime,
+            prospectiveStudent: {
+              email: "test@example.com",
+              name: "Test User",
+            },
+            studentProfileId: "student-1",
+          });
 
-          // Mock update
-          (prismaMock.booking.update as any).mockImplementation((args: any) => ({
-            id: bookingId,
-            uid: "booking-uid",
-            metadata: args.data.metadata,
-          }));
+          const latestCreateCall = vi.mocked(prismaMock.booking.create).mock.calls.at(-1)?.[0];
+          const createdStartTime = latestCreateCall?.data.startTime as Date;
+          const createdEndTime = latestCreateCall?.data.endTime as Date;
 
-          const result = await service.rescheduleSession(bookingId, newDate);
+          expect(createdStartTime).toBeInstanceOf(Date);
+          expect(createdEndTime).toBeInstanceOf(Date);
+          expect(createdEndTime.getTime() - createdStartTime.getTime()).toBe(15 * 60 * 1000);
+          expect(endTime.getTime() - dateTime.getTime()).toBe(15 * 60 * 1000);
+        }
+      )
+    );
+  });
 
-          expect(result.googleMeetLink).not.toBe(originalLink);
-          expect(result.googleMeetLink).toMatch(/https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/);
+  it("rejects bookings that are less than two hours away", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc
+          .date({
+            max: new Date(Date.now() + 2 * 60 * 60 * 1000 - 1_000),
+            min: new Date(),
+          })
+          .filter((date) => !Number.isNaN(date.getTime())),
+        async (dateTime) => {
+          await expect(
+            service.createStudentSession({
+              dateTime,
+              prospectiveStudent: {
+                email: "test@example.com",
+                name: "Test User",
+              },
+              studentProfileId: "student-1",
+            })
+          ).rejects.toMatchObject({
+            code: ErrorCode.BadRequest,
+          } satisfies Partial<ErrorWithCode>);
+        }
+      )
+    );
+  });
+
+  it("rejects overlapping bookings when an existing booking already occupies the slot", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc
+          .date({ min: new Date(Date.now() + 3 * 60 * 60 * 1000) })
+          .filter((date) => !Number.isNaN(date.getTime())),
+        async (dateTime) => {
+          vi.mocked(prismaMock.studentProfile.findUnique).mockResolvedValue({
+            id: "student-1",
+            isActive: true,
+            status: "VERIFIED",
+            user: {
+              studentProfile: { field: "COMPUTER_SCIENCE" },
+            },
+            userId: 1,
+          });
+          vi.mocked(prismaMock.booking.findFirst).mockResolvedValue({
+            endTime: new Date(dateTime.getTime() + 15 * 60 * 1000),
+            id: 2,
+            startTime: dateTime,
+          });
+
+          await expect(
+            service.createStudentSession({
+              dateTime,
+              prospectiveStudent: {
+                email: "test@example.com",
+                name: "Test User",
+              },
+              studentProfileId: "student-1",
+            })
+          ).rejects.toMatchObject({
+            code: ErrorCode.BookingConflict,
+          } satisfies Partial<ErrorWithCode>);
+        }
+      )
+    );
+  });
+
+  it("rejects availability queries beyond 30 days", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.date({ min: new Date() }),
+        fc.integer({ max: 100, min: 31 }),
+        async (startDate, days) => {
+          const endDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000 + 1_000);
+
+          await expect(
+            service.getStudentAvailability("student-1", {
+              end: endDate,
+              start: startDate,
+            })
+          ).rejects.toMatchObject({
+            code: ErrorCode.BadRequest,
+          } satisfies Partial<ErrorWithCode>);
         }
       )
     );

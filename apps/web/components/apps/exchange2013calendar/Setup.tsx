@@ -25,6 +25,7 @@ export default function Exchange2013CalendarSetup() {
     <div className="bg-emphasis flex h-screen">
       <div className="bg-default m-auto rounded p-5 md:w-[560px] md:p-10">
         <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/api/app-store/exchange2013calendar/icon.svg"
             alt="Exchange 2013 Calendar"

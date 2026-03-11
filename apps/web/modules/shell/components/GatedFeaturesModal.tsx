@@ -48,6 +48,7 @@ export function GatedFeaturesModal() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent className="p-0!" style={{ maxWidth: "400px" }}>
         <div className="p-6">
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG illustration */}
           <img src={image} alt={t(title)} className="w-full h-36 mb-5" />
           <div className="p-1 text-xs bg-emphasis rounded-md w-fit mb-3 leading-3">{t(badgeText)}</div>
 

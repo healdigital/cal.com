@@ -1,10 +1,11 @@
 import process from "node:process";
+import { getServerErrorFromUnknown } from "@calcom/lib/server/getServerErrorFromUnknown";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ORIGINS = (process.env.THOTIS_WP_ORIGIN || "https://thotismedia.com")
-  .split(",")
-  .map((o) => o.trim());
+const ALLOWED_ORIGINS = process.env.THOTIS_WP_ORIGIN
+  ? process.env.THOTIS_WP_ORIGIN.split(",").map((o) => o.trim())
+  : [];
 
 function getCorsHeaders(request: NextRequest): Record<string, string> {
   const origin = request.headers.get("origin") ?? "";
@@ -39,9 +40,15 @@ export function withCors(handler: RouteHandler): RouteHandler {
       }
       return response;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Internal server error";
-      const status = error instanceof ApiError ? error.status : 500;
-      const res = NextResponse.json({ error: message }, { status });
+      const serverError =
+        error instanceof ApiError
+          ? {
+              statusCode: error.status,
+              message: error.message,
+            }
+          : getServerErrorFromUnknown(error);
+
+      const res = NextResponse.json({ error: serverError.message }, { status: serverError.statusCode });
       for (const [key, value] of Object.entries(headers)) {
         res.headers.set(key, value);
       }

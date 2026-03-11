@@ -1,15 +1,18 @@
-import process from "node:process";
-import dayjs from "@calcom/dayjs";
-import { sendPasswordResetEmail } from "@calcom/emails/auth-email-service";
-import { PASSWORD_RESET_EXPIRY_HOURS } from "@calcom/features/auth/lib/passwordResetRequest";
+import { passwordResetRequest } from "@calcom/features/auth/lib/passwordResetRequest";
+import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
+import { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
+import { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
+import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
+import { parseThotisMetadata } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
-import { getTranslation } from "@calcom/lib/server/i18n";
-import { prisma } from "@calcom/prisma";
-import type { Prisma } from "@calcom/prisma/client";
+import logger from "@calcom/lib/logger";
+import prisma from "@calcom/prisma";
+import type { Prisma, User } from "@calcom/prisma/client";
 import {
   type AcademicField,
   type BookingStatus,
+  CreationSource,
   type MentorIncidentType,
   type MentorModerationActionType,
   MentorStatus,
@@ -17,6 +20,26 @@ import {
 import { MentorQualityRepository } from "../repositories/MentorQualityRepository";
 import { ProfileRepository } from "../repositories/ProfileRepository";
 import { ProfileService } from "./ProfileService";
+
+const log = logger.getSubLogger({ prefix: ["ThotisAdminService"] });
+
+export interface ScheduleConfig {
+  /** Days of the week (0=Sunday, 1=Monday, ..., 6=Saturday). Defaults to [1,2,3,4,5] (Mon-Fri). */
+  days?: number[];
+  /** Start time in HH:MM format. Defaults to "09:00". */
+  startTime?: string;
+  /** End time in HH:MM format. Defaults to "17:00". */
+  endTime?: string;
+  /** IANA timezone. Defaults to "Europe/Paris". */
+  timeZone?: string;
+}
+
+export const DEFAULT_SCHEDULE_CONFIG: Required<ScheduleConfig> = {
+  days: [1, 2, 3, 4, 5],
+  startTime: "09:00",
+  endTime: "17:00",
+  timeZone: "Europe/Paris",
+};
 
 export interface ProvisionAmbassadorInput {
   name: string;
@@ -26,21 +49,40 @@ export interface ProvisionAmbassadorInput {
   degree: string;
   yearOfStudy: number;
   bio: string;
+  expertise?: string[];
+  schedule?: ScheduleConfig;
 }
 
 export class ThotisAdminService {
   private profileRepository: ProfileRepository;
   private mentorQualityRepository: MentorQualityRepository;
   private profileService: ProfileService;
+  private userRepository: UserRepository;
+  private bookingRepository: BookingRepository;
+  private scheduleRepository: ScheduleRepository;
+  private schedulesRepository: SchedulesRepository;
+  private passwordResetRequestFn: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
 
   constructor(
     profileService?: ProfileService,
     profileRepository?: ProfileRepository,
-    mentorQualityRepository?: MentorQualityRepository
+    mentorQualityRepository?: MentorQualityRepository,
+    deps?: {
+      bookingRepository?: BookingRepository;
+      passwordResetRequestFn?: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
+      scheduleRepository?: ScheduleRepository;
+      schedulesRepository?: SchedulesRepository;
+      userRepository?: UserRepository;
+    }
   ) {
     this.profileRepository = profileRepository || new ProfileRepository();
     this.profileService = profileService || new ProfileService(this.profileRepository);
     this.mentorQualityRepository = mentorQualityRepository || new MentorQualityRepository();
+    this.userRepository = deps?.userRepository || new UserRepository(prisma);
+    this.bookingRepository = deps?.bookingRepository || new BookingRepository(prisma);
+    this.scheduleRepository = deps?.scheduleRepository || new ScheduleRepository(prisma);
+    this.schedulesRepository = deps?.schedulesRepository || new SchedulesRepository(prisma);
+    this.passwordResetRequestFn = deps?.passwordResetRequestFn || passwordResetRequest;
   }
 
   /**
@@ -55,12 +97,12 @@ export class ThotisAdminService {
       .replace(/^-|-$/g, "");
 
     // Try the base username first
-    const existing = await prisma.user.findFirst({
-      where: { username: base, organizationId: null },
-      select: { id: true },
+    const existing = await this.userRepository.findUsersByUsername({
+      orgSlug: null,
+      usernameList: [base],
     });
 
-    if (!existing) return base;
+    if (!existing.length) return base;
 
     // Append random suffix to avoid collision
     const suffix = Math.random().toString(36).substring(2, 6);
@@ -74,32 +116,58 @@ export class ThotisAdminService {
    */
   async provisionAmbassador(input: ProvisionAmbassadorInput) {
     // 1. Check if user already exists
-    let user = await prisma.user.findUnique({
-      where: { email: input.email },
-      select: { id: true, email: true, name: true, locale: true, timeZone: true },
-    });
+    const existingUser = await this.userRepository.findByEmail({ email: input.email });
+    const user = existingUser
+      ? {
+          email: existingUser.email,
+          id: existingUser.id,
+          locale: existingUser.locale,
+          name: existingUser.name,
+          timeZone: existingUser.timeZone,
+        }
+      : null;
 
     if (!user) {
+      const userTimeZone = input.schedule?.timeZone || DEFAULT_SCHEDULE_CONFIG.timeZone;
       const username = await this.generateUniqueUsername(input.email);
-      user = await prisma.user.create({
-        data: {
-          email: input.email,
-          name: input.name,
-          username,
-          emailVerified: new Date(),
-          completedOnboarding: true,
-          locale: "fr",
-          timeZone: "Europe/Paris",
-        },
-        select: { id: true, email: true, name: true, locale: true, timeZone: true },
+      const createdUser = await this.userRepository.create({
+        email: input.email,
+        name: input.name,
+        username,
+        emailVerified: new Date(),
+        completedOnboarding: true,
+        locale: "fr",
+        timeZone: userTimeZone,
+        organizationId: null,
+        creationSource: CreationSource.WEBAPP,
+        locked: false,
       });
+
+      const provisionedUser = {
+        email: createdUser.email,
+        id: createdUser.id,
+        locale: createdUser.locale,
+        name: createdUser.name,
+        timeZone: createdUser.timeZone,
+      };
+
+      return this.provisionAmbassadorForUser(provisionedUser, input);
     }
 
-    // 2. Check if profile already exists (idempotency for retries)
-    const existingProfile = await prisma.studentProfile.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
+    return this.provisionAmbassadorForUser(user, input);
+  }
+
+  private async provisionAmbassadorForUser(
+    user: {
+      email: string;
+      id: number;
+      locale: string | null;
+      name: string | null;
+      timeZone: string;
+    },
+    input: ProvisionAmbassadorInput
+  ) {
+    const existingProfile = await this.profileRepository.getProfileByUserId(user.id);
 
     let profile;
     if (existingProfile) {
@@ -112,6 +180,7 @@ export class ThotisAdminService {
         degree: input.degree,
         status: MentorStatus.VERIFIED,
         isActive: true,
+        ...(input.expertise ? { expertise: input.expertise } : {}),
       });
     } else {
       profile = await this.profileService.createProfile({
@@ -121,46 +190,51 @@ export class ThotisAdminService {
         bio: input.bio,
         university: input.university,
         degree: input.degree,
+        expertise: input.expertise,
       });
     }
 
-    // 3. Ensure user has a default schedule (Mon-Fri, 9:00-17:00)
-    const userWithSchedule = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { defaultScheduleId: true },
-    });
+    // 3. Ensure user has a default schedule
+    const scheduleConfig = {
+      ...DEFAULT_SCHEDULE_CONFIG,
+      ...input.schedule,
+    };
 
-    if (!userWithSchedule?.defaultScheduleId) {
-      const defaultSchedule = await prisma.schedule.create({
-        data: {
+    const userWithSchedule = await this.userRepository.getTimeZoneAndDefaultScheduleId({ userId: user.id });
+
+    if (!userWithSchedule) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `User ${user.id} not found`);
+    }
+
+    if (!userWithSchedule.defaultScheduleId) {
+      let defaultScheduleId: number;
+
+      try {
+        defaultScheduleId = await this.scheduleRepository.getDefaultScheduleId(user.id);
+      } catch {
+        const defaultSchedule = await this.schedulesRepository.createScheduleWithAvailability({
           userId: user.id,
           name: "Default Schedule",
-          timeZone: user.timeZone || "Europe/Paris",
-          availability: {
-            createMany: {
-              data: [
-                {
-                  days: [1, 2, 3, 4, 5],
-                  startTime: new Date("1970-01-01T09:00:00Z"),
-                  endTime: new Date("1970-01-01T17:00:00Z"),
-                },
-              ],
+          timeZone: scheduleConfig.timeZone,
+          availability: [
+            {
+              days: scheduleConfig.days,
+              startTime: new Date(`1970-01-01T${scheduleConfig.startTime}:00Z`),
+              endTime: new Date(`1970-01-01T${scheduleConfig.endTime}:00Z`),
             },
-          },
-        },
-      });
+          ],
+        });
+        defaultScheduleId = defaultSchedule.id;
+      }
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { defaultScheduleId: defaultSchedule.id },
-      });
+      await this.scheduleRepository.setupDefaultSchedule(user.id, defaultScheduleId);
     }
 
     // 4. Send password reset email (non-blocking: don't fail provisioning if email fails)
     try {
       await this.sendInitialPasswordSetup(user.id);
     } catch (emailError) {
-      console.warn(`[ThotisAdmin] Failed to send password setup email for user ${user.id}:`, emailError);
+      log.warn("Failed to send password setup email", { error: emailError, userId: user.id });
       // Don't throw — the account is provisioned, admin can resend later
     }
 
@@ -171,33 +245,11 @@ export class ThotisAdminService {
    * Send a password reset email for initial setup or admin-triggered reset.
    */
   async sendInitialPasswordSetup(userId: number) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true, email: true, locale: true },
-    });
+    const user = await this.userRepository.findForPasswordReset({ id: userId });
 
     if (!user) throw new ErrorWithCode(ErrorCode.NotFound, "User not found");
 
-    const t = await getTranslation(user.locale ?? "en", "common");
-    const expiry = dayjs().add(PASSWORD_RESET_EXPIRY_HOURS, "hours").toDate();
-
-    const passwordResetToken = await prisma.resetPasswordRequest.create({
-      data: {
-        email: user.email,
-        expires: expiry,
-      },
-    });
-
-    const resetLink = `${process.env.NEXT_PUBLIC_WEBAPP_URL}/auth/forgot-password/${passwordResetToken.id}`;
-
-    await sendPasswordResetEmail({
-      language: t,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
-      resetLink,
-    });
+    await this.passwordResetRequestFn(user);
 
     return { success: true };
   }
@@ -212,62 +264,7 @@ export class ThotisAdminService {
     isActive?: boolean;
     search?: string;
   }) {
-    // We can reuse searchProfiles but we might want to include INACTIVE ones here by default if admin
-    // So we'll add a specific method to ProfileRepository or use prisma directly here if needed.
-    // Let's use prisma for more flexibility in Admin listing.
-    const page = filters.page || 1;
-    const pageSize = filters.pageSize || 10;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.StudentProfileWhereInput = {};
-    if (filters.fieldOfStudy) where.field = filters.fieldOfStudy;
-    if (filters.isActive !== undefined) where.isActive = filters.isActive;
-    if (filters.search) {
-      where.OR = [
-        { user: { name: { contains: filters.search, mode: "insensitive" } } },
-        { user: { email: { contains: filters.search, mode: "insensitive" } } },
-        { university: { contains: filters.search, mode: "insensitive" } },
-      ];
-    }
-
-    const [profiles, total] = await Promise.all([
-      prisma.studentProfile.findMany({
-        where,
-        select: {
-          id: true,
-          userId: true,
-          field: true,
-          university: true,
-          degree: true,
-          currentYear: true,
-          bio: true,
-          expertise: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          status: true,
-          user: {
-            select: {
-              name: true,
-              email: true,
-              username: true,
-              avatarUrl: true,
-            },
-          },
-        },
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.studentProfile.count({ where }),
-    ]);
-
-    return {
-      profiles,
-      total,
-      page,
-      pageSize,
-    };
+    return this.profileRepository.listAdminProfiles(filters);
   }
 
   /**
@@ -338,116 +335,17 @@ export class ThotisAdminService {
     dateFrom?: Date;
     dateTo?: Date;
   }) {
-    const page = filters.page || 1;
-    const pageSize = filters.pageSize || 20;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.BookingWhereInput = {
-      eventType: {
-        metadata: {
-          path: ["isThotisSession"],
-          equals: true,
-        },
-      },
-    };
-
-    if (filters.mentorUserId) {
-      where.userId = filters.mentorUserId;
-    }
-    if (filters.status) {
-      where.status = filters.status as BookingStatus;
-    }
-    if (filters.dateFrom || filters.dateTo) {
-      where.startTime = {};
-      if (filters.dateFrom) (where.startTime as Record<string, Date>).gte = filters.dateFrom;
-      if (filters.dateTo) (where.startTime as Record<string, Date>).lte = filters.dateTo;
-    }
-
-    const [bookings, total] = await Promise.all([
-      prisma.booking.findMany({
-        where,
-        select: {
-          id: true,
-          uid: true,
-          title: true,
-          startTime: true,
-          endTime: true,
-          status: true,
-          metadata: true,
-          responses: true,
-          cancellationReason: true,
-          userId: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          attendees: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-          sessionRating: {
-            select: {
-              rating: true,
-            },
-          },
-        },
-        orderBy: { startTime: "desc" },
-        skip,
-        take: pageSize,
-      }),
-      prisma.booking.count({ where }),
-    ]);
-
-    return { bookings, total, page, pageSize };
+    return this.bookingRepository.listThotisAdminBookings({
+      ...filters,
+      status: filters.status as BookingStatus | undefined,
+    });
   }
 
   /**
    * Get detailed booking information for admin view
    */
   async getBookingDetails(bookingId: number) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        uid: true,
-        title: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        metadata: true,
-        responses: true,
-        cancellationReason: true,
-        location: true,
-        userId: true,
-        user: {
-          select: { id: true, name: true, email: true, username: true },
-        },
-        attendees: {
-          select: { id: true, name: true, email: true },
-        },
-        sessionRating: {
-          select: { id: true, rating: true, feedback: true, createdAt: true },
-        },
-        thotisSessionSummary: {
-          select: { id: true, content: true, nextSteps: true, createdAt: true },
-        },
-        mentorQualityIncidents: {
-          select: {
-            id: true,
-            type: true,
-            description: true,
-            resolved: true,
-            createdAt: true,
-            studentProfileId: true,
-          },
-        },
-      },
-    });
+    const booking = await this.bookingRepository.getThotisAdminBookingDetails(bookingId);
 
     if (!booking) {
       throw new ErrorWithCode(ErrorCode.NotFound, `Booking ${bookingId} not found`);
@@ -460,15 +358,7 @@ export class ThotisAdminService {
    * Admin-initiated booking cancellation with audit trail
    */
   async adminCancelBooking(bookingId: number, reason: string, adminUserId: number) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        status: true,
-        metadata: true,
-        userId: true,
-      },
-    });
+    const booking = await this.bookingRepository.getThotisAdminBookingForCancellation(bookingId);
 
     if (!booking) {
       throw new ErrorWithCode(ErrorCode.NotFound, `Booking ${bookingId} not found`);
@@ -478,28 +368,18 @@ export class ThotisAdminService {
       throw new ErrorWithCode(ErrorCode.BadRequest, "Booking is already cancelled");
     }
 
-    const metadata = (booking.metadata as Record<string, unknown>) || {};
-    const studentProfileId = (metadata.studentProfileId as string) || undefined;
+    const metadata = parseThotisMetadata(booking.metadata);
+    const studentProfileId = typeof metadata.studentProfileId === "string" ? metadata.studentProfileId : undefined;
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: "CANCELLED",
-        cancellationReason: reason,
-        metadata: {
-          ...metadata,
-          cancelledBy: "admin",
-          cancelledByAdminId: adminUserId,
-          cancelledAt: new Date().toISOString(),
-        } as Prisma.InputJsonValue,
-      },
+    await this.bookingRepository.cancelThotisAdminBooking({
+      adminUserId,
+      bookingId,
+      metadata,
+      reason,
     });
 
     if (studentProfileId) {
-      await prisma.studentProfile.update({
-        where: { id: studentProfileId },
-        data: { cancelledSessions: { increment: 1 } },
-      });
+      await this.profileRepository.incrementCancelledSessions(studentProfileId);
     }
 
     return { success: true };
@@ -531,10 +411,7 @@ export class ThotisAdminService {
    * Get a mentor's schedule and availability configuration
    */
   async getMentorSchedule(mentorUserId: number) {
-    const user = await prisma.user.findUnique({
-      where: { id: mentorUserId },
-      select: { defaultScheduleId: true, timeZone: true },
-    });
+    const user = await this.userRepository.getTimeZoneAndDefaultScheduleId({ userId: mentorUserId });
 
     if (!user) {
       throw new ErrorWithCode(ErrorCode.NotFound, `User ${mentorUserId} not found`);
@@ -556,23 +433,7 @@ export class ThotisAdminService {
       };
     }
 
-    const schedule = await prisma.schedule.findUnique({
-      where: { id: user.defaultScheduleId },
-      select: {
-        id: true,
-        name: true,
-        timeZone: true,
-        availability: {
-          select: {
-            id: true,
-            days: true,
-            startTime: true,
-            endTime: true,
-            date: true,
-          },
-        },
-      },
-    });
+    const schedule = await this.schedulesRepository.getScheduleById(user.defaultScheduleId);
 
     if (!schedule) {
       throw new ErrorWithCode(ErrorCode.NotFound, "Schedule not found");
@@ -595,10 +456,7 @@ export class ThotisAdminService {
       }>;
     }
   ) {
-    const user = await prisma.user.findUnique({
-      where: { id: mentorUserId },
-      select: { defaultScheduleId: true },
-    });
+    const user = await this.userRepository.getTimeZoneAndDefaultScheduleId({ userId: mentorUserId });
 
     if (!user) {
       throw new ErrorWithCode(ErrorCode.NotFound, `User ${mentorUserId} not found`);
@@ -610,24 +468,19 @@ export class ThotisAdminService {
 
     const scheduleId = user.defaultScheduleId;
 
-    await prisma.$transaction([
-      prisma.availability.deleteMany({
-        where: { scheduleId },
-      }),
-      prisma.availability.createMany({
-        data: scheduleData.availability.map((slot) => ({
-          scheduleId,
-          days: slot.days,
-          startTime: new Date(`1970-01-01T${slot.startTime}:00Z`),
-          endTime: new Date(`1970-01-01T${slot.endTime}:00Z`),
-        })),
-      }),
-    ]);
+    await this.schedulesRepository.replaceAvailability({
+      scheduleId,
+      availability: scheduleData.availability.map((slot) => ({
+        days: slot.days,
+        startTime: new Date(`1970-01-01T${slot.startTime}:00Z`),
+        endTime: new Date(`1970-01-01T${slot.endTime}:00Z`),
+      })),
+    });
 
     if (scheduleData.timeZone) {
-      await prisma.schedule.update({
-        where: { id: scheduleId },
-        data: { timeZone: scheduleData.timeZone },
+      await this.schedulesRepository.updateSchedule({
+        scheduleId,
+        timeZone: scheduleData.timeZone,
       });
     }
 

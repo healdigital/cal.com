@@ -7,7 +7,8 @@ import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 interface EditMentorProfileModalProps {
@@ -29,8 +30,78 @@ interface FormValues {
   university: string;
   degree: string;
   field: AcademicField;
-  expertise: string;
+  expertise: string[];
   currentYear: number;
+}
+
+function TagInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInputValue("");
+  };
+
+  const removeTag = (index: number) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === "Enter" || e.key === ",") && inputValue.trim()) {
+      e.preventDefault();
+      addTag(inputValue);
+    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
+      removeTag(value.length - 1);
+    }
+  };
+
+  return (
+    <div
+      className="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-md border border-subtle bg-default px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand-default"
+      onClick={() => inputRef.current?.focus()}>
+      {value.map((tag, i) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-md bg-subtle px-2 py-0.5 text-xs font-medium text-default">
+          {tag}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeTag(i);
+            }}
+            className="text-subtle hover:text-emphasis"
+            aria-label={`Remove ${tag}`}>
+            &times;
+          </button>
+        </span>
+      ))}
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (inputValue.trim()) addTag(inputValue);
+        }}
+        placeholder={value.length === 0 ? placeholder : ""}
+        className="min-w-[120px] flex-1 border-none bg-transparent text-sm outline-none placeholder:text-muted"
+      />
+    </div>
+  );
 }
 
 export function EditMentorProfileModal({ isOpen, onClose, profile }: EditMentorProfileModalProps) {
@@ -46,7 +117,7 @@ export function EditMentorProfileModal({ isOpen, onClose, profile }: EditMentorP
         university: profile.university || "",
         degree: profile.degree || "",
         field: (profile.field as AcademicField) || AcademicField.SCIENCES,
-        expertise: profile.expertise?.join(", ") || "",
+        expertise: profile.expertise || [],
         currentYear: profile.currentYear || 1,
       });
     }
@@ -71,10 +142,7 @@ export function EditMentorProfileModal({ isOpen, onClose, profile }: EditMentorP
       university: data.university || undefined,
       degree: data.degree || undefined,
       field: data.field,
-      expertise: data.expertise
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      expertise: data.expertise.filter(Boolean),
       currentYear: data.currentYear,
     });
   };

@@ -1,6 +1,9 @@
 "use client";
 
-import type { ProvisionAmbassadorInput } from "@calcom/features/thotis/services/ThotisAdminService";
+import {
+  DEFAULT_SCHEDULE_CONFIG,
+  type ProvisionAmbassadorInput,
+} from "@calcom/features/thotis/services/ThotisAdminService";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
@@ -11,6 +14,7 @@ import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { getMentorIncidentTypeLabel, getMentorStatusLabel, getShortWeekdayLabel } from "../lib/displayLabels";
 import { EditMentorProfileModal } from "./EditMentorProfileModal";
 import { MentorScheduleModal } from "./MentorScheduleModal";
 
@@ -18,8 +22,9 @@ const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void 
   isOpen,
   onClose,
 }) => {
-  const { t } = useLocale();
+  const { t, i18n } = useLocale();
   const { register, handleSubmit, control, reset } = useForm<ProvisionAmbassadorInput>();
+  const [showScheduleConfig, setShowScheduleConfig] = useState(false);
   const utils = trpc.useUtils();
 
   const mutation = trpc.thotis.admin.createAmbassador.useMutation({
@@ -84,6 +89,78 @@ const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void 
             />
           </div>
 
+          <div className="border-subtle rounded-md border">
+            <button
+              type="button"
+              className="text-emphasis hover:bg-subtle flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
+              onClick={() => setShowScheduleConfig((prev) => !prev)}>
+              {t("thotis_admin_schedule_config")}
+              <span className="text-subtle text-xs">{showScheduleConfig ? "−" : "+"}</span>
+            </button>
+
+            {showScheduleConfig && (
+              <div className="space-y-3 border-t border-subtle px-3 pb-3 pt-2">
+                <p className="text-subtle text-xs">{t("thotis_admin_default_schedule_note")}</p>
+
+                <div className="space-y-1">
+                  <Label>{t("thotis_admin_schedule_days")}</Label>
+                  <Controller
+                    name="schedule.days"
+                    control={control}
+                    defaultValue={DEFAULT_SCHEDULE_CONFIG.days}
+                    render={({ field }) => (
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from({ length: 7 }, (_, dayIndex) => {
+                          const selected = (field.value ?? DEFAULT_SCHEDULE_CONFIG.days).includes(dayIndex);
+                          return (
+                            <button
+                              key={dayIndex}
+                              type="button"
+                              onClick={() => {
+                                const current = field.value ?? DEFAULT_SCHEDULE_CONFIG.days;
+                                const next = selected
+                                  ? current.filter((d: number) => d !== dayIndex)
+                                  : [...current, dayIndex].sort();
+                                field.onChange(next);
+                              }}
+                              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                                selected
+                                  ? "bg-brand-default text-brand"
+                                  : "bg-subtle text-subtle hover:bg-emphasis/10"
+                              }`}>
+                              {getShortWeekdayLabel(i18n.language, dayIndex)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label={t("start_time")}
+                    type="time"
+                    defaultValue={DEFAULT_SCHEDULE_CONFIG.startTime}
+                    {...register("schedule.startTime")}
+                  />
+                  <TextField
+                    label={t("end_time")}
+                    type="time"
+                    defaultValue={DEFAULT_SCHEDULE_CONFIG.endTime}
+                    {...register("schedule.endTime")}
+                  />
+                </div>
+
+                <TextField
+                  label={t("thotis_admin_timezone")}
+                  defaultValue={DEFAULT_SCHEDULE_CONFIG.timeZone}
+                  {...register("schedule.timeZone")}
+                />
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button onClick={onClose} color="secondary">
               {t("cancel")}
@@ -127,7 +204,7 @@ const IncidentsModal: React.FC<{
               <div key={incident.id} className="p-3 bg-subtle rounded-md border border-subtle">
                 <div className="flex justify-between items-start mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
-                    {incident.type}
+                    {getMentorIncidentTypeLabel(t, incident.type)}
                   </span>
                   <span className="text-[10px] text-muted">
                     {new Date(incident.createdAt).toLocaleDateString()}
@@ -166,14 +243,15 @@ const StatusConfirmDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  status: string;
+  status: MentorStatus | null;
   isPending: boolean;
 }> = ({ isOpen, onClose, onConfirm, status, isPending }) => {
   const { t } = useLocale();
+  const statusLabel = status ? getMentorStatusLabel(t, status) : "";
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader title={t("thotis_admin_confirm_status_change", { status })} />
+        <DialogHeader title={t("thotis_admin_confirm_status_change", { status: statusLabel })} />
         <p className="py-4 text-sm text-subtle">{t("thotis_admin_confirm_status_desc")}</p>
         <DialogFooter>
           <Button onClick={onClose} color="secondary">
@@ -182,8 +260,37 @@ const StatusConfirmDialog: React.FC<{
           <Button
             onClick={onConfirm}
             loading={isPending}
-            color={status === "SUSPENDED" ? "destructive" : "primary"}>
+            color={status === MentorStatus.SUSPENDED ? "destructive" : "primary"}>
             {t("confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ResetPasswordConfirmDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  identifier: string;
+  isPending: boolean;
+}> = ({ isOpen, onClose, onConfirm, identifier, isPending }) => {
+  const { t } = useLocale();
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader title={t("thotis_admin_confirm_reset_password_title")} />
+        <p className="py-4 text-sm text-subtle">
+          {t("thotis_admin_confirm_reset_password_desc", { identifier })}
+        </p>
+        <DialogFooter>
+          <Button onClick={onClose} color="secondary">
+            {t("cancel")}
+          </Button>
+          <Button onClick={onConfirm} loading={isPending}>
+            {t("thotis_admin_confirm_reset_password_button")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -213,6 +320,10 @@ export const AmbassadorManagement: React.FC = () => {
   const [statusConfirm, setStatusConfirm] = useState<{
     profileId: string;
     status: MentorStatus;
+  } | null>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<{
+    userId: number;
+    identifier: string;
   } | null>(null);
 
   // Debounce search input (300ms)
@@ -258,9 +369,11 @@ export const AmbassadorManagement: React.FC = () => {
   const resetPasswordMutation = trpc.thotis.admin.sendPasswordReset.useMutation({
     onSuccess: () => {
       showToast(t("thotis_admin_reset_link_sent"), "success");
+      setResetPasswordTarget(null);
     },
     onError: (error) => {
       showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+      setResetPasswordTarget(null);
     },
   });
 
@@ -271,6 +384,11 @@ export const AmbassadorManagement: React.FC = () => {
   const confirmStatusChange = () => {
     if (!statusConfirm) return;
     updateStatusMutation.mutate({ profileId: statusConfirm.profileId, status: statusConfirm.status });
+  };
+
+  const confirmResetPassword = () => {
+    if (!resetPasswordTarget) return;
+    resetPasswordMutation.mutate({ userId: resetPasswordTarget.userId });
   };
 
   return (
@@ -342,8 +460,14 @@ export const AmbassadorManagement: React.FC = () => {
                 </Table.Cell>
                 <Table.Cell>
                   <Select
-                    value={{ label: profile.status, value: profile.status }}
-                    options={Object.values(MentorStatus).map((s) => ({ label: s, value: s }))}
+                    value={{
+                      label: getMentorStatusLabel(t, profile.status),
+                      value: profile.status,
+                    }}
+                    options={Object.values(MentorStatus).map((status) => ({
+                      label: getMentorStatusLabel(t, status),
+                      value: status,
+                    }))}
                     onChange={(option) => {
                       if (option && option.value !== profile.status) {
                         handleStatusChange(profile.id, option.value);
@@ -380,7 +504,12 @@ export const AmbassadorManagement: React.FC = () => {
                     <Button
                       size="sm"
                       color="secondary"
-                      onClick={() => resetPasswordMutation.mutate({ userId: profile.userId })}>
+                      onClick={() =>
+                        setResetPasswordTarget({
+                          userId: profile.userId,
+                          identifier: profile.user.name || profile.user.email,
+                        })
+                      }>
                       {t("thotis_admin_reset_password")}
                     </Button>
                     <Button
@@ -451,8 +580,16 @@ export const AmbassadorManagement: React.FC = () => {
         isOpen={!!statusConfirm}
         onClose={() => setStatusConfirm(null)}
         onConfirm={confirmStatusChange}
-        status={statusConfirm?.status || ""}
+        status={statusConfirm?.status || null}
         isPending={updateStatusMutation.isPending}
+      />
+
+      <ResetPasswordConfirmDialog
+        isOpen={!!resetPasswordTarget}
+        onClose={() => setResetPasswordTarget(null)}
+        onConfirm={confirmResetPassword}
+        identifier={resetPasswordTarget?.identifier || ""}
+        isPending={resetPasswordMutation.isPending}
       />
     </div>
   );

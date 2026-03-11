@@ -454,6 +454,7 @@ const MassApplyLocationDialog = ({ isOpen, onClose, onApply, isApplying }: MassA
 
   const OptionWithIcon = ({ icon, label }: { icon?: string; label: string | null }) => (
     <div className="flex items-center gap-3">
+      {/* eslint-disable-next-line @next/next/no-img-element -- mixed SVG/raster location icons */}
       {icon && <img src={icon} alt="" className={`h-4 w-4 ${invertLogoOnDark(icon)}`} />}
       <span>{label}</span>
     </div>

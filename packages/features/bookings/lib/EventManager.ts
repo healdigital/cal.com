@@ -32,6 +32,11 @@ import type {
   PartialBooking,
   PartialReference,
 } from "@calcom/types/EventManager";
+import type { CrmData } from "@calcom/types/CrmService";
+import type { VideoCallData } from "@calcom/types/VideoApiAdapter";
+
+/** Union of all event data types that can appear in EventResult.createdEvent */
+type EventResultData = NewCalendarEventType | VideoCallData | CrmData;
 import { v5 as uuidv5 } from "uuid";
 import type { z } from "zod";
 
@@ -107,7 +112,7 @@ export const processLocation = (event: CalendarEvent): CalendarEvent => {
 /**
  * Ensures invalid non-delegationCredentialId isn't returned
  */
-function getCredentialPayload(result: EventResult<NewCalendarEventType>) {
+function getCredentialPayload(result: EventResult<EventResultData>) {
   return {
     credentialId: result?.credentialId && result.credentialId > 0 ? result.credentialId : undefined,
   };
@@ -242,7 +247,7 @@ export default class EventManager {
 
   private updateMSTeamsVideoCallData(
     evt: CalendarEvent,
-    results: Array<EventResult<NewCalendarEventType>>
+    results: Array<EventResult<EventResultData>>
   ) {
     const office365CalendarWithTeams = results.find(
       (result) => result.type === "office365_calendar" && result.success && result.createdEvent?.url
@@ -327,7 +332,7 @@ export default class EventManager {
       evt.location === MSTeamsLocationType &&
       mainHostDestinationCalendar?.integration === "office365_calendar";
 
-    const results: Array<EventResult<NewCalendarEventType>> = [];
+    const results: Array<EventResult<EventResultData>> = [];
 
     // If and only if event type is a dedicated meeting, create a dedicated video meeting.
     // If the event is a Microsoft Teams meeting with Outlook Calendar, do not create a MSTeams video event, create calendar event will take care.
@@ -411,7 +416,7 @@ export default class EventManager {
     const evt = processLocation(event);
     const isDedicated = evt.location ? isDedicatedIntegration(evt.location) : null;
 
-    const results: Array<EventResult<NewCalendarEventType>> = [];
+    const results: Array<EventResult<EventResultData>> = [];
     // If and only if event type is a dedicated meeting, create a dedicated video meeting.
     if (isDedicated) {
       const result = await this.createVideoEvent(evt);
@@ -654,7 +659,7 @@ export default class EventManager {
       throw new Error("booking not found");
     }
 
-    const results: Array<EventResult<NewCalendarEventType>> = [];
+    const results: Array<EventResult<EventResultData>> = [];
     const updatedBookingReferences: Array<PartialReference> = [];
     const isLocationChanged = !!evt.location && !!booking.location && evt.location !== booking.location;
 

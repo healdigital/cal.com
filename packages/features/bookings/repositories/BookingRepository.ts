@@ -1514,6 +1514,171 @@ export class BookingRepository implements IBookingRepository {
     });
   }
 
+  async listThotisAdminBookings(filters: {
+    page?: number;
+    pageSize?: number;
+    mentorUserId?: number;
+    status?: BookingStatus;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }) {
+    const page = filters.page || 1;
+    const pageSize = filters.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.BookingWhereInput = {
+      eventType: {
+        metadata: {
+          path: ["isThotisSession"],
+          equals: true,
+        },
+      },
+    };
+
+    if (filters.mentorUserId) {
+      where.userId = filters.mentorUserId;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      const startTime: Prisma.DateTimeFilter<"Booking"> = {};
+      if (filters.dateFrom) {
+        startTime.gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        startTime.lte = filters.dateTo;
+      }
+      where.startTime = startTime;
+    }
+
+    const [bookings, total] = await Promise.all([
+      this.prismaClient.booking.findMany({
+        where,
+        select: {
+          id: true,
+          uid: true,
+          title: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          metadata: true,
+          responses: true,
+          cancellationReason: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          attendees: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          sessionRating: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+        orderBy: { startTime: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      this.prismaClient.booking.count({ where }),
+    ]);
+
+    return { bookings, total, page, pageSize };
+  }
+
+  async getThotisAdminBookingDetails(bookingId: number) {
+    return this.prismaClient.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        uid: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        metadata: true,
+        responses: true,
+        cancellationReason: true,
+        location: true,
+        userId: true,
+        user: {
+          select: { id: true, name: true, email: true, username: true },
+        },
+        attendees: {
+          select: { id: true, name: true, email: true },
+        },
+        sessionRating: {
+          select: { id: true, rating: true, feedback: true, createdAt: true },
+        },
+        thotisSessionSummary: {
+          select: { id: true, content: true, nextSteps: true, createdAt: true },
+        },
+        mentorQualityIncidents: {
+          select: {
+            id: true,
+            type: true,
+            description: true,
+            resolved: true,
+            createdAt: true,
+            studentProfileId: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getThotisAdminBookingForCancellation(bookingId: number) {
+    return this.prismaClient.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        metadata: true,
+        userId: true,
+      },
+    });
+  }
+
+  async cancelThotisAdminBooking({
+    adminUserId,
+    bookingId,
+    metadata,
+    reason,
+  }: {
+    adminUserId: number;
+    bookingId: number;
+    metadata: Record<string, unknown>;
+    reason: string;
+  }) {
+    return this.prismaClient.booking.update({
+      where: { id: bookingId },
+      data: {
+        cancellationReason: reason,
+        metadata: {
+          ...metadata,
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: "admin",
+          cancelledByAdminId: adminUserId,
+        } as Prisma.InputJsonValue,
+        status: BookingStatus.CANCELLED,
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   async update({ where, data }: { where: BookingWhereUniqueInput; data: BookingUpdateData }) {
     return await this.prismaClient.booking.update({
       where,

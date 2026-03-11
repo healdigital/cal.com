@@ -116,6 +116,32 @@ export class SchedulesRepository {
     });
   }
 
+  async replaceAvailability({
+    scheduleId,
+    availability,
+  }: {
+    scheduleId: number;
+    availability: Array<{
+      days: number[];
+      startTime: Date;
+      endTime: Date;
+    }>;
+  }) {
+    await this.prismaClient.$transaction([
+      this.prismaClient.availability.deleteMany({
+        where: { scheduleId },
+      }),
+      this.prismaClient.availability.createMany({
+        data: availability.map((slot) => ({
+          scheduleId,
+          days: slot.days,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })),
+      }),
+    ]);
+  }
+
   async deleteSchedule(scheduleId: number) {
     return this.prismaClient.schedule.delete({
       where: {

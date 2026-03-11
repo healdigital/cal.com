@@ -127,7 +127,9 @@ export const AlbyPaymentComponent = (props: IAlbyPaymentComponentProps) => {
       <Link target="_blank" href="https://getalby.com">
         <div className="mt-4 flex items-center text-sm">
           Powered by&nbsp;
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img title="Alby" src="/app-store/alby/logo.svg" alt="Alby" className="h-8 dark:hidden" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             title="Alby"
             src="/app-store/alby/logo-dark.svg"

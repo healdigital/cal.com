@@ -3,11 +3,25 @@ import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import prisma from "@calcom/prisma";
+import type { PrismaClient } from "@calcom/prisma/client";
 
 const log = logger.getSubLogger({ prefix: ["ThotisGuestService"] });
 
 export class ThotisGuestService {
   private readonly TOKEN_TTL_MINUTES = 15;
+  private readonly prismaClient: Pick<
+    PrismaClient,
+    "thotisGuestAccessLog" | "thotisGuestIdentity" | "thotisMagicLinkToken"
+  >;
+
+  constructor(deps?: {
+    prismaClient?: Pick<
+      PrismaClient,
+      "thotisGuestAccessLog" | "thotisGuestIdentity" | "thotisMagicLinkToken"
+    >;
+  }) {
+    this.prismaClient = deps?.prismaClient || prisma;
+  }
 
   /**
    * Handles rate limiting and token generation.
@@ -16,12 +30,12 @@ export class ThotisGuestService {
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Find or create guest identity
-    let guest = await prisma.thotisGuestIdentity.findUnique({
+    let guest = await this.prismaClient.thotisGuestIdentity.findUnique({
       where: { normalizedEmail },
     });
 
     if (!guest) {
-      guest = await prisma.thotisGuestIdentity.create({
+      guest = await this.prismaClient.thotisGuestIdentity.create({
         data: {
           email,
           normalizedEmail,
@@ -38,7 +52,7 @@ export class ThotisGuestService {
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
     // Check count in last hour
-    const recentRequests = await prisma.thotisMagicLinkToken.count({
+    const recentRequests = await this.prismaClient.thotisMagicLinkToken.count({
       where: {
         guestId: guest.id,
         createdAt: { gte: oneHourAgo },
@@ -59,7 +73,7 @@ export class ThotisGuestService {
     }
 
     // Update last request
-    await prisma.thotisGuestIdentity.update({
+    await this.prismaClient.thotisGuestIdentity.update({
       where: { id: guest.id },
       data: { lastRequestAt: now },
     });
@@ -69,7 +83,7 @@ export class ThotisGuestService {
     const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
 
     // 4. Store Token
-    await prisma.thotisMagicLinkToken.create({
+    await this.prismaClient.thotisMagicLinkToken.create({
       data: {
         tokenHash,
         guestId: guest.id,
@@ -95,7 +109,7 @@ export class ThotisGuestService {
   async verifyToken(tokenRaw: string, bookingId?: number) {
     const tokenHash = createHash("sha256").update(tokenRaw).digest("hex");
 
-    const magicLink = await prisma.thotisMagicLinkToken.findUnique({
+    const magicLink = await this.prismaClient.thotisMagicLinkToken.findUnique({
       where: { tokenHash },
       select: {
         id: true,
@@ -140,7 +154,7 @@ export class ThotisGuestService {
    * Requirement: "invalidation token après usage sensible (annulation/replanif)"
    */
   async invalidateToken(tokenId: string) {
-    await prisma.thotisMagicLinkToken.update({
+    await this.prismaClient.thotisMagicLinkToken.update({
       where: { id: tokenId },
       data: { invalidated: true, usedAt: new Date() },
     });
@@ -153,7 +167,7 @@ export class ThotisGuestService {
     resourceId: string | null = null,
     success: boolean = true
   ) {
-    await prisma.thotisGuestAccessLog.create({
+    await this.prismaClient.thotisGuestAccessLog.create({
       data: {
         guestId,
         endpoint,

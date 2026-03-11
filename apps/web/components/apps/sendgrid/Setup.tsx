@@ -3,6 +3,7 @@ import { Button } from "@calcom/ui/components/button";
 import { Form, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -39,7 +40,13 @@ export default function SendgridSetup() {
       <div className="bg-default m-auto rounded p-5 md:w-[520px] md:p-10">
         <div className="flex flex-col stack-y-5 md:flex-row md:space-x-5 md:stack-y-0">
           <div>
-            <img src="/api/app-store/sendgrid/logo.png" alt="Sendgrid" className="h-12 w-12 max-w-2xl" />
+            <Image
+              src="/api/app-store/sendgrid/logo.png"
+              alt="Sendgrid"
+              width={48}
+              height={48}
+              className="h-12 w-12 max-w-2xl"
+            />
           </div>
           <div>
             <h1 className="text-default">{t("provide_api_key")}</h1>

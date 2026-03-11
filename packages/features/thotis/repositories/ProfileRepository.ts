@@ -2,7 +2,7 @@ import prisma from "@calcom/prisma";
 import type { Prisma, PrismaClient } from "@calcom/prisma/client";
 import { type AcademicField, MentorStatus } from "@calcom/prisma/enums";
 
-const studentProfileSelect = {
+const studentProfileSelect: Prisma.StudentProfileSelect = {
   id: true,
   userId: true,
   university: true,
@@ -40,6 +40,29 @@ const studentProfileSelect = {
           },
         },
       },
+    },
+  },
+} satisfies Prisma.StudentProfileSelect;
+
+const adminStudentProfileSelect: Prisma.StudentProfileSelect = {
+  id: true,
+  userId: true,
+  field: true,
+  university: true,
+  degree: true,
+  currentYear: true,
+  bio: true,
+  expertise: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+  user: {
+    select: {
+      name: true,
+      email: true,
+      username: true,
+      avatarUrl: true,
     },
   },
 } satisfies Prisma.StudentProfileSelect;
@@ -284,6 +307,47 @@ export class ProfileRepository {
     };
   }
 
+  async listAdminProfiles(filters: {
+    page?: number;
+    pageSize?: number;
+    fieldOfStudy?: AcademicField;
+    isActive?: boolean;
+    search?: string;
+  }) {
+    const page = filters.page || 1;
+    const pageSize = filters.pageSize || 10;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.StudentProfileWhereInput = {};
+    if (filters.fieldOfStudy) where.field = filters.fieldOfStudy;
+    if (filters.isActive !== undefined) where.isActive = filters.isActive;
+    if (filters.search) {
+      where.OR = [
+        { user: { name: { contains: filters.search, mode: "insensitive" } } },
+        { user: { email: { contains: filters.search, mode: "insensitive" } } },
+        { university: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
+
+    const [profiles, total] = await Promise.all([
+      this.prismaClient.studentProfile.findMany({
+        where,
+        select: adminStudentProfileSelect,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prismaClient.studentProfile.count({ where }),
+    ]);
+
+    return {
+      profiles,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
   /**
    * Get top rated profiles
    */
@@ -415,6 +479,21 @@ export class ProfileRepository {
       select: studentProfileSelect,
     });
   }
+
+  async incrementCancelledSessions(profileId: string) {
+    return this.prismaClient.studentProfile.update({
+      where: { id: profileId },
+      data: {
+        cancelledSessions: {
+          increment: 1,
+        },
+      },
+      select: {
+        id: true,
+        cancelledSessions: true,
+      },
+    });
+  }
   /**
    * Get platform-wide statistics aggregation
    * @returns Aggregated statistics
@@ -451,66 +530,57 @@ export class ProfileRepository {
     const last12Months = new Date();
     last12Months.setMonth(last12Months.getMonth() - 12);
 
-    // Fetch all bookings for trends (daily is 30 days, weekly/monthly can be more)
-    const allBookings = await this.prismaClient.booking.findMany({
-      where: {
-        startTime: { gte: last12Months },
-        eventType: {
-          metadata: {
-            path: ["isThotisSession"],
-            equals: true,
-          },
-        },
-      },
-      select: {
-        startTime: true,
-      },
-    });
+    type TrendRow = {
+      date: string;
+      count: bigint | number;
+    };
 
-    // Daily Map (Last 30 days)
-    const dailyMap: Record<string, number> = {};
-    // Weekly Map (Last 12 weeks)
-    const weeklyMap: Record<string, number> = {};
-    // Monthly Map (Last 12 months)
-    const monthlyMap: Record<string, number> = {};
+    const [dailyRows, weeklyRows, monthlyRows] = await Promise.all([
+      this.prismaClient.$queryRaw<TrendRow[]>`
+        SELECT
+          to_char("Booking"."startTime", 'YYYY-MM-DD') AS "date",
+          COUNT(*)::bigint AS "count"
+        FROM "Booking"
+        INNER JOIN "EventType" ON "EventType"."id" = "Booking"."eventTypeId"
+        WHERE "Booking"."startTime" >= ${last30Days}
+          AND "EventType"."metadata"->>'isThotisSession' = 'true'
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prismaClient.$queryRaw<TrendRow[]>`
+        SELECT
+          to_char("Booking"."startTime", 'IYYY-"W"IW') AS "date",
+          COUNT(*)::bigint AS "count"
+        FROM "Booking"
+        INNER JOIN "EventType" ON "EventType"."id" = "Booking"."eventTypeId"
+        WHERE "Booking"."startTime" >= ${last12Weeks}
+          AND "EventType"."metadata"->>'isThotisSession' = 'true'
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prismaClient.$queryRaw<TrendRow[]>`
+        SELECT
+          to_char("Booking"."startTime", 'YYYY-MM') AS "date",
+          COUNT(*)::bigint AS "count"
+        FROM "Booking"
+        INNER JOIN "EventType" ON "EventType"."id" = "Booking"."eventTypeId"
+        WHERE "Booking"."startTime" >= ${last12Months}
+          AND "EventType"."metadata"->>'isThotisSession' = 'true'
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+    ]);
 
-    allBookings.forEach((b) => {
-      const date = b.startTime.toISOString().split("T")[0];
-      const month = date.substring(0, 7); // YYYY-MM
-
-      // Week calculation
-      const d = new Date(b.startTime);
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-      const yearStart = new Date(d.getFullYear(), 0, 1);
-      const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-      const week = `${d.getFullYear()}-W${String(weekNo).padStart(2, "0")}`;
-
-      if (b.startTime >= last30Days) {
-        dailyMap[date] = (dailyMap[date] || 0) + 1;
-      }
-      if (b.startTime >= last12Weeks) {
-        weeklyMap[week] = (weeklyMap[week] || 0) + 1;
-      }
-      monthlyMap[month] = (monthlyMap[month] || 0) + 1;
-    });
-
-    const daily = Object.entries(dailyMap)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    const weekly = Object.entries(weeklyMap)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    const monthly = Object.entries(monthlyMap)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const toTrendData = (rows: TrendRow[]) =>
+      rows.map((row) => ({
+        date: row.date,
+        count: Number(row.count),
+      }));
 
     return {
-      daily,
-      weekly,
-      monthly,
+      daily: toTrendData(dailyRows),
+      weekly: toTrendData(weeklyRows),
+      monthly: toTrendData(monthlyRows),
     };
   }
 

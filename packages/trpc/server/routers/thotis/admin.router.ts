@@ -1,5 +1,6 @@
 import {
   AcademicField,
+  BookingStatus,
   MentorIncidentType,
   MentorModerationActionType,
   MentorStatus,
@@ -35,6 +36,20 @@ export const adminRouter = router({
         yearOfStudy: z.number(),
         bio: z.string(),
         expertise: z.array(z.string()).optional(),
+        schedule: z
+          .object({
+            days: z.array(z.number().min(0).max(6)).optional(),
+            startTime: z
+              .string()
+              .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+              .optional(),
+            endTime: z
+              .string()
+              .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+              .optional(),
+            timeZone: z.string().optional(),
+          })
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -100,7 +115,7 @@ export const adminRouter = router({
         page: z.number().optional(),
         pageSize: z.number().optional(),
         mentorUserId: z.number().optional(),
-        status: z.string().optional(),
+        status: z.nativeEnum(BookingStatus).optional(),
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
       })

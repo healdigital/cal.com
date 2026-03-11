@@ -188,6 +188,7 @@ function HitPaySetupPage(props: IHitPaySetupProps) {
 
   const hitpayIcon = (
     <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="h-5 w-5" src="/app-store/hitpay/icon.svg" alt="HitPay Icon" />
     </>
   );

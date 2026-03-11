@@ -1,11 +1,11 @@
 import type { IncomingMessage } from "node:http";
-import BookingCancellationEmail from "@calcom/emails/templates/thotis/booking-cancellation";
-import BookingConfirmationEmail from "@calcom/emails/templates/thotis/booking-confirmation";
-import BookingRescheduledEmail from "@calcom/emails/templates/thotis/booking-rescheduled";
 import { createEvent, deleteEvent, updateEvent } from "@calcom/features/calendars/lib/CalendarManager";
+import type { BookingResultDto, SessionDto } from "@calcom/lib/dto/thotis/ThotisApiSchemas";
+import { parseBookingMetadata } from "@calcom/lib/dto/thotis/ThotisApiSchemas";
+import { toBookingResultDto, toSessionDtoArray } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
-import { getSystemAvatarUrl } from "@calcom/lib/getAvatarUrl";
+import logger from "@calcom/lib/logger";
 import { TimeFormat } from "@calcom/lib/timeFormat";
 import prisma from "@calcom/prisma";
 import type { Prisma, PrismaClient } from "@calcom/prisma/client";
@@ -13,7 +13,6 @@ import { MentorIncidentType, MentorStatus, ThotisAnalyticsEventType } from "@cal
 import { bookingResponses, EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { CredentialForCalendarService } from "@calcom/types/Credential";
-import { TRPCError } from "@trpc/server";
 import type { TFunction } from "next-i18next";
 import { uuid } from "short-uuid";
 
@@ -29,7 +28,10 @@ import process from "node:process";
 import { RedisService } from "../../redis/RedisService";
 import { AnalyticsService } from "./AnalyticsService";
 import type { ThotisAnalyticsService } from "./ThotisAnalyticsService";
+import { ThotisEmailService } from "./ThotisEmailService";
 import { ThotisGuestService } from "./ThotisGuestService";
+
+const log = logger.getSubLogger({ prefix: ["ThotisBookingService"] });
 
 /**
  * Service for managing Thotis student mentoring session bookings
@@ -40,25 +42,28 @@ export class ThotisBookingService {
   private thotisAnalytics: ThotisAnalyticsService | null = null;
   private redis?: RedisService;
   private guestService: ThotisGuestService;
+  private emailService: ThotisEmailService;
 
   constructor(
     private readonly prisma: Prisma.TransactionClient | PrismaClient,
     analytics?: AnalyticsService,
     redis?: RedisService,
     thotisAnalytics?: ThotisAnalyticsService,
-    guestService?: ThotisGuestService
+    guestService?: ThotisGuestService,
+    emailService?: ThotisEmailService
   ) {
     this.analytics = analytics || new AnalyticsService();
     this.redis = redis;
     this.thotisAnalytics = thotisAnalytics || null;
     this.guestService = guestService || new ThotisGuestService();
+    this.emailService = emailService || new ThotisEmailService();
 
     // Try to initialize Redis if not provided and env vars exist
     if (!this.redis && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
       try {
         this.redis = new RedisService();
       } catch (e) {
-        console.warn("Failed to initialize RedisService in ThotisBookingService", e);
+        log.warn("Failed to initialize RedisService", { error: e });
       }
     }
   }
@@ -78,7 +83,7 @@ export class ThotisBookingService {
       // Invalidate profile cache
       await this.redis.del(`profile:${userId}`);
     } catch (error) {
-      console.warn("Failed to invalidate cache", error);
+      log.warn("Failed to invalidate cache", { error, studentProfileId, userId });
     }
   }
 
@@ -97,12 +102,7 @@ export class ThotisBookingService {
       email: string;
       question?: string;
     };
-  }): Promise<{
-    bookingId: number;
-    googleMeetLink: string;
-    calendarEventId: string;
-    confirmationSent: boolean;
-  }> {
+  }): Promise<BookingResultDto> {
     // Validate minimum booking notice (2 hours)
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
@@ -321,7 +321,7 @@ export class ThotisBookingService {
         profileId: input.studentProfileId,
         bookingId: booking.id,
         field: studentProfile.user.studentProfile?.field || undefined,
-        metadata: booking.metadata as Record<string, unknown>,
+        metadata: parseBookingMetadata(booking.metadata),
       });
     }
 
@@ -383,7 +383,7 @@ export class ThotisBookingService {
             data: {
               location: result.createdEvent.location,
               metadata: {
-                ...(booking.metadata as object),
+                ...parseBookingMetadata(booking.metadata),
                 googleMeetLink: result.createdEvent.location,
               } as Prisma.InputJsonValue,
             },
@@ -421,26 +421,25 @@ export class ThotisBookingService {
         );
         const dashboardLink = `${process.env.NEXT_PUBLIC_WEBAPP_URL}/thotis/my-sessions?token=${token}`;
 
-        const email = new BookingConfirmationEmail(calEvent, attendee, undefined, dashboardLink);
-        await email.sendEmail();
+        await this.emailService.sendConfirmation(calEvent, attendee, dashboardLink);
       } catch (error) {
         console.error("Failed to send confirmation email", error);
       }
 
-      return {
+      return toBookingResultDto({
         bookingId: booking.id,
         googleMeetLink: videoLink,
         calendarEventId: booking.uid,
         confirmationSent: true,
-      };
+      });
     }
 
-    return {
+    return toBookingResultDto({
       bookingId: booking.id,
       googleMeetLink, // Fallback to integrations:google-video if somehow record not found
       calendarEventId: booking.uid,
       confirmationSent: true,
-    };
+    });
   }
 
   /**
@@ -468,7 +467,7 @@ export class ThotisBookingService {
           data: {
             location: fallbackLink,
             metadata: {
-              ...(metadata as object),
+              ...parseBookingMetadata(metadata),
               googleMeetLink: fallbackLink,
               isFallbackLink: true,
             } as Prisma.InputJsonValue,
@@ -673,7 +672,7 @@ export class ThotisBookingService {
     }
 
     // Get student profile ID from metadata
-    const metadata = booking.metadata as { studentProfileId?: string } | null;
+    const metadata = parseBookingMetadata(booking.metadata);
     const studentProfileId = metadata?.studentProfileId;
 
     // Update booking status
@@ -750,8 +749,7 @@ export class ThotisBookingService {
           uid: booking.uid,
         };
 
-        const email = new BookingCancellationEmail(calEvent, attendee);
-        await email.sendEmail();
+        await this.emailService.sendCancellation(calEvent, attendee);
 
         // Delete Google Calendar event
         const credentials = await this.prisma.credential.findMany({
@@ -803,12 +801,7 @@ export class ThotisBookingService {
     bookingId: number,
     newDateTime: Date,
     requester: { id?: number; email?: string }
-  ): Promise<{
-    bookingId: number;
-    googleMeetLink: string;
-    calendarEventId: string;
-    confirmationSent: boolean;
-  }> {
+  ): Promise<BookingResultDto> {
     // Validate minimum booking notice (2 hours)
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
@@ -985,8 +978,7 @@ export class ThotisBookingService {
           location: finalizedMeetLink,
         };
 
-        const email = new BookingRescheduledEmail(calEvent, attendee);
-        await email.sendEmail();
+        await this.emailService.sendRescheduled(calEvent, attendee);
 
         // Update Google Calendar event
         const credentials = await this.prisma.credential.findMany({
@@ -1018,12 +1010,12 @@ export class ThotisBookingService {
       });
     }
 
-    return {
+    return toBookingResultDto({
       bookingId: updatedBooking.id,
       googleMeetLink: finalizedMeetLink,
       calendarEventId: updatedBooking.uid,
       confirmationSent: true,
-    };
+    });
   }
 
   /**
@@ -1073,7 +1065,7 @@ export class ThotisBookingService {
     }
 
     // Get student profile ID from metadata
-    const metadata = booking.metadata as { studentProfileId?: string } | null;
+    const metadata = parseBookingMetadata(booking.metadata);
     const studentProfileId = metadata?.studentProfileId;
 
     // Update booking status
@@ -1176,7 +1168,7 @@ export class ThotisBookingService {
     }
 
     // Get student profile ID from metadata
-    const metadata = booking.metadata as { studentProfileId?: string } | null;
+    const metadata = parseBookingMetadata(booking.metadata);
     const studentProfileId = metadata?.studentProfileId;
 
     // Update booking status to CANCELLED with reason
@@ -1241,7 +1233,7 @@ export class ThotisBookingService {
       const { thotisWebhooks } = await import("./ThotisWebhookClient");
       await thotisWebhooks.onBookingCancelled(booking, "Automatically cancelled due to no-show");
     } catch (e) {
-      console.warn("Failed to trigger thotisWebhooks.onBookingCancelled for no-show", e);
+      log.warn("Failed to trigger no-show cancellation webhook", { error: e, bookingId: booking.id });
     }
 
     this.analytics.trackBookingCancelled(
@@ -1281,7 +1273,7 @@ export class ThotisBookingService {
       responses: Prisma.JsonValue;
       eventType?: { userId: number | null } | null;
     },
-    requester: { id?: number; email?: string; isSystem?: boolean }
+    requester: { id?: number; email?: string; isSystem?: boolean } = {}
   ): void {
     if (requester.isSystem) return;
 
@@ -1325,7 +1317,7 @@ export class ThotisBookingService {
       // If event type doesn't exist yet, we check against a virtual 15-min slot
       // using the default availability of the user.
       // This ensures we never skip validation.
-      console.log(`EventType not found for user ${userId}, using default 15m check`);
+      log.info("Event type not found for availability validation, using default slot length", { userId });
     }
 
     const eventTypeId = eventType?.id;
@@ -1411,25 +1403,30 @@ export class ThotisBookingService {
     token?: string;
     userId?: number;
     email?: string;
-  }) {
-    let email = input.email;
+  }): Promise<SessionDto[]> {
+    let email: string | undefined;
     let bookingIdScope: number | undefined;
 
-    // 1. Resolve identity from token if provided
     if (input.token) {
+      // Guest path: identity is resolved from verified token only
       const magicLink = await this.guestService.verifyToken(input.token);
       email = magicLink.guest.email;
       bookingIdScope = magicLink.bookingId ?? undefined;
+    } else if (input.userId) {
+      // Authenticated user path: trust the email from auth context
+      email = input.email;
     }
 
     if (!email) {
-      throw new ErrorWithCode(ErrorCode.Unauthorized, "Email or token required to view sessions");
+      throw new ErrorWithCode(
+        ErrorCode.Unauthorized,
+        "Authentication or valid guest token required to view sessions"
+      );
     }
 
     const now = new Date();
 
-    // 2. Fetch sessions
-    return await this.prisma.booking.findMany({
+    const bookings = await this.prisma.booking.findMany({
       where: {
         ...(bookingIdScope
           ? { id: bookingIdScope }
@@ -1475,6 +1472,8 @@ export class ThotisBookingService {
       },
       orderBy: { startTime: input.status === "upcoming" ? "asc" : "desc" },
     });
+
+    return toSessionDtoArray(bookings);
   }
 
   /**
@@ -1502,7 +1501,7 @@ export class ThotisBookingService {
       });
     } catch (error) {
       if (error instanceof ErrorWithCode) throw error;
-      console.warn("Rate limit check failed, allowing booking", error);
+      log.warn("Rate limit check failed, allowing booking", { error, email });
     }
   }
 }

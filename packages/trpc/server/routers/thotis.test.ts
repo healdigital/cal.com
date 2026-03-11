@@ -1,3 +1,4 @@
+import { SessionRatingRepository } from "@calcom/features/thotis/repositories/SessionRatingRepository";
 import type { PrismaClient } from "@calcom/prisma";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { thotisRouter } from "./thotis";
@@ -204,30 +205,46 @@ describe("thotisRouter", () => {
       const bookingId = 123;
       const mentorId = 1; // From mockCtx
       const mockBooking = { userId: mentorId, responses: { email: "student@example.com" } };
-      const mockRating = { id: 1, rating: 5, feedback: "Great!" };
+      const createdAt = new Date("2024-01-01T10:00:00.000Z");
+      const mockRating = {
+        id: "rating-1",
+        bookingId,
+        studentProfileId: "profile-1",
+        rating: 5,
+        feedback: "Great!",
+        createdAt,
+      };
 
       const prisma = (await import("@calcom/prisma")).default;
       vi.mocked(prisma.booking.findUnique).mockResolvedValue(mockBooking as any);
-      vi.mocked(prisma.sessionRating.findUnique).mockResolvedValue(mockRating as any);
+      vi.mocked(SessionRatingRepository.prototype.findByBookingId).mockResolvedValue(mockRating as any);
 
       const result = await caller.rating.getByBooking({ bookingId });
 
-      expect(result).toEqual(mockRating);
+      expect(result).toEqual({ ...mockRating, createdAt: createdAt.toISOString() });
     });
 
     it("should allow student to get rating for their booking", async () => {
       const bookingId = 123;
       const studentEmail = "test@example.com"; // From mockCtx
       const mockBooking = { userId: 999, responses: { email: studentEmail } };
-      const mockRating = { id: 1, rating: 5, feedback: "Great!" };
+      const createdAt = new Date("2024-01-01T10:00:00.000Z");
+      const mockRating = {
+        id: "rating-1",
+        bookingId,
+        studentProfileId: "profile-1",
+        rating: 5,
+        feedback: "Great!",
+        createdAt,
+      };
 
       const prisma = (await import("@calcom/prisma")).default;
       vi.mocked(prisma.booking.findUnique).mockResolvedValue(mockBooking as any);
-      vi.mocked(prisma.sessionRating.findUnique).mockResolvedValue(mockRating as any);
+      vi.mocked(SessionRatingRepository.prototype.findByBookingId).mockResolvedValue(mockRating as any);
 
       const result = await caller.rating.getByBooking({ bookingId });
 
-      expect(result).toEqual(mockRating);
+      expect(result).toEqual({ ...mockRating, createdAt: createdAt.toISOString() });
     });
 
     it("should deny access to rating if not owner", async () => {
@@ -259,6 +276,15 @@ describe("thotisRouter", () => {
         const prisma = (await import("@calcom/prisma")).default;
         vi.mocked(prisma.booking.findUnique).mockResolvedValue(mockBooking as any);
         vi.mocked(prisma.sessionRating.findUnique).mockResolvedValue(null);
+        const createdAt = new Date("2024-01-01T10:00:00.000Z");
+        vi.mocked(SessionRatingRepository.prototype.findByBookingId).mockResolvedValue({
+          id: "rating-1",
+          bookingId,
+          studentProfileId: "profile-1",
+          rating: 5,
+          feedback: "Excellent",
+          createdAt,
+        } as any);
 
         const result = await caller.rating.submit({
           bookingId,
@@ -267,7 +293,14 @@ describe("thotisRouter", () => {
           email: studentEmail,
         });
 
-        expect(result).toEqual({ success: true });
+        expect(result).toEqual({
+          id: "rating-1",
+          bookingId,
+          studentProfileId: "profile-1",
+          rating: 5,
+          feedback: "Excellent",
+          createdAt: createdAt.toISOString(),
+        });
         expect(StatisticsService.prototype.addRating).toHaveBeenCalled();
       });
 

@@ -1,4 +1,9 @@
 import process from "node:process";
+import {
+  toMentorProfileDto,
+  toNullableMentorProfileDto,
+  toPaginatedMentorProfilesDto,
+} from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import type { Prisma } from "@calcom/prisma/client";
@@ -205,7 +210,9 @@ export class ProfileService {
       });
 
       if (this.redis) {
-        await this.redis.set(`profile:${profile.userId}`, profile, { ttl: this.PROFILE_CACHE_TTL });
+        await this.redis.set(`profile:${profile.userId}`, this.mapProfile(profile), {
+          ttl: this.PROFILE_CACHE_TTL,
+        });
       }
 
       this.analytics.trackProfileCreated({
@@ -215,7 +222,7 @@ export class ProfileService {
         degree: profile.degree,
       });
 
-      return this.mapProfile(profile);
+      return toMentorProfileDto(this.mapProfile(profile));
     } catch (error) {
       if (error instanceof Error && error.message.includes("Unique constraint")) {
         throw new ErrorWithCode(ErrorCode.BadRequest, "Profile already exists for this user");
@@ -262,57 +269,70 @@ export class ProfileService {
 
     const profile = await this.repository.updateProfile(existing.id, updateData);
 
-    if (profile && this.redis) {
-      await this.redis.set(`profile:${userId}`, profile, { ttl: this.PROFILE_CACHE_TTL });
+    const mappedProfile = this.mapProfile(profile);
+
+    if (mappedProfile && this.redis) {
+      await this.redis.set(`profile:${userId}`, mappedProfile, { ttl: this.PROFILE_CACHE_TTL });
     }
 
-    return this.mapProfile(profile);
+    return toNullableMentorProfileDto(mappedProfile);
   }
 
   async getProfile(userId: number) {
     if (this.redis) {
       const cached = await this.redis.get(`profile:${userId}`);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
+      if (cached && Object.keys(cached).length > 0) {
+        return toNullableMentorProfileDto(cached);
+      }
     }
 
     const profile = await this.repository.getProfileByUserId(userId);
+    const mappedProfile = this.mapProfile(profile);
 
-    if (profile && this.redis) {
-      await this.redis.set(`profile:${userId}`, profile, { ttl: this.PROFILE_CACHE_TTL });
+    if (mappedProfile && this.redis) {
+      await this.redis.set(`profile:${userId}`, mappedProfile, { ttl: this.PROFILE_CACHE_TTL });
     }
 
-    return this.mapProfile(profile);
+    return toNullableMentorProfileDto(mappedProfile);
   }
 
   async getProfileById(profileId: string) {
     if (this.redis) {
       const cached = await this.redis.get(`profile:id:${profileId}`);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
+      if (cached && Object.keys(cached).length > 0) {
+        return toNullableMentorProfileDto(cached);
+      }
     }
 
     const profile = await this.repository.getProfile(profileId);
 
-    if (profile && this.redis) {
-      await this.redis.set(`profile:id:${profileId}`, profile, { ttl: this.PROFILE_CACHE_TTL });
+    const mappedProfile = this.mapProfile(profile);
+
+    if (mappedProfile && this.redis) {
+      await this.redis.set(`profile:id:${profileId}`, mappedProfile, { ttl: this.PROFILE_CACHE_TTL });
     }
 
-    return this.mapProfile(profile);
+    return toNullableMentorProfileDto(mappedProfile);
   }
 
   async getProfileByUsername(username: string) {
     const cacheKey = `profile:username:${username}`;
     if (this.redis) {
       const cached = await this.redis.get(cacheKey);
-      if (cached && Object.keys(cached).length > 0) return this.mapProfile(cached as StudentProfileWithUser);
+      if (cached && Object.keys(cached).length > 0) {
+        return toNullableMentorProfileDto(cached);
+      }
     }
 
     const profile = await this.repository.getProfileByUsername(username);
 
-    if (profile && this.redis) {
-      await this.redis.set(cacheKey, profile, { ttl: this.PROFILE_CACHE_TTL });
+    const mappedProfile = this.mapProfile(profile);
+
+    if (mappedProfile && this.redis) {
+      await this.redis.set(cacheKey, mappedProfile, { ttl: this.PROFILE_CACHE_TTL });
     }
 
-    return this.mapProfile(profile);
+    return toNullableMentorProfileDto(mappedProfile);
   }
 
   async searchProfiles(filters: ProfileSearchFilters) {
@@ -326,10 +346,11 @@ export class ProfileService {
           page: number;
           pageSize: number;
         };
-        return {
+
+        return toPaginatedMentorProfilesDto({
           ...cachedResult,
-          profiles: cachedResult.profiles.map((p) => this.mapProfile(p)),
-        };
+          profiles: cachedResult.profiles.map((profile) => this.mapProfile(profile)),
+        });
       }
     }
 
@@ -344,19 +365,21 @@ export class ProfileService {
       sort: filters.sort,
     });
 
+    const mappedResult = {
+      ...result,
+      profiles: result.profiles.map((profile) => this.mapProfile(profile)),
+    };
+
     if (this.redis) {
-      await this.redis.set(cacheKey, result, { ttl: this.LIST_CACHE_TTL });
+      await this.redis.set(cacheKey, mappedResult, { ttl: this.LIST_CACHE_TTL });
     }
 
-    return {
-      ...result,
-      profiles: result.profiles.map((p) => this.mapProfile(p)),
-    };
+    return toPaginatedMentorProfilesDto(mappedResult);
   }
 
   async getRecommendedProfiles(field?: string) {
     const profiles = await this.repository.getRecommendedProfiles(field ? toAcademicField(field) : undefined);
-    return profiles.map((p) => this.mapProfile(p));
+    return profiles.map((profile) => toMentorProfileDto(this.mapProfile(profile)));
   }
 
   /**
@@ -371,11 +394,13 @@ export class ProfileService {
     const scored = matchingService.sortMentors(candidates as StudentProfileWithUser[], intent);
 
     // 3. Return top results (e.g., top 5)
-    return scored.slice(0, 5).map((p) => ({
-      ...this.mapProfile(p),
-      matchScore: p.matchScore,
-      matchReasons: p.matchReasons,
-    }));
+    return scored.slice(0, 5).map((profile) =>
+      toMentorProfileDto({
+        ...this.mapProfile(profile),
+        matchScore: profile.matchScore,
+        matchReasons: profile.matchReasons,
+      })
+    );
   }
 
   async upsertOrientationIntent(
@@ -393,7 +418,7 @@ export class ProfileService {
 
   async getTopRatedProfiles() {
     const profiles = await this.repository.getTopRatedProfiles();
-    return profiles.map((p) => this.mapProfile(p));
+    return profiles.map((profile) => toMentorProfileDto(this.mapProfile(profile)));
   }
 
   async activateProfile(userId: number) {
@@ -406,7 +431,9 @@ export class ProfileService {
 
   async getProfilesByField(field: string) {
     const result = await this.repository.getProfilesByField(toAcademicField(field));
-    return result.profiles.map((p: StudentProfileWithUser) => this.mapProfile(p));
+    return result.profiles.map((profile: StudentProfileWithUser) =>
+      toMentorProfileDto(this.mapProfile(profile))
+    );
   }
 
   isProfileComplete(profile: StudentProfileWithUser): boolean {

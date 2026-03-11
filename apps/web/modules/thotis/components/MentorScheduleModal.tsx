@@ -7,8 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useEffect, useState } from "react";
-
-const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { getShortWeekdayLabel } from "../lib/displayLabels";
 
 interface AvailabilitySlot {
   days: number[];
@@ -29,7 +28,7 @@ function formatTime(dateVal: Date | string): string {
 }
 
 export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName }: MentorScheduleModalProps) {
-  const { t } = useLocale();
+  const { i18n, t } = useLocale();
   const utils = trpc.useUtils();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
 
@@ -128,7 +127,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
                 </div>
 
                 <div className="flex flex-wrap gap-1">
-                  {DAYS_OF_WEEK.map((dayName, dayIndex) => (
+                  {Array.from({ length: 7 }, (_, dayIndex) => (
                     <button
                       key={dayIndex}
                       type="button"
@@ -138,7 +137,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
                           ? "bg-brand-default text-brand"
                           : "bg-subtle text-subtle hover:bg-emphasis/10"
                       }`}>
-                      {dayName}
+                      {getShortWeekdayLabel(i18n.language, dayIndex)}
                     </button>
                   ))}
                 </div>

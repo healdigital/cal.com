@@ -121,6 +121,7 @@ export const OrganizationBrandView = ({ userEmail }: OrganizationBrandViewProps)
                 <div className="flex w-full flex-col gap-2">
                   <div className="bg-cal-muted border-muted relative h-[92px] w-full overflow-hidden rounded-md border">
                     {bannerPreview && (
+                      // eslint-disable-next-line @next/next/no-img-element -- data: URI preview from FileReader
                       <img
                         src={bannerPreview}
                         alt={t("onboarding_banner_preview_alt")}
@@ -162,6 +163,7 @@ export const OrganizationBrandView = ({ userEmail }: OrganizationBrandViewProps)
                 <div className="flex items-center gap-2">
                   <div className="bg-cal-muted border-muted relative h-16 w-16 shrink-0 overflow-hidden rounded-md border">
                     {logoPreview && (
+                      // eslint-disable-next-line @next/next/no-img-element -- data: URI preview from FileReader
                       <img
                         src={logoPreview}
                         alt={t("onboarding_logo_preview_alt")}

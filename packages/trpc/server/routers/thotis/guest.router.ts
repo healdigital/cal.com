@@ -1,103 +1,9 @@
 import process from "node:process";
-import { MentorIncidentType, ThotisAnalyticsEventType } from "@calcom/prisma/enums";
-import { TRPCError } from "@trpc/server";
+import { MentorIncidentType } from "@calcom/prisma/enums";
 import { z } from "zod";
 import publicProcedure from "../../procedures/publicProcedure";
 import { router } from "../../trpc";
-import {
-  analyticsService,
-  bookingService,
-  emailService,
-  guestService,
-  prisma,
-  statisticsService,
-} from "./_shared";
-
-/**
- * Validates a booking for rating eligibility and returns the necessary data.
- * Extracted from duplicated logic in rateByToken and the rating router.
- */
-async function validateBookingForRating(bookingId: number, email: string) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    select: {
-      id: true,
-      status: true,
-      startTime: true,
-      endTime: true,
-      metadata: true,
-      responses: true,
-      userId: true,
-    },
-  });
-
-  if (!booking) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-  }
-
-  const responses = booking.responses as { email?: string } | null;
-  if (responses?.email !== email) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Email does not match booking" });
-  }
-
-  const now = new Date();
-  if (booking.endTime > now) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot rate a session that hasn't ended yet" });
-  }
-  if (booking.status !== "ACCEPTED") {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Only completed sessions can be rated" });
-  }
-
-  const existingRating = await prisma.sessionRating.findUnique({
-    where: { bookingId },
-    select: { id: true },
-  });
-  if (existingRating) {
-    throw new TRPCError({ code: "CONFLICT", message: "Session has already been rated" });
-  }
-
-  const metadata = booking.metadata as { studentProfileId?: string } | null;
-  const studentProfileId = metadata?.studentProfileId;
-  if (!studentProfileId) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid Thotis booking" });
-  }
-  if (!booking.userId) {
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Booking has no mentor assigned" });
-  }
-
-  return { booking, studentProfileId };
-}
-
-/**
- * Validates a booking for incident reporting and returns the necessary data.
- * Extracted from duplicated logic in reportByToken and the incident router.
- */
-async function validateBookingForIncident(bookingId: number, email: string) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    select: {
-      uid: true,
-      metadata: true,
-      responses: true,
-    },
-  });
-
-  if (!booking) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-  }
-
-  const responses = booking.responses as { email?: string } | null;
-  if (responses?.email !== email) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Email does not match booking" });
-  }
-
-  const metadata = booking.metadata as { studentProfileId?: string } | null;
-  if (!metadata?.studentProfileId) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Not a valid mentor session" });
-  }
-
-  return { booking, studentProfileId: metadata.studentProfileId };
-}
+import { bookingService, emailService, guestService, sessionOperationsService } from "./_shared";
 
 export const guestRouter = router({
   requestInboxLink: publicProcedure
@@ -129,16 +35,15 @@ export const guestRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const magicLink = await guestService.verifyToken(input.token);
-      if (magicLink.bookingId && magicLink.bookingId !== input.bookingId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Token not valid for this booking" });
-      }
-      const requester = { id: 0, email: magicLink.guest.email, name: "Guest Student" };
+      const magicLink = await guestService.verifyToken(input.token, input.bookingId);
 
+      const requester = { id: 0, email: magicLink.guest.email, name: "Guest Student" };
       const result = await bookingService.cancelSession(input.bookingId, input.reason, "student", requester);
+
       if (magicLink.bookingId) {
         await guestService.invalidateToken(magicLink.id);
       }
+
       await guestService.logAccess(
         magicLink.guestId,
         "cancelByToken",
@@ -159,16 +64,15 @@ export const guestRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const magicLink = await guestService.verifyToken(input.token);
-      if (magicLink.bookingId && magicLink.bookingId !== input.bookingId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Token not valid for this booking" });
-      }
-      const requester = { id: 0, email: magicLink.guest.email, name: "Guest Student" };
+      const magicLink = await guestService.verifyToken(input.token, input.bookingId);
 
+      const requester = { id: 0, email: magicLink.guest.email, name: "Guest Student" };
       const result = await bookingService.rescheduleSession(input.bookingId, input.newDateTime, requester);
+
       if (magicLink.bookingId) {
         await guestService.invalidateToken(magicLink.id);
       }
+
       await guestService.logAccess(
         magicLink.guestId,
         "rescheduleByToken",
@@ -190,36 +94,20 @@ export const guestRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const magicLink = await guestService.verifyToken(input.token);
-      if (magicLink.bookingId && magicLink.bookingId !== input.bookingId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Token not valid for this booking" });
-      }
-      const email = magicLink.guest.email;
+      const magicLink = await guestService.verifyToken(input.token, input.bookingId);
 
-      const { booking, studentProfileId } = await validateBookingForRating(input.bookingId, email);
-
-      await statisticsService.addRating(
-        input.bookingId,
-        booking.userId!,
-        input.rating,
-        input.feedback || null,
-        email
-      );
-
-      await analyticsService.track({
-        eventType: ThotisAnalyticsEventType.rating_submitted,
-        userId: booking.userId!,
-        profileId: studentProfileId,
+      const rating = await sessionOperationsService.submitRating({
         bookingId: input.bookingId,
-        metadata: {
-          rating: input.rating,
-          hasFeedback: !!input.feedback,
-        },
+        rating: input.rating,
+        feedback: input.feedback,
+        email: magicLink.guest.email,
+        guestId: magicLink.guestId,
       });
 
       await guestService.invalidateToken(magicLink.id);
       await guestService.logAccess(magicLink.guestId, "rateByToken", "RATE", String(input.bookingId), true);
-      return { success: true };
+
+      return rating;
     }),
 
   getRatingByToken: publicProcedure
@@ -230,34 +118,12 @@ export const guestRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const magicLink = await guestService.verifyToken(input.token);
-      if (magicLink.bookingId && magicLink.bookingId !== input.bookingId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Token not valid for this booking" });
-      }
-      const email = magicLink.guest.email;
+      const magicLink = await guestService.verifyToken(input.token, input.bookingId);
 
-      const rating = await prisma.sessionRating.findUnique({
-        where: { bookingId: input.bookingId },
-        select: {
-          id: true,
-          rating: true,
-          feedback: true,
-          createdAt: true,
-        },
+      return await sessionOperationsService.getRating({
+        bookingId: input.bookingId,
+        email: magicLink.guest.email,
       });
-
-      if (rating) {
-        const booking = await prisma.booking.findUnique({
-          where: { id: input.bookingId },
-          select: { responses: true },
-        });
-        const responses = booking?.responses as { email?: string } | null;
-        if (responses?.email !== email) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
-        }
-      }
-
-      return rating;
     }),
 
   reportByToken: publicProcedure
@@ -270,40 +136,14 @@ export const guestRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const magicLink = await guestService.verifyToken(input.token);
-      if (magicLink.bookingId && magicLink.bookingId !== input.bookingId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Token not valid for this booking" });
-      }
-      const email = magicLink.guest.email;
+      const magicLink = await guestService.verifyToken(input.token, input.bookingId);
 
-      const { booking, studentProfileId } = await validateBookingForIncident(input.bookingId, email);
-
-      await prisma.mentorQualityIncident.create({
-        data: {
-          studentProfileId,
-          bookingUid: booking.uid,
-          reportedByUserId: null,
-          type: input.type,
-          description: input.description || "",
-        },
+      const result = await sessionOperationsService.reportIncident({
+        bookingId: input.bookingId,
+        type: input.type,
+        description: input.description,
+        reporterEmail: magicLink.guest.email,
       });
-
-      // Only track no_show events in analytics funnel.
-      // Other incident types are already recorded in mentorQualityIncident table
-      // and should not pollute funnel metrics (there's no dedicated event type for them).
-      if (input.type === MentorIncidentType.NO_SHOW) {
-        await analyticsService.track({
-          eventType: ThotisAnalyticsEventType.no_show,
-          userId: undefined,
-          profileId: studentProfileId,
-          bookingId: input.bookingId,
-          metadata: {
-            incidentType: input.type,
-            isGuestReport: true,
-            description: input.description,
-          },
-        });
-      }
 
       await guestService.invalidateToken(magicLink.id);
       await guestService.logAccess(
@@ -314,7 +154,7 @@ export const guestRouter = router({
         true
       );
 
-      return { success: true };
+      return result;
     }),
 
   getPostSessionDataByToken: publicProcedure
@@ -326,29 +166,10 @@ export const guestRouter = router({
     )
     .query(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
-      const email = magicLink.guest.email;
 
-      const booking = await prisma.booking.findUnique({
-        where: { id: input.bookingId },
-        select: { responses: true },
+      return await sessionOperationsService.getPostSessionData({
+        bookingId: input.bookingId,
+        email: magicLink.guest.email,
       });
-
-      if (!booking) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-      }
-
-      const responses = booking.responses as { email?: string } | null;
-      if (responses?.email !== email) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized: Email does not match booking" });
-      }
-
-      const summary = await prisma.thotisSessionSummary.findUnique({
-        where: { bookingId: input.bookingId },
-      });
-      const resources = await prisma.thotisSessionResource.findMany({
-        where: { bookingId: input.bookingId },
-      });
-
-      return { summary, resources };
     }),
 });

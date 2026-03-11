@@ -1,10 +1,8 @@
-import prisma from "@calcom/prisma";
-import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withCors } from "../_lib/cors";
-import { analyticsService, ratingService, statisticsService } from "../_lib/services";
+import { ratingService, sessionOperationsService } from "../_lib/services";
 import { parseBody, parseQuery } from "../_lib/validate";
 
 const SubmitRatingSchema = z.object({
@@ -26,31 +24,14 @@ async function handleGet(request: NextRequest) {
 
 async function handlePost(request: NextRequest) {
   const input = await parseBody(request, SubmitRatingSchema);
-
-  // Look up booking to get the mentor userId needed by addRating
-  const booking = await prisma.booking.findUnique({
-    where: { id: input.bookingId },
-    select: { userId: true },
-  });
-
-  if (!booking?.userId) {
-    return NextResponse.json({ error: "Booking not found or has no mentor" }, { status: 404 });
-  }
-
-  await statisticsService.addRating(
-    input.bookingId,
-    booking.userId,
-    input.rating,
-    input.feedback || null,
-    input.email
-  );
-
-  await analyticsService.track({
-    eventType: ThotisAnalyticsEventType.rating_submitted,
+  const rating = await sessionOperationsService.submitRating({
     bookingId: input.bookingId,
+    rating: input.rating,
+    feedback: input.feedback,
+    email: input.email,
   });
 
-  return NextResponse.json({ success: true }, { status: 201 });
+  return NextResponse.json({ rating }, { status: 201 });
 }
 
 export const GET = withCors(handleGet);

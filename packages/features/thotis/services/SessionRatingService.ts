@@ -1,17 +1,9 @@
+import type { SessionRatingDto } from "@calcom/lib/dto/thotis/ThotisApiSchemas";
+import { toSessionRatingDto } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import type { SessionRatingRepository } from "../repositories/SessionRatingRepository";
 import { AnalyticsService } from "./AnalyticsService";
-
-/** Shared shape for rating data returned by service methods */
-export interface SessionRatingDto {
-  id: string;
-  bookingId: number;
-  studentProfileId: string;
-  rating: number;
-  feedback: string | null;
-  createdAt: Date;
-}
 
 /**
  * Service for managing session ratings
@@ -69,14 +61,7 @@ export class SessionRatingService {
       { metadata: bookingMetadata }
     );
 
-    return {
-      id: rating.id,
-      bookingId: rating.bookingId,
-      studentProfileId: rating.studentProfileId,
-      rating: rating.rating,
-      feedback: rating.feedback,
-      createdAt: rating.createdAt,
-    };
+    return toSessionRatingDto(rating);
   }
 
   /**
@@ -86,14 +71,7 @@ export class SessionRatingService {
     const rating = await this.repository.findByBookingId(bookingId);
     if (!rating) return null;
 
-    return {
-      id: rating.id,
-      bookingId: rating.bookingId,
-      studentProfileId: rating.studentProfileId,
-      rating: rating.rating,
-      feedback: rating.feedback,
-      createdAt: rating.createdAt,
-    };
+    return toSessionRatingDto(rating);
   }
 
   /**
@@ -101,14 +79,7 @@ export class SessionRatingService {
    */
   async getRatingsByStudentProfileId(studentProfileId: string): Promise<SessionRatingDto[]> {
     const ratings = await this.repository.findByStudentProfileId(studentProfileId);
-    return ratings.map((r) => ({
-      id: r.id,
-      bookingId: r.bookingId,
-      studentProfileId: r.studentProfileId,
-      rating: r.rating,
-      feedback: r.feedback,
-      createdAt: r.createdAt,
-    }));
+    return ratings.map((rating) => toSessionRatingDto(rating));
   }
 
   /**
@@ -154,14 +125,7 @@ export class SessionRatingService {
     }
 
     const result = await this.repository.updateRating(id, data);
-    return {
-      id: result.id,
-      bookingId: result.bookingId,
-      studentProfileId: result.studentProfileId,
-      rating: result.rating,
-      feedback: result.feedback,
-      createdAt: result.createdAt,
-    };
+    return toSessionRatingDto(result);
   }
 
   /**

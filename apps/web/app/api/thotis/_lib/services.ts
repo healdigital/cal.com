@@ -14,6 +14,7 @@ import { ThotisAnalyticsService } from "@calcom/features/thotis/services/ThotisA
 import { ThotisBookingService } from "@calcom/features/thotis/services/ThotisBookingService";
 import { ThotisEmailService } from "@calcom/features/thotis/services/ThotisEmailService";
 import { ThotisGuestService } from "@calcom/features/thotis/services/ThotisGuestService";
+import { ThotisSessionOperationsService } from "@calcom/features/thotis/services/ThotisSessionOperationsService";
 import prisma from "@calcom/prisma";
 
 const profileRepository = new ProfileRepository();
@@ -22,10 +23,23 @@ const analyticsRepository = new AnalyticsRepository();
 const analyticsService = new ThotisAnalyticsService(analyticsRepository);
 
 export const profileService = new ProfileService(profileRepository);
-export const bookingService = new ThotisBookingService(prisma, undefined, undefined, analyticsService);
 export const ratingService = new SessionRatingService(ratingRepository);
 export const statisticsService = new StatisticsService(profileRepository, ratingRepository, analyticsService);
 export const guestService = new ThotisGuestService();
 export const emailService = new ThotisEmailService();
+export const bookingService = new ThotisBookingService(
+  prisma,
+  undefined,
+  undefined,
+  analyticsService,
+  guestService,
+  emailService
+);
+export const sessionOperationsService = new ThotisSessionOperationsService(
+  prisma,
+  statisticsService,
+  ratingService,
+  analyticsService
+);
 export const matchingService = new MentorMatchingService();
 export { analyticsService };

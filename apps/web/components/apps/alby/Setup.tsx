@@ -123,7 +123,9 @@ function AlbySetupPage(props: IAlbySetupProps) {
 
   const albyIcon = (
     <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="h-12 w-12 dark:hidden" src="/api/app-store/alby/icon-borderless.svg" alt="Alby Icon" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="hidden h-12 w-12 dark:block"
         src="/api/app-store/alby/icon-borderless-dark.svg"

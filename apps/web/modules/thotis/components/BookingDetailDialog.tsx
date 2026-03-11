@@ -8,13 +8,13 @@ import { TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 
-interface BookingDetailSheetProps {
+interface BookingDetailDialogProps {
   bookingId: number | null;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function BookingDetailSheet({ bookingId, isOpen, onClose }: BookingDetailSheetProps) {
+export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetailDialogProps) {
   const { t } = useLocale();
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);

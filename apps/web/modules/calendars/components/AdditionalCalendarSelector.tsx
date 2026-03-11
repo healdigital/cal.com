@@ -54,6 +54,7 @@ const AdditionalCalendarSelector = ({ isPending }: AdditionalCalendarSelectorPro
                   return (
                     <DropdownItem {...props} color="minimal" type="button">
                       <span className="flex items-center gap-x-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- mixed SVG/raster app logos */}
                         {data.image && <img className="h-5 w-5" src={data.image} alt={data.label} />}
                         {`${t("add")} ${data.label}`}
                       </span>

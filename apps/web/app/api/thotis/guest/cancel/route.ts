@@ -14,7 +14,7 @@ async function handler(request: NextRequest) {
   const token = getGuestToken(request);
   const input = await parseBody(request, CancelSchema);
 
-  const magicLink = await guestService.verifyToken(token);
+  const magicLink = await guestService.verifyToken(token, input.bookingId);
   const requester = { id: 0, email: magicLink.guest.email };
 
   await bookingService.cancelSession(input.bookingId, input.reason, "student", requester);

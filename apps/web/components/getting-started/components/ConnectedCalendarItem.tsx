@@ -24,6 +24,7 @@ const ConnectedCalendarItem = (prop: IConnectedCalendarItem): JSX.Element => {
   return (
     <>
       <div className="flex flex-row items-center p-4">
+        {/* eslint-disable-next-line @next/next/no-img-element -- mixed SVG/raster calendar logos */}
         <img src={logo} alt={name} className="m-1 h-8 w-8" />
         <div className="mx-4">
           <p className="font-bold font-sans text-sm leading-5">

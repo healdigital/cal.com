@@ -24,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
 
 // --- Types & Interfaces ---
 
@@ -261,11 +262,15 @@ interface MentorListProfile {
   totalSessions: number | null;
   completedSessions: number | null;
   averageRating: unknown; // Prisma Decimal, coerced via Number()
+  user: {
+    name: string | null;
+  };
 }
 
 const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
   const { t } = useLocale();
   const columns = [
+    { Header: t("thotis_admin_col_mentor"), accessor: "mentorName" },
     { Header: t("thotis_header_university"), accessor: "university" },
     { Header: t("thotis_header_field"), accessor: "field" },
     { Header: t("thotis_header_sessions"), accessor: "totalSessions" },
@@ -298,6 +303,7 @@ const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
           <Table.Body>
             {profiles.map((profile: MentorListProfile) => (
               <Table.Row key={profile.id}>
+                <Table.Cell>{profile.user.name || "\u2014"}</Table.Cell>
                 <Table.Cell>{profile.university}</Table.Cell>
                 <Table.Cell>{profile.field}</Table.Cell>
                 <Table.Cell>{profile.totalSessions}</Table.Cell>
@@ -351,7 +357,7 @@ const RecentIncidents = () => {
               className="w-full text-left p-3 bg-subtle rounded-md border border-subtle hover:border-emphasis transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
-                  {incident.type}
+                  {getMentorIncidentTypeLabel(t, incident.type)}
                 </span>
                 <span className="text-[10px] text-muted">
                   {new Date(incident.createdAt).toLocaleDateString()}

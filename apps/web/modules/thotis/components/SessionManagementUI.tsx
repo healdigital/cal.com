@@ -10,6 +10,7 @@ import { Button } from "@calcom/ui/components/button";
 import { DatePicker } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { useCallback, useMemo, useState } from "react";
+import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
 import { PostSessionForm } from "./PostSessionForm";
 import { RatingForm } from "./RatingForm";
 import { SessionSummaryView } from "./SessionSummaryView";
@@ -594,7 +595,7 @@ export const SessionManagementUI = ({
               className="w-full rounded-md border border-yellow-200 bg-white p-2 text-sm">
               {Object.values(MentorIncidentType).map((type) => (
                 <option key={type} value={type}>
-                  {type.replace(/_/g, " ")}
+                  {getMentorIncidentTypeLabel(t, type)}
                 </option>
               ))}
             </select>

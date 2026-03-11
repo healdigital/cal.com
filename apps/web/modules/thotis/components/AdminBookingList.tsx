@@ -6,7 +6,7 @@ import { Button } from "@calcom/ui/components/button";
 import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { Table } from "@calcom/ui/components/table";
 import { useState } from "react";
-import { BookingDetailSheet } from "./BookingDetailSheet";
+import { BookingDetailDialog } from "./BookingDetailDialog";
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useLocale();
@@ -211,7 +211,7 @@ export function AdminBookingList() {
         </>
       )}
 
-      <BookingDetailSheet
+      <BookingDetailDialog
         bookingId={selectedBookingId}
         isOpen={!!selectedBookingId}
         onClose={() => setSelectedBookingId(null)}

@@ -38,6 +38,7 @@ export default function PayPalSetup() {
         <div className="bg-default border-subtle m-auto max-w-[43em] overflow-auto rounded border pb-10 md:p-10">
           <div className="ml-2 ltr:mr-2 rtl:ml-2 md:ml-5">
             <div className="invisible md:visible">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="h-11" src="/api/app-store/paypal/icon.svg" alt="Paypal Payment Logo" />
               <p className="text-default mt-5 text-lg">Paypal</p>
             </div>
