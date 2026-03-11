@@ -1,4 +1,6 @@
 import { getLocale } from "@calcom/features/auth/lib/getLocale";
+import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
+import { ThotisGuestService } from "@calcom/features/thotis/services/ThotisGuestService";
 import { getTranslation } from "@calcom/lib/server/i18n";
 import prisma from "@calcom/prisma";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
@@ -41,6 +43,25 @@ export default async function ThotisFeedbackPage({
 
   if (!booking || !isThotisSession || !hasEnded) {
     return notFound();
+  }
+
+  if (token) {
+    const guestService = new ThotisGuestService();
+
+    try {
+      await guestService.verifyToken(token, booking.id);
+    } catch {
+      return notFound();
+    }
+  } else {
+    const session = await getServerSession({
+      req: buildLegacyRequest(await headers(), await cookies()),
+    });
+    const attendeeEmail = (booking.responses as { email?: string } | null)?.email;
+
+    if (!session?.user?.email || session.user.email !== attendeeEmail) {
+      return notFound();
+    }
   }
 
   const locale = await getLocale(buildLegacyRequest(await headers(), await cookies()));

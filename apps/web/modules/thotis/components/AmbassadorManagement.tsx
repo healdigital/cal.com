@@ -17,6 +17,14 @@ import { Controller, useForm } from "react-hook-form";
 import { getMentorIncidentTypeLabel, getMentorStatusLabel, getShortWeekdayLabel } from "../lib/displayLabels";
 import { EditMentorProfileModal } from "./EditMentorProfileModal";
 import { MentorScheduleModal } from "./MentorScheduleModal";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
+
+function hasValidTimeRange(startTime: string, endTime: string): boolean {
+  const [startHours, startMinutes] = startTime.split(":").map(Number);
+  const [endHours, endMinutes] = endTime.split(":").map(Number);
+
+  return endHours * 60 + endMinutes > startHours * 60 + startMinutes;
+}
 
 const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -40,6 +48,15 @@ const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void 
   });
 
   const onSubmit = (data: ProvisionAmbassadorInput) => {
+    if (
+      data.schedule?.startTime &&
+      data.schedule?.endTime &&
+      !hasValidTimeRange(data.schedule.startTime, data.schedule.endTime)
+    ) {
+      showToast(t("thotis_admin_schedule_time_range_error"), "error");
+      return;
+    }
+
     mutation.mutate(data);
   };
 
@@ -83,23 +100,23 @@ const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void 
           <div className="space-y-1">
             <Label>{t("thotis_admin_bio")}</Label>
             <textarea
-              className="bg-default border-subtle w-full rounded-md border p-2"
+              className="w-full rounded-md border border-subtle bg-default p-2"
               rows={3}
               {...register("bio", { required: true })}
             />
           </div>
 
-          <div className="border-subtle rounded-md border">
+          <div className="rounded-md border border-subtle">
             <button
               type="button"
-              className="text-emphasis hover:bg-subtle flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
+              className="flex w-full items-center justify-between px-3 py-2 font-medium text-emphasis text-sm hover:bg-subtle"
               onClick={() => setShowScheduleConfig((prev) => !prev)}>
               {t("thotis_admin_schedule_config")}
               <span className="text-subtle text-xs">{showScheduleConfig ? "−" : "+"}</span>
             </button>
 
             {showScheduleConfig && (
-              <div className="space-y-3 border-t border-subtle px-3 pb-3 pt-2">
+              <div className="space-y-3 border-subtle border-t px-3 pt-2 pb-3">
                 <p className="text-subtle text-xs">{t("thotis_admin_default_schedule_note")}</p>
 
                 <div className="space-y-1">
@@ -123,7 +140,7 @@ const ProvisionAmbassadorModal: React.FC<{ isOpen: boolean; onClose: () => void 
                                   : [...current, dayIndex].sort();
                                 field.onChange(next);
                               }}
-                              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                              className={`rounded-md px-2.5 py-1 font-medium text-xs transition-colors ${
                                 selected
                                   ? "bg-brand-default text-brand"
                                   : "bg-subtle text-subtle hover:bg-emphasis/10"
@@ -182,7 +199,12 @@ const IncidentsModal: React.FC<{
   name: string | null;
 }> = ({ isOpen, onClose, profileId, name }) => {
   const { t } = useLocale();
-  const { data, isPending } = trpc.thotis.admin.listIncidents.useQuery(
+  const {
+    data,
+    error,
+    isPending,
+    refetch,
+  } = trpc.thotis.admin.listIncidents.useQuery(
     {
       studentProfileId: profileId || undefined,
       resolved: undefined, // Show all
@@ -194,34 +216,42 @@ const IncidentsModal: React.FC<{
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader title={`${t("thotis_admin_incidents_for")} ${name}`} />
-        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto py-4">
           {isPending ? (
-            <p className="text-center py-4">{t("loading")}</p>
+            <ThotisLoadingState className="py-6" />
+          ) : error ? (
+            <ThotisErrorState
+              className="px-4 py-6"
+              message={error.message}
+              onAction={() => void refetch()}
+              title={t("thotis_admin_error")}
+            />
           ) : !data?.incidents || data.incidents.length === 0 ? (
-            <p className="text-center text-subtle py-4">{t("thotis_admin_no_incidents_found")}</p>
+            <p className="py-4 text-center text-subtle">{t("thotis_admin_no_incidents_found")}</p>
           ) : (
             data.incidents.map((incident) => (
-              <div key={incident.id} className="p-3 bg-subtle rounded-md border border-subtle">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
+              <div key={incident.id} className="rounded-md border border-subtle bg-subtle p-3">
+                <div className="mb-1 flex items-start justify-between">
+                  <span className="font-bold text-emphasis text-xs uppercase tracking-wider">
                     {getMentorIncidentTypeLabel(t, incident.type)}
                   </span>
                   <span className="text-[10px] text-muted">
                     {new Date(incident.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-sm text-default mb-2">
+                <p className="mb-2 text-default text-sm">
                   {incident.description || t("thotis_no_description")}
                 </p>
-                <div className="flex justify-between items-center text-xs">
+                <div className="flex items-center justify-between text-xs">
                   <span
-                    className={`px-2 py-0.5 rounded-full ${
+                    role="status"
+                    className={`rounded-full px-2 py-0.5 ${
                       incident.resolved ? "bg-success text-inverted" : "bg-attention text-attention"
                     }`}>
                     {incident.resolved ? t("thotis_admin_resolved") : t("thotis_admin_pending")}
                   </span>
                   {incident.bookingUid && (
-                    <span className="text-muted text-[10px]">Booking: {incident.bookingUid}</span>
+                    <span className="text-[10px] text-muted">Booking: {incident.bookingUid}</span>
                   )}
                 </div>
               </div>
@@ -345,7 +375,12 @@ export const AmbassadorManagement: React.FC = () => {
 
   const utils = trpc.useUtils();
 
-  const { data } = trpc.thotis.admin.listAmbassadors.useQuery({
+  const {
+    data,
+    error,
+    isLoading,
+    refetch,
+  } = trpc.thotis.admin.listAmbassadors.useQuery({
     page,
     pageSize,
     fieldOfStudy,
@@ -395,7 +430,7 @@ export const AmbassadorManagement: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">{t("thotis_admin_ambassadors_management")}</h2>
+          <h2 className="font-semibold text-xl">{t("thotis_admin_ambassadors_management")}</h2>
           {data?.total !== undefined && (
             <p className="text-sm text-subtle">
               {t("thotis_admin_total_ambassadors", { count: data.total })}
@@ -427,6 +462,11 @@ export const AmbassadorManagement: React.FC = () => {
         </div>
       </div>
 
+      {isLoading ? <ThotisLoadingState /> : null}
+      {error ? (
+        <ThotisErrorState message={error.message} onAction={() => void refetch()} title={t("thotis_admin_error")} />
+      ) : null}
+
       <Table>
         <Table.Header>
           <Table.Row>
@@ -437,7 +477,7 @@ export const AmbassadorManagement: React.FC = () => {
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {!data?.profiles || data.profiles.length === 0 ? (
+          {isLoading || error ? null : !data?.profiles || data.profiles.length === 0 ? (
             <Table.Row>
               <td colSpan={4} className="px-6 py-10 text-center text-subtle">
                 {t("thotis_no_mentors_found")}
@@ -529,7 +569,7 @@ export const AmbassadorManagement: React.FC = () => {
       </Table>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {!error && !isLoading && totalPages > 1 && (
         <div className="flex items-center justify-between pt-4">
           <Button
             color="minimal"

@@ -9,6 +9,7 @@ export const BookingConfirmationEmail = (
   } & Partial<React.ComponentProps<typeof ThotisBaseScheduledEmail>>
 ) => {
   const { dashboardLink, ...rest } = props;
+  const { translate: t } = props.attendee.language;
   return (
     <ThotisBaseScheduledEmail
       locale={props.attendee.language.locale}
@@ -22,7 +23,7 @@ export const BookingConfirmationEmail = (
         props.dashboardLink ? (
           <div style={{ textAlign: "center", margin: "30px 0" }}>
             <p style={{ marginBottom: "15px", color: "#4B5563" }}>
-              Pour gérer votre session ou voir vos autres rendez-vous :
+              {t("thotis_guest_dashboard_description")}
             </p>
             <a
               href={props.dashboardLink}
@@ -38,7 +39,7 @@ export const BookingConfirmationEmail = (
                 fontSize: "14px",
                 display: "inline-block",
               }}>
-              Accéder à mon espace invité
+              {t("thotis_guest_dashboard_cta")}
             </a>
           </div>
         ) : undefined

@@ -6,6 +6,7 @@ import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useCallback, useState } from "react";
+import { ThotisErrorState } from "./ThotisAsyncState";
 
 const ACADEMIC_FIELDS = Object.values(AcademicField).map((field) => ({
   value: field,
@@ -34,7 +35,12 @@ export const MentorSearchFilters = ({ filters, onFiltersChange }: MentorSearchFi
   const { t } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { data: universities } = trpc.thotis.profile.universities.useQuery();
+  const {
+    data: universities,
+    error: universitiesError,
+    isPending: areUniversitiesLoading,
+    refetch: refetchUniversities,
+  } = trpc.thotis.profile.universities.useQuery();
 
   const handleFieldChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -113,14 +119,27 @@ export const MentorSearchFilters = ({ filters, onFiltersChange }: MentorSearchFi
               id="filter-university"
               value={filters.university}
               onChange={handleUniversityChange}
+              disabled={areUniversitiesLoading || !!universitiesError}
               className="block w-full rounded-md border border-subtle bg-default px-3 py-2 text-emphasis text-sm focus:border-blue-500 focus:ring-blue-500">
-              <option value="">{t("thotis_all_universities")}</option>
+              <option value="">
+                {areUniversitiesLoading ? t("loading") : t("thotis_all_universities")}
+              </option>
               {universities?.map((uni) => (
                 <option key={uni} value={uni}>
                   {uni}
                 </option>
               ))}
             </select>
+            {universitiesError ? (
+              <div className="mt-3">
+                <ThotisErrorState
+                  className="px-4 py-4"
+                  message={universitiesError.message}
+                  onAction={() => void refetchUniversities()}
+                  title={t("thotis_something_wrong")}
+                />
+              </div>
+            ) : null}
           </div>
 
           {/* Minimum Rating */}

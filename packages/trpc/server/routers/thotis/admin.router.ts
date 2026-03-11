@@ -10,6 +10,45 @@ import { authedAdminProcedure } from "../../procedures/authedProcedure";
 import { router } from "../../trpc";
 import { adminService } from "./_shared";
 
+function hasValidTimeRange(startTime: string, endTime: string): boolean {
+  const [startHours, startMinutes] = startTime.split(":").map(Number);
+  const [endHours, endMinutes] = endTime.split(":").map(Number);
+
+  return endHours * 60 + endMinutes > startHours * 60 + startMinutes;
+}
+
+const scheduleConfigSchema = z
+  .object({
+    days: z.array(z.number().min(0).max(6)).optional(),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+      .optional(),
+    timeZone: z.string().optional(),
+  })
+  .refine(
+    (value) => (value.startTime && value.endTime ? hasValidTimeRange(value.startTime, value.endTime) : true),
+    {
+      message: "End time must be after start time",
+      path: ["endTime"],
+    }
+  );
+
+const availabilitySlotSchema = z
+  .object({
+    days: z.array(z.number().min(0).max(6)),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  })
+  .refine((value) => hasValidTimeRange(value.startTime, value.endTime), {
+    message: "End time must be after start time",
+    path: ["endTime"],
+  });
+
 export const adminRouter = router({
   listAmbassadors: authedAdminProcedure
     .input(
@@ -36,20 +75,7 @@ export const adminRouter = router({
         yearOfStudy: z.number(),
         bio: z.string(),
         expertise: z.array(z.string()).optional(),
-        schedule: z
-          .object({
-            days: z.array(z.number().min(0).max(6)).optional(),
-            startTime: z
-              .string()
-              .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
-              .optional(),
-            endTime: z
-              .string()
-              .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
-              .optional(),
-            timeZone: z.string().optional(),
-          })
-          .optional(),
+        schedule: scheduleConfigSchema.optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -169,13 +195,7 @@ export const adminRouter = router({
       z.object({
         mentorUserId: z.number(),
         timeZone: z.string().optional(),
-        availability: z.array(
-          z.object({
-            days: z.array(z.number().min(0).max(6)),
-            startTime: z.string().regex(/^\d{2}:\d{2}$/),
-            endTime: z.string().regex(/^\d{2}:\d{2}$/),
-          })
-        ),
+        availability: z.array(availabilitySlotSchema),
       })
     )
     .mutation(async ({ input }) => {

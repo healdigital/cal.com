@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
+import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
 
 interface BookingDetailDialogProps {
   bookingId: number | null;
@@ -19,6 +20,12 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const utils = trpc.useUtils();
+  const bookingStatusLabels: Record<string, string> = {
+    ACCEPTED: t("thotis_admin_status_accepted"),
+    PENDING: t("thotis_admin_status_pending"),
+    CANCELLED: t("thotis_admin_status_cancelled"),
+    REJECTED: t("thotis_admin_status_rejected"),
+  };
 
   const { data: booking, isLoading } = trpc.thotis.admin.getBookingDetails.useQuery(
     { bookingId: bookingId! },
@@ -70,7 +77,7 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
         <DialogHeader title={t("thotis_admin_booking_details")} />
 
         {isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-8" aria-live="polite">
             <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
           </div>
         ) : !booking ? (
@@ -99,8 +106,10 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                 <div>
                   <span className="text-subtle">{t("status")}:</span>{" "}
                   <span
+                    role="status"
+                    aria-label={bookingStatusLabels[booking.status] || booking.status}
                     className={`font-medium ${booking.status === "CANCELLED" ? "text-error" : "text-success"}`}>
-                    {booking.status}
+                    {bookingStatusLabels[booking.status] || booking.status}
                   </span>
                 </div>
                 {booking.location && (
@@ -160,8 +169,14 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                   {t("thotis_admin_session_rating")}
                 </h4>
                 <p className="text-default">
-                  {"\u2605".repeat(booking.sessionRating.rating)}
-                  {"\u2606".repeat(5 - booking.sessionRating.rating)} ({booking.sessionRating.rating}/5)
+                  <span aria-hidden="true">
+                    {"\u2605".repeat(booking.sessionRating.rating)}
+                    {"\u2606".repeat(5 - booking.sessionRating.rating)}
+                  </span>{" "}
+                  <span className="sr-only">
+                    {t("thotis_stars", { count: booking.sessionRating.rating })}
+                  </span>
+                  ({booking.sessionRating.rating}/5)
                 </p>
                 {booking.sessionRating.feedback && (
                   <p className="mt-1 text-muted text-sm">{booking.sessionRating.feedback}</p>
@@ -180,8 +195,11 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                     key={inc.id}
                     className="flex items-center justify-between py-2 border-b border-subtle last:border-b-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-default text-sm font-medium">{inc.type}</span>
+                      <span className="text-default text-sm font-medium">
+                        {getMentorIncidentTypeLabel(t, inc.type)}
+                      </span>
                       <span
+                        role="status"
                         className={`rounded-full px-2 py-0.5 text-xs ${
                           inc.resolved ? "bg-success text-inverted" : "bg-error text-inverted"
                         }`}>
@@ -193,6 +211,7 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                         <Button
                           size="sm"
                           color="secondary"
+                          aria-label={t("thotis_admin_resolve_incident")}
                           loading={
                             resolveMutation.isPending && resolveMutation.variables?.incidentId === inc.id
                           }
@@ -202,6 +221,7 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                         <Button
                           size="sm"
                           color="secondary"
+                          aria-label={t("thotis_admin_warn_mentor")}
                           loading={
                             moderationMutation.isPending &&
                             moderationMutation.variables?.actionType === "WARNING"
@@ -234,7 +254,11 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
 
             {/* Cancel action */}
             {booking.status !== "CANCELLED" && !showCancelConfirm && (
-              <Button color="destructive" className="w-full" onClick={() => setShowCancelConfirm(true)}>
+              <Button
+                color="destructive"
+                className="w-full"
+                aria-label={t("thotis_admin_cancel_booking")}
+                onClick={() => setShowCancelConfirm(true)}>
                 {t("thotis_admin_cancel_booking")}
               </Button>
             )}

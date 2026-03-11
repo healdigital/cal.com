@@ -6,14 +6,15 @@ import { toBookingResultDto, toSessionDtoArray } from "@calcom/lib/dto/thotis/Th
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
+import { sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
+import { getTranslation } from "@calcom/lib/server/i18n";
 import { TimeFormat } from "@calcom/lib/timeFormat";
 import prisma from "@calcom/prisma";
-import type { Prisma, PrismaClient } from "@calcom/prisma/client";
+import { Prisma, type PrismaClient } from "@calcom/prisma/client";
 import { MentorIncidentType, MentorStatus, ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import { bookingResponses, EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { CredentialForCalendarService } from "@calcom/types/Credential";
-import type { TFunction } from "next-i18next";
 import { uuid } from "short-uuid";
 
 /**
@@ -68,6 +69,18 @@ export class ThotisBookingService {
     }
   }
 
+  private async runSerializableTransaction<T>(
+    operation: (tx: Prisma.TransactionClient | PrismaClient) => Promise<T>
+  ): Promise<T> {
+    if ("$transaction" in this.prisma && typeof this.prisma.$transaction === "function") {
+      return this.prisma.$transaction((tx) => operation(tx), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    }
+
+    return operation(this.prisma);
+  }
+
   private async invalidateStudentCache(userId: number, studentProfileId: string) {
     if (!this.redis) return;
 
@@ -87,6 +100,39 @@ export class ThotisBookingService {
     }
   }
 
+  private getResolvedLocale(locale?: string | null): string {
+    return locale || "en";
+  }
+
+  private getResolvedTimeZone(timeZone?: string | null): string {
+    return timeZone || "Europe/Paris";
+  }
+
+  private getResolvedTimeFormat(timeFormat?: number | null): TimeFormat {
+    return timeFormat === 24 ? TimeFormat.TWENTY_FOUR_HOUR : TimeFormat.TWELVE_HOUR;
+  }
+
+  private async buildEmailPerson(input: {
+    email: string;
+    locale?: string | null;
+    name: string;
+    timeFormat?: number | null;
+    timeZone?: string | null;
+  }): Promise<Person> {
+    const locale = this.getResolvedLocale(input.locale);
+
+    return {
+      email: input.email,
+      name: input.name,
+      timeFormat: this.getResolvedTimeFormat(input.timeFormat),
+      timeZone: this.getResolvedTimeZone(input.timeZone),
+      language: {
+        translate: await getTranslation(locale, "common"),
+        locale,
+      },
+    };
+  }
+
   /**
    * Creates a new student mentoring session
    * Enforces 15-minute duration and validates availability
@@ -97,6 +143,8 @@ export class ThotisBookingService {
   async createStudentSession(input: {
     studentProfileId: string;
     dateTime: Date;
+    locale?: string;
+    timeZone?: string;
     prospectiveStudent: {
       name: string;
       email: string;
@@ -191,111 +239,154 @@ export class ThotisBookingService {
     // Rate-limit booking creation via Redis (anti-abuse)
     await this.rateLimitBookingCreation(input.prospectiveStudent.email);
 
-    // Get or create Thotis event type for this student
-    let eventType = await this.prisma.eventType.findFirst({
-      where: {
-        userId: studentProfile.userId,
-        metadata: {
-          path: ["isThotisSession"],
-          equals: true,
-        },
-      },
-      select: {
-        id: true,
-        length: true,
-      },
-    });
-
-    if (!eventType) {
-      // Create Thotis event type
-      eventType = await this.prisma.eventType.create({
-        data: {
-          userId: studentProfile.userId,
-          title: "Thotis Student Mentoring Session",
-          slug: "thotis-mentoring-session",
-          length: 15,
-          hidden: true, // Hidden from public booking page
-          metadata: {
-            isThotisSession: true,
-            lockedDuration: true,
-            studentProfileId: input.studentProfileId,
-          } as Prisma.InputJsonValue,
-          minimumBookingNotice: 120,
-        },
-        select: {
-          id: true,
-          length: true,
-        },
-      });
-    }
-
-    // Validate event type duration is exactly 15 minutes (Property 8)
-    if (eventType.length !== 15) {
-      throw new ErrorWithCode(ErrorCode.InternalServerError, "Session duration must be exactly 15 minutes");
-    }
-
     // Generate Meeting link (Property 32)
     // Use integrations:google-video by default for Thotis sessions
     // This will be handled by CalendarManager/createEvent mostly,
     // but we can set it as default location.
     // Use integrations:google-video to trigger Cal.com's Google Calendar integration
     const googleMeetLink = "integrations:google-video";
+    const booking = await this.runSerializableTransaction(async (tx) => {
+      const eventTypeMetadata = {
+        isThotisSession: true,
+        lockedDuration: true,
+        studentProfileId: input.studentProfileId,
+      } satisfies Prisma.InputJsonValue;
 
-    // Create booking
-    const booking = await this.prisma.booking.create({
-      data: {
-        uid: uuid(),
-        userId: studentProfile.userId,
-        eventTypeId: eventType.id,
-        startTime,
-        endTime,
-        title: "Thotis Student Mentoring Session",
-        description: input.prospectiveStudent.question || "Student mentoring session",
-        status: "PENDING",
-        metadata: {
-          isThotisSession: true,
-          studentProfileId: input.studentProfileId,
-          prospectiveStudentName: input.prospectiveStudent.name,
-          prospectiveStudentEmail: input.prospectiveStudent.email,
-          question: input.prospectiveStudent.question,
-          googleMeetLink,
-        } as Prisma.InputJsonValue,
-        responses: {
-          name: input.prospectiveStudent.name,
-          email: input.prospectiveStudent.email,
-          notes: input.prospectiveStudent.question,
-        } as Prisma.InputJsonValue,
-        attendees: {
-          create: {
-            email: input.prospectiveStudent.email,
-            name: input.prospectiveStudent.name,
-            timeZone: "Europe/Paris",
-            locale: "fr",
+      let eventType = await tx.eventType.findFirst({
+        where: {
+          userId: studentProfile.userId,
+          metadata: {
+            path: ["isThotisSession"],
+            equals: true,
           },
         },
-      },
-      select: {
-        id: true,
-        uid: true,
-        title: true,
-        description: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        userId: true, // Needed for analytics
-        metadata: true, // Needed for analytics
-        responses: true, // Needed for webhooks
-      },
-    });
-
-    // Update student profile statistics
-    await this.prisma.studentProfile.update({
-      where: { id: input.studentProfileId },
-      data: {
-        totalSessions: {
-          increment: 1,
+        select: {
+          id: true,
+          length: true,
         },
-      },
+      });
+
+      if (!eventType) {
+        eventType = await tx.eventType.create({
+          data: {
+            userId: studentProfile.userId,
+            title: "Thotis Student Mentoring Session",
+            slug: "thotis-mentoring-session",
+            length: 15,
+            hidden: true,
+            metadata: eventTypeMetadata,
+            minimumBookingNotice: 120,
+          },
+          select: {
+            id: true,
+            length: true,
+          },
+        });
+      }
+
+      if (eventType.length !== 15) {
+        throw new ErrorWithCode(ErrorCode.InternalServerError, "Session duration must be exactly 15 minutes");
+      }
+
+      const conflictingBooking = await tx.booking.findFirst({
+        where: {
+          userId: studentProfile.userId,
+          status: {
+            in: ["ACCEPTED", "PENDING"],
+          },
+          OR: [
+            {
+              AND: [{ startTime: { lte: startTime } }, { endTime: { gt: startTime } }],
+            },
+            {
+              AND: [{ startTime: { lt: endTime } }, { endTime: { gte: endTime } }],
+            },
+            {
+              AND: [{ startTime: { gte: startTime } }, { endTime: { lte: endTime } }],
+            },
+          ],
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (conflictingBooking) {
+        throw new ErrorWithCode(
+          ErrorCode.BookingConflict,
+          `Time slot ${startTime.toISOString()} is already booked`
+        );
+      }
+
+      // Sanitize prospective student inputs
+      const sanitizedQuestion = sanitizeUserInput(input.prospectiveStudent.question, 500);
+      const sanitizedName = sanitizeUserInput(input.prospectiveStudent.name, 100);
+
+      const createdBooking = await tx.booking.create({
+        data: {
+          uid: uuid(),
+          userId: studentProfile.userId,
+          eventTypeId: eventType.id,
+          startTime,
+          endTime,
+          title: "Thotis Student Mentoring Session",
+          description: sanitizedQuestion || "Student mentoring session",
+          status: "PENDING",
+          metadata: {
+            isThotisSession: true,
+            studentProfileId: input.studentProfileId,
+            prospectiveStudentName: sanitizedName,
+            prospectiveStudentEmail: input.prospectiveStudent.email,
+            question: sanitizedQuestion,
+            googleMeetLink,
+          } as Prisma.InputJsonValue,
+          responses: {
+            name: sanitizedName,
+            email: input.prospectiveStudent.email,
+            notes: sanitizedQuestion,
+          } as Prisma.InputJsonValue,
+          attendees: {
+            create: {
+              email: input.prospectiveStudent.email,
+              name: sanitizedName,
+              timeZone: this.getResolvedTimeZone(input.timeZone),
+              locale: this.getResolvedLocale(input.locale),
+            },
+          },
+        },
+        select: {
+          id: true,
+          uid: true,
+          title: true,
+          description: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          userId: true,
+          metadata: true,
+          responses: true,
+        },
+      });
+
+      await tx.studentProfile.update({
+        where: { id: input.studentProfileId },
+        data: {
+          totalSessions: {
+            increment: 1,
+          },
+        },
+      });
+
+      return createdBooking;
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+        throw new ErrorWithCode(
+          ErrorCode.BookingConflict,
+          "Time slot is no longer available. Please choose another one."
+        );
+      }
+
+      throw error;
     });
 
     // Invalidate caches
@@ -339,21 +430,21 @@ export class ThotisBookingService {
       select: { email: true, name: true, timeZone: true, locale: true, timeFormat: true },
     });
 
-    const organizer: Person = {
-      name: organizerUser?.name || "Mentor",
+    const organizer = await this.buildEmailPerson({
       email: organizerUser?.email || "",
-      timeZone: organizerUser?.timeZone || "Europe/Paris",
-      language: { translate: ((key: string) => key) as TFunction, locale: organizerUser?.locale || "fr" },
-      timeFormat: organizerUser?.timeFormat === 24 ? TimeFormat.TWENTY_FOUR_HOUR : TimeFormat.TWELVE_HOUR,
-    };
+      locale: organizerUser?.locale,
+      name: organizerUser?.name || "Mentor",
+      timeFormat: organizerUser?.timeFormat,
+      timeZone: organizerUser?.timeZone,
+    });
 
-    const attendee: Person = {
-      name: input.prospectiveStudent.name,
+    const attendee = await this.buildEmailPerson({
       email: input.prospectiveStudent.email,
-      timeZone: "Europe/Paris", // Default for Thotis
-      language: { translate: ((key: string) => key) as TFunction, locale: "fr" },
-      timeFormat: TimeFormat.TWENTY_FOUR_HOUR,
-    };
+      locale: input.locale,
+      name: input.prospectiveStudent.name,
+      timeFormat: 24,
+      timeZone: input.timeZone,
+    });
 
     const calEvent: CalendarEvent = {
       type: "thotis-mentoring",
@@ -638,6 +729,14 @@ export class ThotisBookingService {
         metadata: true,
         userId: true,
         responses: true,
+        attendees: {
+          select: {
+            email: true,
+            locale: true,
+            name: true,
+            timeZone: true,
+          },
+        },
         eventType: {
           select: {
             userId: true,
@@ -682,7 +781,7 @@ export class ThotisBookingService {
         status: "CANCELLED",
         cancellationReason: reason,
         metadata: {
-          ...(booking.metadata as object),
+          ...parseBookingMetadata(booking.metadata),
           cancelledBy,
           cancelledAt: new Date().toISOString(),
         } as Prisma.InputJsonValue,
@@ -717,27 +816,27 @@ export class ThotisBookingService {
           where: { id: booking.eventType.userId },
           select: { email: true, name: true, timeZone: true, locale: true, timeFormat: true },
         });
-        // Reconstruct minimal CalEvent for email
-        const organizer: Person = {
-          name: organizerUser?.name || "Mentor",
-          email: organizerUser?.email || "",
-          timeZone: organizerUser?.timeZone || "Europe/Paris",
-          language: { translate: ((key: string) => key) as TFunction, locale: organizerUser?.locale || "fr" },
-          timeFormat: organizerUser?.timeFormat === 24 ? TimeFormat.TWENTY_FOUR_HOUR : TimeFormat.TWELVE_HOUR,
-        };
-        // Retrieve attendee details from metadata if possible, or booking responses
-        const responses = booking.responses ? bookingResponses.parse(booking.responses) : null;
-        const attendeeEmail = responses?.email || "";
-        const attendeeName =
-          (typeof responses?.name === "string" ? responses.name : responses?.name?.firstName) || "Student";
 
-        const attendee: Person = {
-          name: attendeeName,
-          email: attendeeEmail,
-          timeZone: "Europe/Paris",
-          language: { translate: ((key: string) => key) as TFunction, locale: "fr" },
-          timeFormat: TimeFormat.TWENTY_FOUR_HOUR,
-        };
+        const organizer = await this.buildEmailPerson({
+          email: organizerUser?.email || "",
+          locale: organizerUser?.locale,
+          name: organizerUser?.name || "Mentor",
+          timeFormat: organizerUser?.timeFormat,
+          timeZone: organizerUser?.timeZone,
+        });
+
+        const responses = booking.responses ? bookingResponses.parse(booking.responses) : null;
+        const attendeeRecord = booking.attendees?.[0];
+        const attendee = await this.buildEmailPerson({
+          email: attendeeRecord?.email || responses?.email || "",
+          locale: attendeeRecord?.locale,
+          name:
+            attendeeRecord?.name ||
+            (typeof responses?.name === "string" ? responses.name : responses?.name?.firstName) ||
+            "Student",
+          timeFormat: 24,
+          timeZone: attendeeRecord?.timeZone,
+        });
 
         const calEvent: CalendarEvent = {
           type: "thotis-mentoring",
@@ -825,6 +924,14 @@ export class ThotisBookingService {
         status: true,
         metadata: true,
         responses: true,
+        attendees: {
+          select: {
+            email: true,
+            locale: true,
+            name: true,
+            timeZone: true,
+          },
+        },
         eventType: {
           select: {
             userId: true,
@@ -895,7 +1002,7 @@ export class ThotisBookingService {
         startTime: newStartTime,
         endTime: newEndTime,
         metadata: {
-          ...(booking.metadata as object),
+          ...parseBookingMetadata(booking.metadata),
           googleMeetLink: newGoogleMeetLink,
           oldStartTime: booking.startTime.toISOString(),
           rescheduledAt: new Date().toISOString(),
@@ -934,7 +1041,7 @@ export class ThotisBookingService {
     });
 
     if (updatedBookingWithUser) {
-      const metadata = updatedBookingWithUser.metadata as { studentProfileId?: string } | null;
+      const metadata = parseBookingMetadata(updatedBookingWithUser.metadata);
       const studentProfileId = metadata?.studentProfileId;
       if (studentProfileId && updatedBookingWithUser.eventType?.userId) {
         await this.invalidateStudentCache(updatedBookingWithUser.eventType.userId, studentProfileId);
@@ -949,23 +1056,26 @@ export class ThotisBookingService {
           select: { email: true, name: true, timeZone: true, locale: true, timeFormat: true },
         });
 
-        const organizer: Person = {
-          name: organizerUser?.name || "Mentor",
+        const organizer = await this.buildEmailPerson({
           email: organizerUser?.email || "",
-          timeZone: organizerUser?.timeZone || "Europe/Paris",
-          language: { translate: ((key: string) => key) as TFunction, locale: organizerUser?.locale || "fr" },
-          timeFormat: organizerUser?.timeFormat === 24 ? TimeFormat.TWENTY_FOUR_HOUR : TimeFormat.TWELVE_HOUR,
-        };
+          locale: organizerUser?.locale,
+          name: organizerUser?.name || "Mentor",
+          timeFormat: organizerUser?.timeFormat,
+          timeZone: organizerUser?.timeZone,
+        });
 
         const responses = booking.responses ? bookingResponses.parse(booking.responses) : null;
-        const attendee: Person = {
+        const attendeeRecord = booking.attendees?.[0];
+        const attendee = await this.buildEmailPerson({
+          email: attendeeRecord?.email || responses?.email || "",
+          locale: attendeeRecord?.locale,
           name:
-            (typeof responses?.name === "string" ? responses.name : responses?.name?.firstName) || "Student",
-          email: responses?.email || "",
-          timeZone: "Europe/Paris",
-          language: { translate: ((key: string) => key) as TFunction, locale: "fr" },
-          timeFormat: TimeFormat.TWENTY_FOUR_HOUR,
-        };
+            attendeeRecord?.name ||
+            (typeof responses?.name === "string" ? responses.name : responses?.name?.firstName) ||
+            "Student",
+          timeFormat: 24,
+          timeZone: attendeeRecord?.timeZone,
+        });
 
         const calEvent: CalendarEvent = {
           type: "thotis-mentoring",
@@ -1074,7 +1184,7 @@ export class ThotisBookingService {
       data: {
         status: "ACCEPTED", // Cal.com uses ACCEPTED for completed bookings
         metadata: {
-          ...(booking.metadata as object),
+          ...parseBookingMetadata(booking.metadata),
           completedAt: new Date().toISOString(),
         } as Prisma.InputJsonValue,
       },
@@ -1118,7 +1228,7 @@ export class ThotisBookingService {
         userId: booking.userId || undefined,
         profileId: studentProfileId,
         bookingId: booking.id,
-        metadata: booking.metadata as Record<string, unknown>,
+        metadata: parseBookingMetadata(booking.metadata),
       });
     }
   }
@@ -1161,7 +1271,7 @@ export class ThotisBookingService {
     // Validate booking is not already cancelled
     if (booking.status === "CANCELLED") {
       // If it's already cancelled with no_show_auto, we're good
-      const metadata = booking.metadata as { cancellationReason?: string } | null;
+      const metadata = parseBookingMetadata(booking.metadata);
       if (metadata?.cancellationReason === "no_show_auto") return;
 
       throw new ErrorWithCode(ErrorCode.BadRequest, "Booking is already cancelled");
@@ -1178,7 +1288,7 @@ export class ThotisBookingService {
         status: "CANCELLED",
         cancellationReason: "no_show_auto",
         metadata: {
-          ...(booking.metadata as object),
+          ...parseBookingMetadata(booking.metadata),
           noShowDetectedAt: new Date().toISOString(),
           cancelledBy: requester.isSystem ? "system" : "student",
         } as Prisma.InputJsonValue,
@@ -1254,7 +1364,7 @@ export class ThotisBookingService {
         profileId: studentProfileId,
         bookingId: booking.id,
         metadata: {
-          ...(booking.metadata as Record<string, unknown>),
+          ...parseBookingMetadata(booking.metadata),
           autoDetected: true,
         },
       });

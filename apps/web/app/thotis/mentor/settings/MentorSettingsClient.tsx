@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { ThotisErrorState, ThotisLoadingState } from "~/thotis/components/ThotisAsyncState";
 
 const mentorSettingsSchema = z.object({
   university: z.string().min(1, "University is required"),
@@ -34,7 +35,12 @@ export const MentorSettingsClient = () => {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { data: profile, isLoading } = trpc.thotis.profile.get.useQuery();
+  const {
+    data: profile,
+    error: profileError,
+    isLoading,
+    refetch,
+  } = trpc.thotis.profile.get.useQuery();
 
   const updateProfile = trpc.thotis.profile.update.useMutation({
     onSuccess: () => {
@@ -109,8 +115,16 @@ export const MentorSettingsClient = () => {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t("loading")}>
-        <div className="border-emphasis h-10 w-10 animate-spin rounded-full border-b-2 border-t-2" />
+      <div className="min-h-screen">
+        <ThotisLoadingState className="min-h-screen" spinnerClassName="h-10 w-10" />
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-10">
+        <ThotisErrorState message={profileError.message} onAction={() => void refetch()} />
       </div>
     );
   }

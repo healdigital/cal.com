@@ -133,9 +133,11 @@ export const StudentDashboard = ({ email, token }: StudentDashboardProps) => {
       ) : (
         <>
           {/* Tabs */}
-          <div className="border-subtle flex gap-0 border-b">
+          <div role="tablist" className="border-subtle flex gap-0 border-b">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "upcoming"}
               onClick={() => setActiveTab("upcoming")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "upcoming"
@@ -146,6 +148,8 @@ export const StudentDashboard = ({ email, token }: StudentDashboardProps) => {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "past"}
               onClick={() => setActiveTab("past")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "past"
@@ -156,6 +160,8 @@ export const StudentDashboard = ({ email, token }: StudentDashboardProps) => {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "cancelled"}
               onClick={() => setActiveTab("cancelled")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "cancelled"
@@ -167,6 +173,8 @@ export const StudentDashboard = ({ email, token }: StudentDashboardProps) => {
             {!token && (
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === "settings"}
                 onClick={() => setActiveTab("settings")}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   activeTab === "settings"

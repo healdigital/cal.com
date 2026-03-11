@@ -367,7 +367,10 @@ export class ProfileRepository {
    * Get recommended profiles based on field overlap or other criteria
    */
   async getRecommendedProfiles(field?: AcademicField, limit: number = 3) {
-    const baseWhere: Prisma.StudentProfileWhereInput = { status: MentorStatus.VERIFIED };
+    const baseWhere: Prisma.StudentProfileWhereInput = {
+      isActive: true,
+      status: MentorStatus.VERIFIED,
+    };
 
     if (!field) {
       // Generic recommendations: high rating and popular
@@ -379,38 +382,31 @@ export class ProfileRepository {
       });
     }
 
-    // Personalized recommendations: prioritized by requested field
-    // Then by rating and popularity
-    const profiles = await this.prismaClient.studentProfile.findMany({
-      where: baseWhere,
-      orderBy: [
-        // This is a bit tricky with Prisma alone for a "priority" sort
-        // We can do it by field match first
-        {
-          field: "desc", // This doesn't really work as a boolean check in Prisma orderBy
-        },
-      ],
+    const matchingProfiles = await this.prismaClient.studentProfile.findMany({
+      where: {
+        ...baseWhere,
+        field,
+      },
+      orderBy: [{ averageRating: "desc" }, { totalSessions: "desc" }],
+      take: limit,
       select: studentProfileSelect,
     });
 
-    // Custom sorting: Field match first, then Rating, then Popularity
-    const sorted = profiles.sort((a, b) => {
-      const aFieldMatch = a.field === field;
-      const bFieldMatch = b.field === field;
+    if (matchingProfiles.length >= limit) return matchingProfiles;
 
-      if (aFieldMatch && !bFieldMatch) return -1;
-      if (!aFieldMatch && bFieldMatch) return 1;
-
-      // Both match or both don't match, sort by rating
-      const aRating = Number(a.averageRating || 0);
-      const bRating = Number(b.averageRating || 0);
-      if (bRating !== aRating) return bRating - aRating;
-
-      // Finally by total sessions
-      return (b.totalSessions || 0) - (a.totalSessions || 0);
+    const fallbackProfiles = await this.prismaClient.studentProfile.findMany({
+      where: {
+        ...baseWhere,
+        field: {
+          not: field,
+        },
+      },
+      orderBy: [{ averageRating: "desc" }, { totalSessions: "desc" }],
+      take: limit - matchingProfiles.length,
+      select: studentProfileSelect,
     });
 
-    return sorted.slice(0, limit);
+    return [...matchingProfiles, ...fallbackProfiles];
   }
 
   /**

@@ -23,6 +23,10 @@ vi.mock("@calcom/features/di/containers/AvailableSlots", () => ({
   getAvailableSlotsService: vi.fn(() => mockAvailableSlotsService),
 }));
 
+vi.mock("@calcom/lib/server/i18n", () => ({
+  getTranslation: vi.fn().mockResolvedValue((key: string) => key),
+}));
+
 vi.mock("./ThotisWebhookClient", () => ({
   thotisWebhooks: thotisWebhooksMock,
 }));
@@ -30,7 +34,9 @@ vi.mock("./ThotisWebhookClient", () => ({
 type BookingPrismaMock = Pick<
   PrismaClient,
   "booking" | "credential" | "eventType" | "mentorQualityIncident" | "studentProfile" | "user"
->;
+> & {
+  $transaction?: PrismaClient["$transaction"];
+};
 
 const createPrismaMock = (): BookingPrismaMock =>
   ({
@@ -235,6 +241,94 @@ describe("ThotisBookingService Unit Tests", () => {
         expect.objectContaining({ id: 99 }),
         "sp1",
         "COMPUTER_SCIENCE"
+      );
+    });
+
+    it("uses a serializable transaction for booking writes when supported by the prisma client", async () => {
+      const transactionalPrisma = createPrismaMock();
+      const transactionSpy = vi.fn(
+        async (operation: (tx: PrismaClient) => Promise<unknown>) =>
+          await operation(transactionalPrisma as unknown as PrismaClient)
+      );
+      transactionalPrisma.$transaction = transactionSpy as PrismaClient["$transaction"];
+
+      service = new ThotisBookingService(
+        transactionalPrisma,
+        analyticsMock,
+        redisMock,
+        undefined,
+        guestServiceMock,
+        emailServiceMock
+      );
+
+      const dateTime = new Date(Date.now() + 4 * 60 * 60 * 1000);
+      const endTime = new Date(dateTime.getTime() + 15 * 60 * 1000);
+
+      vi.mocked(transactionalPrisma.studentProfile.findUnique).mockResolvedValue({
+        id: "sp1",
+        isActive: true,
+        status: "VERIFIED",
+        user: {
+          email: "mentor@example.com",
+          id: 1,
+          name: "Mentor",
+          studentProfile: {
+            field: "COMPUTER_SCIENCE",
+          },
+        },
+        userId: 1,
+      });
+      vi.mocked(transactionalPrisma.booking.findFirst).mockResolvedValue(null);
+      vi.mocked(transactionalPrisma.eventType.findFirst).mockResolvedValue({ id: 101, length: 15 });
+      vi.mocked(transactionalPrisma.booking.create).mockResolvedValue({
+        description: "Student mentoring session",
+        endTime,
+        id: 101,
+        metadata: { studentProfileId: "sp1" },
+        responses: {
+          email: "student@example.com",
+          name: "Student",
+        },
+        startTime: dateTime,
+        status: "PENDING",
+        title: "Thotis Student Mentoring Session",
+        uid: "booking-uid",
+        userId: 1,
+      });
+      vi.mocked(transactionalPrisma.studentProfile.update).mockResolvedValue({ id: "sp1" });
+      vi.mocked(transactionalPrisma.user.findUnique).mockResolvedValue({
+        email: "mentor@example.com",
+        locale: "fr",
+        name: "Mentor",
+        timeFormat: 24,
+        timeZone: "Europe/Paris",
+        username: "mentor",
+      });
+      vi.mocked(transactionalPrisma.credential.findMany).mockResolvedValue([]);
+      vi.mocked(transactionalPrisma.booking.findUnique).mockResolvedValue({
+        id: 101,
+        location: null,
+        metadata: { studentProfileId: "sp1" },
+        uid: "booking-uid",
+      });
+      vi.mocked(mockAvailableSlotsService.getAvailableSlots).mockResolvedValue({
+        slots: {
+          [dateTime.toISOString().split("T")[0]]: [{ time: dateTime.toISOString() }],
+        },
+      });
+
+      await service.createStudentSession({
+        dateTime,
+        prospectiveStudent: {
+          email: "student@example.com",
+          name: "Student",
+        },
+        studentProfileId: "sp1",
+      });
+
+      expect(transactionSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: "Serializable" })
       );
     });
 

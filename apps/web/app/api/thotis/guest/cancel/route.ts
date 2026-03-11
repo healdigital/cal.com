@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireGuestAccess } from "../../_lib/auth";
 import { withCors } from "../../_lib/cors";
 import { bookingService, guestService } from "../../_lib/services";
-import { getGuestToken, parseBody } from "../../_lib/validate";
+import { parseBody } from "../../_lib/validate";
 
 const CancelSchema = z.object({
   bookingId: z.number(),
@@ -11,11 +12,11 @@ const CancelSchema = z.object({
 });
 
 async function handler(request: NextRequest) {
-  const token = getGuestToken(request);
   const input = await parseBody(request, CancelSchema);
-
-  const magicLink = await guestService.verifyToken(token, input.bookingId);
-  const requester = { id: 0, email: magicLink.guest.email };
+  const { magicLink, requester } = await requireGuestAccess(request, {
+    action: "guest-cancel",
+    bookingId: input.bookingId,
+  });
 
   await bookingService.cancelSession(input.bookingId, input.reason, "student", requester);
   await guestService.invalidateToken(magicLink.id);

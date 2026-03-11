@@ -1,12 +1,12 @@
 "use client";
 
-import type { Mentor } from "@calcom/features/thotis/components/AdminDashboardUtils";
-import { generateCSV } from "@calcom/features/thotis/components/AdminDashboardUtils";
 import type { PlatformStats } from "@calcom/features/thotis/services/StatisticsService";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
+import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { Table } from "@calcom/ui/components/table";
+import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -25,6 +25,9 @@ import {
   YAxis,
 } from "recharts";
 import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
+import { AdminBookingList } from "./AdminBookingList";
+import { AmbassadorManagement } from "./AmbassadorManagement";
+import { ThotisErrorState } from "./ThotisAsyncState";
 
 // --- Types & Interfaces ---
 
@@ -62,6 +65,50 @@ interface IncidentData {
   } | null;
 }
 
+const AdminDashboardSkeleton = () => {
+  return (
+    <div className="space-y-6 p-6" aria-live="polite">
+      <div className="flex items-center justify-between">
+        <SkeletonText className="h-8 w-56" />
+        <div className="flex gap-2">
+          <SkeletonText className="h-9 w-28 rounded-md" />
+          <SkeletonText className="h-9 w-40 rounded-md" />
+          <SkeletonText className="h-9 w-28 rounded-md" />
+          <SkeletonText className="ml-4 h-9 w-28 rounded-md" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="rounded-md border border-subtle bg-default p-4">
+            <SkeletonText className="h-4 w-24" />
+            <SkeletonText className="mt-3 h-8 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="rounded-md border border-subtle bg-default p-4">
+            <SkeletonText className="mb-4 h-6 w-40" />
+            <SkeletonText className="h-64 w-full rounded-md" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-md border border-subtle bg-default p-4">
+        <SkeletonText className="mb-4 h-6 w-48" />
+        <div className="space-y-3">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className="grid grid-cols-6 gap-3">
+              {Array.from({ length: 6 }, (_, cellIndex) => (
+                <SkeletonText key={cellIndex} className="h-5 w-full" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Sub-Components ---
 
 const StatsOverview = ({ stats }: { stats: PlatformStats | undefined }) => {
@@ -93,11 +140,11 @@ const StatsOverview = ({ stats }: { stats: PlatformStats | undefined }) => {
   return (
     <div className="space-y-4">
       {(stats?.dataQuality?.issues?.length ?? 0) > 0 && (
-        <div className="bg-attention text-attention p-3 rounded-md border border-attention flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 rounded-md border border-attention bg-attention p-3 text-attention text-sm">
           <span>⚠️</span>
           <div>
             <strong>{t("thotis_data_quality_warning")}:</strong>
-            <ul className="list-disc ml-5">
+            <ul className="ml-5 list-disc">
               {stats?.dataQuality?.issues?.map((issue: string, i: number) => (
                 <li key={i}>{issue}</li>
               ))}
@@ -107,9 +154,9 @@ const StatsOverview = ({ stats }: { stats: PlatformStats | undefined }) => {
       )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card, idx) => (
-          <div key={idx} className="border-subtle bg-default rounded-md border p-4">
-            <p className="text-subtle text-sm font-medium">{card.label}</p>
-            <p className="text-emphasis mt-2 text-2xl font-bold">{card.value}</p>
+          <div key={idx} className="rounded-md border border-subtle bg-default p-4">
+            <p className="font-medium text-sm text-subtle">{card.label}</p>
+            <p className="mt-2 font-bold text-2xl text-emphasis">{card.value}</p>
           </div>
         ))}
       </div>
@@ -131,10 +178,10 @@ const SessionTrendsChart = ({ trends }: { trends: Trends | undefined }) => {
   }));
 
   return (
-    <div className="border-subtle bg-default rounded-md border p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-emphasis text-lg font-semibold">{t(`thotis_session_trends_${period}`)}</h3>
-        <div className="flex gap-1 bg-subtle p-1 rounded-md">
+    <div className="rounded-md border border-subtle bg-default p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-emphasis text-lg">{t(`thotis_session_trends_${period}`)}</h3>
+        <div className="flex gap-1 rounded-md bg-subtle p-1">
           {(["daily", "weekly", "monthly"] as const).map((p) => (
             <Button
               key={p}
@@ -185,8 +232,8 @@ const FunnelChart = ({ funnel }: { funnel: FunnelData | undefined }) => {
   ];
 
   return (
-    <div className="border-subtle bg-default rounded-md border p-4">
-      <h3 className="text-emphasis mb-4 text-lg font-semibold">{t("thotis_conversion_funnel")}</h3>
+    <div className="rounded-md border border-subtle bg-default p-4">
+      <h3 className="mb-4 font-semibold text-emphasis text-lg">{t("thotis_conversion_funnel")}</h3>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical">
@@ -199,15 +246,15 @@ const FunnelChart = ({ funnel }: { funnel: FunnelData | undefined }) => {
         </ResponsiveContainer>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <div className="p-2 bg-subtle rounded-md">
-          <p className="text-subtle font-medium">{t("thotis_conv_started")}</p>
-          <p className="text-emphasis font-bold">
+        <div className="rounded-md bg-subtle p-2">
+          <p className="font-medium text-subtle">{t("thotis_conv_started")}</p>
+          <p className="font-bold text-emphasis">
             {funnel?.conversion?.profile_to_booking_started?.toFixed(1)}%
           </p>
         </div>
-        <div className="p-2 bg-subtle rounded-md">
-          <p className="text-subtle font-medium">{t("thotis_conv_confirmed")}</p>
-          <p className="text-emphasis font-bold">
+        <div className="rounded-md bg-subtle p-2">
+          <p className="font-medium text-subtle">{t("thotis_conv_confirmed")}</p>
+          <p className="font-bold text-emphasis">
             {funnel?.conversion?.booking_started_to_confirmed?.toFixed(1)}%
           </p>
         </div>
@@ -227,8 +274,8 @@ const FieldDistributionChart = ({ distribution }: { distribution: PlatformStats 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
 
   return (
-    <div className="border-subtle bg-default rounded-md border p-4">
-      <h3 className="text-emphasis mb-4 text-lg font-semibold">{t("thotis_field_distribution")}</h3>
+    <div className="rounded-md border border-subtle bg-default p-4">
+      <h3 className="mb-4 font-semibold text-emphasis text-lg">{t("thotis_field_distribution")}</h3>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -241,7 +288,7 @@ const FieldDistributionChart = ({ distribution }: { distribution: PlatformStats 
               fill="#8884d8"
               paddingAngle={5}
               dataKey="value">
-              {data.map((entry: FieldDistributionEntry, index: number) => (
+              {data.map((_entry: FieldDistributionEntry, index: number) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
@@ -287,9 +334,9 @@ const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
   ];
 
   return (
-    <div className="border-subtle bg-default rounded-md border p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-emphasis text-lg font-semibold">{t("thotis_mentor_performance")}</h3>
+    <div className="rounded-md border border-subtle bg-default p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-emphasis text-lg">{t("thotis_mentor_performance")}</h3>
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -326,47 +373,84 @@ const MentorList = ({ profiles }: { profiles: MentorListProfile[] }) => {
 const RecentIncidents = () => {
   const { t } = useLocale();
   const router = useRouter();
-  const { data: incidentsData, isPending } = trpc.thotis.admin.listIncidents.useQuery({
+  const {
+    data: incidentsData,
+    error,
+    isPending,
+    refetch,
+  } = trpc.thotis.admin.listIncidents.useQuery({
     page: 1,
     pageSize: 5,
     resolved: false,
   });
 
-  if (isPending)
-    return <div className="border-subtle bg-default rounded-md border p-4">{t("loading")}...</div>;
+  if (isPending) {
+    return (
+      <div className="h-full rounded-md border border-subtle bg-default p-4" aria-live="polite">
+        <SkeletonText className="mb-4 h-6 w-40" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div key={index} className="rounded-md border border-subtle bg-subtle p-3">
+              <div className="mb-2 flex items-start justify-between">
+                <SkeletonText className="h-4 w-24" />
+                <SkeletonText className="h-3 w-16" />
+              </div>
+              <SkeletonText className="mb-2 h-3 w-full" />
+              <SkeletonText className="mb-3 h-3 w-5/6" />
+              <div className="flex justify-between">
+                <SkeletonText className="h-3 w-20" />
+                <SkeletonText className="h-3 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <ThotisErrorState
+        className="h-full"
+        message={error.message}
+        onAction={() => void refetch()}
+        title={t("thotis_admin_error")}
+      />
+    );
+  }
 
   const incidents = incidentsData?.incidents || [];
 
   return (
-    <div className="border-subtle bg-default rounded-md border p-4 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-emphasis text-lg font-semibold">{t("thotis_recent_incidents")}</h3>
+    <div className="h-full rounded-md border border-subtle bg-default p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-emphasis text-lg">{t("thotis_recent_incidents")}</h3>
         <Button size="sm" color="minimal" href="/thotis/admin/incidents" className="text-xs">
           {t("thotis_view_all")}
         </Button>
       </div>
       <div className="space-y-3">
         {incidents.length === 0 ? (
-          <p className="text-subtle text-sm text-center py-8">{t("thotis_no_recent_incidents")}</p>
+          <p className="py-8 text-center text-sm text-subtle">{t("thotis_no_recent_incidents")}</p>
         ) : (
           incidents.map((incident: IncidentData) => (
             <button
               key={incident.id}
               type="button"
               onClick={() => router.push("/thotis/admin/incidents")}
-              className="w-full text-left p-3 bg-subtle rounded-md border border-subtle hover:border-emphasis transition-colors cursor-pointer">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-emphasis">
+              className="w-full cursor-pointer rounded-md border border-subtle bg-subtle p-3 text-left transition-colors hover:border-emphasis">
+              <div className="mb-1 flex items-start justify-between">
+                <span className="font-bold text-emphasis text-xs uppercase tracking-wider">
                   {getMentorIncidentTypeLabel(t, incident.type)}
                 </span>
                 <span className="text-[10px] text-muted">
                   {new Date(incident.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <p className="text-xs text-default line-clamp-2 mb-2 italic">
+              <p className="mb-2 line-clamp-2 text-default text-xs italic">
                 &ldquo;{incident.description || t("thotis_no_description")}&rdquo;
               </p>
-              <div className="text-[10px] text-muted flex justify-between">
+              <div className="flex justify-between text-[10px] text-muted">
                 <span>{incident.studentProfile?.university}</span>
                 <span className="font-medium text-emphasis">{incident.studentProfile?.user?.name}</span>
               </div>
@@ -378,55 +462,89 @@ const RecentIncidents = () => {
   );
 };
 
-import { AdminBookingList } from "./AdminBookingList";
-import { AmbassadorManagement } from "./AmbassadorManagement";
-
 // --- Main Component ---
 
 export const AdminDashboard = () => {
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<"insights" | "ambassadors" | "bookings">("insights");
-  const { data: stats, isPending: isPendingStats } = trpc.thotis.statistics.platformStats.useQuery();
-  const { data: searchData, isPending: isPendingProfiles } = trpc.thotis.profile.search.useQuery({
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const {
+    data: stats,
+    error: statsError,
+    isPending: isPendingStats,
+    refetch: refetchStats,
+  } = trpc.thotis.statistics.platformStats.useQuery();
+  const {
+    data: searchData,
+    error: profilesError,
+    isPending: isPendingProfiles,
+    refetch: refetchProfiles,
+  } = trpc.thotis.profile.search.useQuery({
     page: 1,
     pageSize: 50,
   });
 
-  const handleExportCSV = () => {
-    if (!searchData?.profiles) return;
+  const handleExportCSV = async () => {
+    if (isExportingCsv) return;
 
-    // Map profiles to the Mentor shape expected by generateCSV
-    const mentors: Mentor[] = searchData.profiles.map((p) => ({
-      id: p.id,
-      university: p.university || "",
-      field: p.field || "",
-      totalSessions: p.totalSessions || 0,
-      completedSessions: p.completedSessions || 0,
-      cancelledSessions: p.cancelledSessions || 0,
-      averageRating: p.averageRating ? Number(p.averageRating) : null,
-    }));
-    const csvContent = "data:text/csv;charset=utf-8," + generateCSV(mentors);
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "thotis_platform_stats.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    setIsExportingCsv(true);
+
+    try {
+      const response = await fetch("/api/thotis/admin/export");
+
+      if (!response.ok) {
+        let message = t("thotis_admin_export_failed");
+
+        try {
+          const errorBody = (await response.json()) as { error?: string };
+          if (typeof errorBody.error === "string" && errorBody.error.length > 0) {
+            message = errorBody.error;
+          }
+        } catch {
+          // Ignore invalid error payloads and fall back to the translated message.
+        }
+
+        throw new Error(message);
+      }
+
+      const csvBlob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(csvBlob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "thotis_platform_stats.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("thotis_admin_export_failed");
+      showToast(`${t("thotis_admin_error")}: ${message}`, "error");
+    } finally {
+      setIsExportingCsv(false);
+    }
   };
 
   if (isPendingStats || isPendingProfiles) {
+    return <AdminDashboardSkeleton />;
+  }
+
+  if (statsError || profilesError) {
     return (
-      <div className="p-8 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
-      </div>
+      <ThotisErrorState
+        message={statsError?.message ?? profilesError?.message}
+        onAction={() => {
+          void refetchStats();
+          void refetchProfiles();
+        }}
+        title={t("thotis_admin_error")}
+      />
     );
   }
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-emphasis text-2xl font-bold">{t("thotis_admin_dashboard")}</h1>
+        <h1 className="font-bold text-2xl text-emphasis">{t("thotis_admin_dashboard")}</h1>
         <div className="flex gap-2">
           <Button
             color={activeTab === "insights" ? "primary" : "minimal"}
@@ -446,7 +564,7 @@ export const AdminDashboard = () => {
           {/* CSV export only visible on insights tab */}
           {activeTab === "insights" && (
             <div className="ml-4 border-l pl-4">
-              <Button color="secondary" onClick={handleExportCSV}>
+              <Button color="secondary" onClick={handleExportCSV} loading={isExportingCsv}>
                 {t("thotis_export_csv")}
               </Button>
             </div>

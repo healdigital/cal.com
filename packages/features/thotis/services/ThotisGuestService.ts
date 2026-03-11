@@ -68,7 +68,7 @@ export class ThotisGuestService {
     }
 
     // Secondary check: prevent spamming every few seconds
-    if (now.getTime() - guest.lastRequestAt.getTime() < 30 * 1000) {
+    if (guest.lastRequestAt && now.getTime() - guest.lastRequestAt.getTime() < 30 * 1000) {
       throw new ErrorWithCode(ErrorCode.BadRequest, "Please wait 30 seconds before requesting another link");
     }
 

@@ -16,10 +16,15 @@ export default class FeedbackRequestEmail extends BaseEmail {
   }
 
   protected async getNodeMailerPayload(): Promise<Record<string, unknown>> {
+    const t = this.attendee.language.translate;
+
     return {
       to: `${this.attendee.name} <${this.attendee.email}>`,
       from: `${this.calEvent.organizer.name} <${this.getMailerOptions().from}>`,
-      subject: this.calEvent.title,
+      subject: t("thotis_feedback_request_subject", {
+        defaultValue: "How was your session with {{name}}?",
+        name: this.calEvent.organizer.name,
+      }),
       html: await this.getHtml(this.calEvent, this.attendee, this.feedbackLink),
       text: "", // Needed but simple
     };

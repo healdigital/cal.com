@@ -147,6 +147,7 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
               onMouseLeave={() => setHoveredRating(0)}
               onClick={() => setRating(star)}
               className="transition-transform hover:scale-110"
+              aria-label={t("thotis_stars", { count: star })}
               title={t("thotis_stars", { count: star })}>
               <Icon
                 name="star"

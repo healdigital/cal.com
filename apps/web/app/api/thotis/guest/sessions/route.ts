@@ -1,17 +1,20 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireGuestAccess } from "../../_lib/auth";
 import { withCors } from "../../_lib/cors";
 import { bookingService } from "../../_lib/services";
-import { getGuestToken, parseQuery } from "../../_lib/validate";
+import { parseQuery } from "../../_lib/validate";
 
 const SessionsSchema = z.object({
   status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
 });
 
 async function handler(request: NextRequest) {
-  const token = getGuestToken(request);
   const params = parseQuery(request, SessionsSchema);
+  const { token } = await requireGuestAccess(request, {
+    action: "guest-sessions",
+  });
 
   const sessions = await bookingService.studentSessions({
     token,

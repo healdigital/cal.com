@@ -137,7 +137,7 @@ export function IncidentsPageClient() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center" aria-live="polite">
         <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
       </div>
     );
@@ -242,6 +242,7 @@ export function IncidentsPageClient() {
                 </Table.Cell>
                 <Table.Cell>
                   <span
+                    role="status"
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
                       incident.resolved ? "bg-success text-inverted" : "bg-error text-inverted"
                     }`}>
@@ -255,6 +256,7 @@ export function IncidentsPageClient() {
                       <Button
                         size="sm"
                         color="secondary"
+                        aria-label={t("thotis_admin_resolve_incident")}
                         loading={
                           resolveMutation.isPending && resolveMutation.variables?.incidentId === incident.id
                         }
@@ -265,6 +267,7 @@ export function IncidentsPageClient() {
                     <Button
                       size="sm"
                       color="secondary"
+                      aria-label={t("thotis_admin_warn_mentor")}
                       loading={
                         moderationMutation.isPending &&
                         moderationMutation.variables?.studentProfileId === incident.studentProfileId &&
@@ -282,6 +285,7 @@ export function IncidentsPageClient() {
                     <Button
                       size="sm"
                       color="destructive"
+                      aria-label={t("thotis_admin_suspend_mentor")}
                       onClick={() => setSuspendTarget(incident.studentProfileId)}>
                       {t("thotis_admin_suspend_mentor")}
                     </Button>

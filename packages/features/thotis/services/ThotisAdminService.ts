@@ -1,14 +1,16 @@
+import { randomUUID } from "node:crypto";
 import { passwordResetRequest } from "@calcom/features/auth/lib/passwordResetRequest";
-import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
-import { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
-import { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
-import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
+import type { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
+import type { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
+import type { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
+import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { parseThotisMetadata } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
-import prisma from "@calcom/prisma";
-import type { Prisma, User } from "@calcom/prisma/client";
+import { rateLimiter } from "@calcom/lib/rateLimit";
+import { sanitizeStringArray, sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
+import type { User } from "@calcom/prisma/client";
 import {
   type AcademicField,
   type BookingStatus,
@@ -17,11 +19,12 @@ import {
   type MentorModerationActionType,
   MentorStatus,
 } from "@calcom/prisma/enums";
-import { MentorQualityRepository } from "../repositories/MentorQualityRepository";
-import { ProfileRepository } from "../repositories/ProfileRepository";
-import { ProfileService } from "./ProfileService";
+import type { MentorQualityRepository } from "../repositories/MentorQualityRepository";
+import type { ProfileRepository } from "../repositories/ProfileRepository";
+import type { ProfileService } from "./ProfileService";
 
 const log = logger.getSubLogger({ prefix: ["ThotisAdminService"] });
+const PASSWORD_RESET_RATE_LIMIT = { limit: 3, duration: "1h" } as const;
 
 export interface ScheduleConfig {
   /** Days of the week (0=Sunday, 1=Monday, ..., 6=Saturday). Defaults to [1,2,3,4,5] (Mon-Fri). */
@@ -40,6 +43,15 @@ export const DEFAULT_SCHEDULE_CONFIG: Required<ScheduleConfig> = {
   endTime: "17:00",
   timeZone: "Europe/Paris",
 };
+
+function getMinutesFromTimeString(time: string): number {
+  const [hours, minutes] = time.split(":").map((value) => Number(value));
+  return hours * 60 + minutes;
+}
+
+function hasValidScheduleTimeRange(startTime: string, endTime: string): boolean {
+  return getMinutesFromTimeString(endTime) > getMinutesFromTimeString(startTime);
+}
 
 export interface ProvisionAmbassadorInput {
   name: string;
@@ -62,51 +74,88 @@ export class ThotisAdminService {
   private scheduleRepository: ScheduleRepository;
   private schedulesRepository: SchedulesRepository;
   private passwordResetRequestFn: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
+  private passwordResetRateLimitFn: (identifier: string) => Promise<void>;
 
-  constructor(
-    profileService?: ProfileService,
-    profileRepository?: ProfileRepository,
-    mentorQualityRepository?: MentorQualityRepository,
-    deps?: {
-      bookingRepository?: BookingRepository;
-      passwordResetRequestFn?: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
-      scheduleRepository?: ScheduleRepository;
-      schedulesRepository?: SchedulesRepository;
-      userRepository?: UserRepository;
-    }
-  ) {
-    this.profileRepository = profileRepository || new ProfileRepository();
-    this.profileService = profileService || new ProfileService(this.profileRepository);
-    this.mentorQualityRepository = mentorQualityRepository || new MentorQualityRepository();
-    this.userRepository = deps?.userRepository || new UserRepository(prisma);
-    this.bookingRepository = deps?.bookingRepository || new BookingRepository(prisma);
-    this.scheduleRepository = deps?.scheduleRepository || new ScheduleRepository(prisma);
-    this.schedulesRepository = deps?.schedulesRepository || new SchedulesRepository(prisma);
-    this.passwordResetRequestFn = deps?.passwordResetRequestFn || passwordResetRequest;
+  constructor(deps: {
+    bookingRepository: BookingRepository;
+    mentorQualityRepository: MentorQualityRepository;
+    passwordResetRequestFn?: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
+    passwordResetRateLimitFn?: (identifier: string) => Promise<void>;
+    profileRepository: ProfileRepository;
+    profileService: ProfileService;
+    scheduleRepository: ScheduleRepository;
+    schedulesRepository: SchedulesRepository;
+    userRepository: UserRepository;
+  }) {
+    this.profileRepository = deps.profileRepository;
+    this.profileService = deps.profileService;
+    this.mentorQualityRepository = deps.mentorQualityRepository;
+    this.userRepository = deps.userRepository;
+    this.bookingRepository = deps.bookingRepository;
+    this.scheduleRepository = deps.scheduleRepository;
+    this.schedulesRepository = deps.schedulesRepository;
+    this.passwordResetRequestFn = deps.passwordResetRequestFn || passwordResetRequest;
+    this.passwordResetRateLimitFn = deps.passwordResetRateLimitFn || this.rateLimitPasswordReset.bind(this);
   }
 
   /**
    * Generate a unique username from an email, appending a suffix if needed.
    */
   private async generateUniqueUsername(email: string): Promise<string> {
-    const base = email
-      .split("@")[0]
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+    const base =
+      email
+        .split("@")[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "user";
 
-    // Try the base username first
-    const existing = await this.userRepository.findUsersByUsername({
-      orgSlug: null,
-      usernameList: [base],
+    const attempts = [base, ...Array.from({ length: 5 }, () => `${base}-${randomUUID().slice(0, 6)}`)];
+
+    for (const username of attempts) {
+      const existing = await this.userRepository.findUsersByUsername({
+        orgSlug: null,
+        usernameList: [username],
+      });
+
+      if (!existing.length) return username;
+    }
+
+    throw new ErrorWithCode(ErrorCode.BadRequest, `Unable to generate a unique username for ${email}`);
+  }
+
+  private assertValidScheduleTimeRange(startTime: string, endTime: string) {
+    if (hasValidScheduleTimeRange(startTime, endTime)) return;
+
+    throw new ErrorWithCode(ErrorCode.BadRequest, "Schedule end time must be after start time");
+  }
+
+  private assertValidAvailabilitySlots(
+    availability: Array<{
+      days: number[];
+      startTime: string;
+      endTime: string;
+    }>
+  ) {
+    availability.forEach((slot) => {
+      this.assertValidScheduleTimeRange(slot.startTime, slot.endTime);
+    });
+  }
+
+  private async rateLimitPasswordReset(identifier: string) {
+    const response = await rateLimiter()({
+      identifier,
+      opts: { limit: PASSWORD_RESET_RATE_LIMIT },
+      rateLimitingType: "common",
     });
 
-    if (!existing.length) return base;
+    if (response.success) return;
 
-    // Append random suffix to avoid collision
-    const suffix = Math.random().toString(36).substring(2, 6);
-    return `${base}-${suffix}`;
+    const secondsToWait = Math.max(0, Math.ceil((response.reset - Date.now()) / 1000));
+    throw new ErrorWithCode(
+      ErrorCode.BadRequest,
+      `Password reset rate limit exceeded. Try again in ${secondsToWait} seconds.`
+    );
   }
 
   /**
@@ -115,6 +164,13 @@ export class ThotisAdminService {
    * Idempotent: if profile already exists, returns it.
    */
   async provisionAmbassador(input: ProvisionAmbassadorInput) {
+    const scheduleConfig = {
+      ...DEFAULT_SCHEDULE_CONFIG,
+      ...input.schedule,
+    };
+
+    this.assertValidScheduleTimeRange(scheduleConfig.startTime, scheduleConfig.endTime);
+
     // 1. Check if user already exists
     const existingUser = await this.userRepository.findByEmail({ email: input.email });
     const user = existingUser
@@ -169,28 +225,34 @@ export class ThotisAdminService {
   ) {
     const existingProfile = await this.profileRepository.getProfileByUserId(user.id);
 
+    // Sanitize user inputs
+    const sanitizedBio = sanitizeUserInput(input.bio, 2000);
+    const sanitizedUniversity = sanitizeUserInput(input.university, 200);
+    const sanitizedDegree = sanitizeUserInput(input.degree, 200);
+    const sanitizedExpertise = sanitizeStringArray(input.expertise, 10, 50);
+
     let profile;
     if (existingProfile) {
       // Profile exists (e.g., from a previous attempt where email failed) — update it
       profile = await this.profileRepository.updateProfile(existingProfile.id, {
         field: input.fieldOfStudy,
         currentYear: input.yearOfStudy,
-        bio: input.bio,
-        university: input.university,
-        degree: input.degree,
+        bio: sanitizedBio,
+        university: sanitizedUniversity,
+        degree: sanitizedDegree,
         status: MentorStatus.VERIFIED,
         isActive: true,
-        ...(input.expertise ? { expertise: input.expertise } : {}),
+        ...(sanitizedExpertise.length > 0 ? { expertise: sanitizedExpertise } : {}),
       });
     } else {
       profile = await this.profileService.createProfile({
         userId: user.id,
         fieldOfStudy: input.fieldOfStudy,
         yearOfStudy: input.yearOfStudy,
-        bio: input.bio,
-        university: input.university,
-        degree: input.degree,
-        expertise: input.expertise,
+        bio: sanitizedBio,
+        university: sanitizedUniversity,
+        degree: sanitizedDegree,
+        expertise: sanitizedExpertise.length > 0 ? sanitizedExpertise : undefined,
       });
     }
 
@@ -249,6 +311,7 @@ export class ThotisAdminService {
 
     if (!user) throw new ErrorWithCode(ErrorCode.NotFound, "User not found");
 
+    await this.passwordResetRateLimitFn(`thotis:admin:password-reset:${userId}`);
     await this.passwordResetRequestFn(user);
 
     return { success: true };
@@ -331,14 +394,11 @@ export class ThotisAdminService {
     page?: number;
     pageSize?: number;
     mentorUserId?: number;
-    status?: string;
+    status?: BookingStatus;
     dateFrom?: Date;
     dateTo?: Date;
   }) {
-    return this.bookingRepository.listThotisAdminBookings({
-      ...filters,
-      status: filters.status as BookingStatus | undefined,
-    });
+    return this.bookingRepository.listThotisAdminBookings(filters);
   }
 
   /**
@@ -369,7 +429,8 @@ export class ThotisAdminService {
     }
 
     const metadata = parseThotisMetadata(booking.metadata);
-    const studentProfileId = typeof metadata.studentProfileId === "string" ? metadata.studentProfileId : undefined;
+    const studentProfileId =
+      typeof metadata.studentProfileId === "string" ? metadata.studentProfileId : undefined;
 
     await this.bookingRepository.cancelThotisAdminBooking({
       adminUserId,
@@ -404,7 +465,16 @@ export class ThotisAdminService {
       throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${profileId} not found`);
     }
 
-    return this.profileRepository.updateProfile(profileId, data);
+    // Sanitize user inputs
+    const sanitizedData: typeof data = {
+      ...data,
+      ...(data.bio !== undefined ? { bio: sanitizeUserInput(data.bio, 2000) } : {}),
+      ...(data.university !== undefined ? { university: sanitizeUserInput(data.university, 200) } : {}),
+      ...(data.degree !== undefined ? { degree: sanitizeUserInput(data.degree, 200) } : {}),
+      ...(data.expertise !== undefined ? { expertise: sanitizeStringArray(data.expertise, 10, 50) } : {}),
+    };
+
+    return this.profileRepository.updateProfile(profileId, sanitizedData);
   }
 
   /**
@@ -467,6 +537,8 @@ export class ThotisAdminService {
     }
 
     const scheduleId = user.defaultScheduleId;
+
+    this.assertValidAvailabilitySlots(scheduleData.availability);
 
     await this.schedulesRepository.replaceAvailability({
       scheduleId,

@@ -200,17 +200,15 @@ thotisModule
   );
 thotisModule.bind(THOTIS_TOKENS.ADMIN_SERVICE).toFactory(
   (resolve: ResolveFunction) =>
-    new ThotisAdminService(
-      getProfileService(resolve),
-      getProfileRepository(resolve),
-      getMentorQualityRepository(resolve),
-      {
-        bookingRepository: getBookingRepository(resolve),
-        scheduleRepository: getScheduleRepository(resolve),
-        schedulesRepository: getSchedulesRepository(resolve),
-        userRepository: getUserRepository(resolve),
-      }
-    ),
+    new ThotisAdminService({
+      bookingRepository: getBookingRepository(resolve),
+      mentorQualityRepository: getMentorQualityRepository(resolve),
+      profileRepository: getProfileRepository(resolve),
+      profileService: getProfileService(resolve),
+      scheduleRepository: getScheduleRepository(resolve),
+      schedulesRepository: getSchedulesRepository(resolve),
+      userRepository: getUserRepository(resolve),
+    }),
   "singleton"
 );
 

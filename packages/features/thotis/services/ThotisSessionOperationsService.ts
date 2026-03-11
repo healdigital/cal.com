@@ -7,6 +7,7 @@ import {
 } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
+import { sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
 import type { Prisma, PrismaClient } from "@calcom/prisma/client";
 import { MentorIncidentType, ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import type { SessionRatingService } from "./SessionRatingService";
@@ -215,13 +216,16 @@ export class ThotisSessionOperationsService {
       throw new ErrorWithCode(ErrorCode.BadRequest, "Not a valid mentor session");
     }
 
+    // Sanitize description input
+    const sanitizedDescription = sanitizeUserInput(input.description, 1000);
+
     await this.prisma.mentorQualityIncident.create({
       data: {
         studentProfileId,
         bookingUid: booking.uid,
         reportedByUserId: input.reporterUserId ?? null,
         type: input.type,
-        description: input.description ?? "",
+        description: sanitizedDescription,
         ...(input.severity !== undefined ? { severity: input.severity } : {}),
       },
     });
@@ -235,7 +239,7 @@ export class ThotisSessionOperationsService {
         metadata: {
           incidentType: input.type,
           isGuestReport: !input.reporterUserId,
-          description: input.description,
+          description: sanitizedDescription,
         },
       });
     }

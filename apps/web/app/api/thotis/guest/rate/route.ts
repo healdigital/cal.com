@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireGuestAccess } from "../../_lib/auth";
 import { withCors } from "../../_lib/cors";
 import { guestService, sessionOperationsService } from "../../_lib/services";
-import { getGuestToken, parseBody } from "../../_lib/validate";
+import { parseBody } from "../../_lib/validate";
 
 const RateSchema = z.object({
   bookingId: z.number(),
@@ -12,16 +13,18 @@ const RateSchema = z.object({
 });
 
 async function handler(request: NextRequest) {
-  const token = getGuestToken(request);
   const input = await parseBody(request, RateSchema);
-
-  const magicLink = await guestService.verifyToken(token, input.bookingId);
+  const { magicLink } = await requireGuestAccess(request, {
+    action: "guest-rate",
+    bookingId: input.bookingId,
+  });
   const rating = await sessionOperationsService.submitRating({
     bookingId: input.bookingId,
     rating: input.rating,
     feedback: input.feedback,
     email: magicLink.guest.email,
     guestId: magicLink.guestId,
+    requireCompletedAt: true,
   });
 
   await guestService.invalidateToken(magicLink.id);

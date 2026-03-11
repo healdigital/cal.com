@@ -11,6 +11,8 @@ export const bookingRouter = router({
       z.object({
         studentProfileId: z.string(),
         dateTime: z.date(),
+        locale: z.string().optional(),
+        timeZone: z.string().optional(),
         prospectiveStudent: z.object({
           name: z.string(),
           email: z.string().email(),

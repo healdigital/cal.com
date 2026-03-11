@@ -6,6 +6,7 @@ import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useCallback, useState } from "react";
 import { SessionManagementUI } from "./SessionManagementUI";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
 
 type SessionTab = "upcoming" | "past" | "cancelled";
 
@@ -25,16 +26,23 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
   }, []);
 
   // Fetch mentor stats (uses StudentProfile which stores mentor stats too)
-  const { data: stats, isPending: isPendingStats } = trpc.thotis.statistics.studentStats.useQuery(
-    { studentId: userId },
-    { enabled: !!userId }
-  );
+  const {
+    data: stats,
+    error: statsError,
+    isPending: isPendingStats,
+    refetch: refetchStats,
+  } = trpc.thotis.statistics.studentStats.useQuery({ studentId: userId }, { enabled: !!userId });
 
   // Fetch mentor profile
   const { data: profile } = trpc.thotis.profile.get.useQuery();
 
   // Fetch sessions with pagination - the response includes `total` so no separate count query needed
-  const { data: sessionsData, isPending: isPendingSessions } = trpc.thotis.booking.mentorSessions.useQuery(
+  const {
+    data: sessionsData,
+    error: sessionsError,
+    isPending: isPendingSessions,
+    refetch: refetchSessions,
+  } = trpc.thotis.booking.mentorSessions.useQuery(
     { status: sessionTab, page: currentPage, pageSize },
     { enabled: !!userId }
   );
@@ -46,11 +54,11 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
       : (stats?.totalSessions ?? 0) - (stats?.completedSessions ?? 0) - (stats?.cancelledSessions ?? 0);
 
   if (isPendingStats) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t("loading")}>
-        <div className="border-emphasis h-10 w-10 animate-spin rounded-full border-b-2 border-t-2" />
-      </div>
-    );
+    return <ThotisLoadingState spinnerClassName="h-10 w-10" />;
+  }
+
+  if (statsError) {
+    return <ThotisErrorState message={statsError.message} onAction={() => void refetchStats()} />;
   }
 
   const statCards = [
@@ -175,9 +183,9 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
         {/* Sessions List */}
         <div role="tabpanel" aria-label={sessionTab}>
           {isPendingSessions ? (
-            <div className="flex items-center justify-center py-8" role="status" aria-label={t("loading")}>
-              <div className="border-emphasis h-8 w-8 animate-spin rounded-full border-b-2 border-t-2" />
-            </div>
+            <ThotisLoadingState />
+          ) : sessionsError ? (
+            <ThotisErrorState message={sessionsError.message} onAction={() => void refetchSessions()} />
           ) : !sessionsData?.bookings || sessionsData.bookings.length === 0 ? (
             <div className="border-subtle bg-default rounded-lg border py-12 text-center">
               <Icon name="calendar" className="text-subtle mx-auto mb-3 h-10 w-10" />

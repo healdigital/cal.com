@@ -6,18 +6,21 @@ import { Icon } from "@calcom/ui/components/icon";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { MentorOnboarding } from "~/thotis/components/MentorOnboarding";
+import { ThotisErrorState, ThotisLoadingState } from "~/thotis/components/ThotisAsyncState";
 
 export default function MentorSignupPage() {
   const { t } = useLocale();
   const router = useRouter();
 
   // Check if user already has a profile - redirect if so
-  const { data: existingProfile, isLoading: isCheckingProfile } = trpc.thotis.profile.get.useQuery(
-    undefined,
-    {
-      retry: false,
-    }
-  );
+  const {
+    data: existingProfile,
+    error,
+    isLoading: isCheckingProfile,
+    refetch,
+  } = trpc.thotis.profile.get.useQuery(undefined, {
+    retry: false,
+  });
 
   useEffect(() => {
     if (existingProfile) {
@@ -28,8 +31,29 @@ export default function MentorSignupPage() {
   // Show loading while checking existing profile
   if (isCheckingProfile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+      <div className="min-h-screen bg-gray-50">
+        <ThotisLoadingState className="min-h-screen" spinnerClassName="h-10 w-10" />
+      </div>
+    );
+  }
+
+  if (error) {
+    const isUnauthorized = error.data?.code === "UNAUTHORIZED";
+
+    return (
+      <div className="flex min-h-screen flex-col bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-2xl">
+          <ThotisErrorState
+            actionLabel={isUnauthorized ? t("sign_in") : undefined}
+            icon={isUnauthorized ? "lock" : "circle-alert"}
+            message={error.message}
+            onAction={
+              isUnauthorized
+                ? () => router.push("/auth/signin?callbackUrl=/thotis/mentor/signup")
+                : () => void refetch()
+            }
+          />
+        </div>
       </div>
     );
   }

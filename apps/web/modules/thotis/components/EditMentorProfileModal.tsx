@@ -179,10 +179,19 @@ export function EditMentorProfileModal({ isOpen, onClose, profile }: EditMentorP
             )}
           />
 
-          <TextField
-            label={t("thotis_admin_expertise_hint")}
-            {...register("expertise")}
-            placeholder="e.g. Droit civil, Droit p\u00e9nal, Contentieux"
+          <Controller
+            name="expertise"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-1">
+                <Label>{t("thotis_admin_expertise_hint")}</Label>
+                <TagInput
+                  value={field.value || []}
+                  onChange={field.onChange}
+                  placeholder="e.g. Droit civil, Droit p\u00e9nal, Contentieux"
+                />
+              </div>
+            )}
           />
 
           <TextField

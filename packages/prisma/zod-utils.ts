@@ -464,6 +464,7 @@ export const userMetadata = z
         revertTime: z.string().optional(),
       })
       .optional(),
+    userType: z.enum(["STUDENT", "MENTOR"]).optional(),
   })
   .nullable();
 

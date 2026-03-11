@@ -3,8 +3,9 @@ import type { ScheduleRepository } from "@calcom/features/schedules/repositories
 import type { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { ErrorCode } from "@calcom/lib/errorCodes";
+import { ErrorWithCode } from "@calcom/lib/errors";
 import type { User } from "@calcom/prisma/client";
-import { MentorStatus } from "@calcom/prisma/enums";
+import { BookingStatus, MentorStatus } from "@calcom/prisma/enums";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MentorQualityRepository } from "../repositories/MentorQualityRepository";
 import type { ProfileRepository } from "../repositories/ProfileRepository";
@@ -68,6 +69,7 @@ describe("ThotisAdminService", () => {
   let bookingRepositoryMock: BookingRepository;
   let mentorQualityRepositoryMock: MentorQualityRepository;
   let passwordResetRequestFn: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
+  let passwordResetRateLimitFn: (identifier: string) => Promise<void>;
   let profileRepositoryMock: ProfileRepository;
   let profileServiceMock: ProfileService;
   let scheduleRepositoryMock: ScheduleRepository;
@@ -86,10 +88,15 @@ describe("ThotisAdminService", () => {
     scheduleRepositoryMock = createScheduleRepositoryMock();
     schedulesRepositoryMock = createSchedulesRepositoryMock();
     passwordResetRequestFn = vi.fn().mockResolvedValue(undefined);
+    passwordResetRateLimitFn = vi.fn().mockResolvedValue(undefined);
 
-    service = new ThotisAdminService(profileServiceMock, profileRepositoryMock, mentorQualityRepositoryMock, {
+    service = new ThotisAdminService({
       bookingRepository: bookingRepositoryMock,
+      mentorQualityRepository: mentorQualityRepositoryMock,
       passwordResetRequestFn,
+      passwordResetRateLimitFn,
+      profileRepository: profileRepositoryMock,
+      profileService: profileServiceMock,
       scheduleRepository: scheduleRepositoryMock,
       schedulesRepository: schedulesRepositoryMock,
       userRepository: userRepositoryMock,
@@ -153,6 +160,7 @@ describe("ThotisAdminService", () => {
       locale: "fr",
       name: "Mentor",
     });
+    expect(passwordResetRateLimitFn).toHaveBeenCalledWith("thotis:admin:password-reset:10");
   });
 
   it("creates a fallback default schedule when the user does not have any schedule yet", async () => {
@@ -323,6 +331,69 @@ describe("ThotisAdminService", () => {
     expect(scheduleRepositoryMock.setupDefaultSchedule).toHaveBeenCalledWith(10, 66);
   });
 
+  it("retries username generation when the base username is already taken", async () => {
+    vi.mocked(userRepositoryMock.findByEmail).mockResolvedValue(null);
+    vi.mocked(userRepositoryMock.findUsersByUsername)
+      .mockResolvedValueOnce([{ id: 1 }])
+      .mockResolvedValueOnce([]);
+    vi.mocked(userRepositoryMock.create).mockResolvedValue({
+      email: "mentor@example.com",
+      id: 10,
+      locale: "fr",
+      name: "Mentor",
+      timeZone: "Europe/Paris",
+    });
+    vi.mocked(profileRepositoryMock.getProfileByUserId).mockResolvedValue(null);
+    vi.mocked(profileServiceMock.createProfile).mockResolvedValue({ id: "profile-1" });
+    vi.mocked(userRepositoryMock.getTimeZoneAndDefaultScheduleId).mockResolvedValue({
+      defaultScheduleId: 77,
+      timeZone: "Europe/Paris",
+    });
+    vi.mocked(userRepositoryMock.findForPasswordReset).mockResolvedValue({
+      email: "mentor@example.com",
+      locale: "fr",
+      name: "Mentor",
+    });
+
+    await service.provisionAmbassador({
+      bio: "Helping students",
+      degree: "Master",
+      email: "mentor@example.com",
+      fieldOfStudy: "COMPUTER_SCIENCE",
+      name: "Mentor",
+      university: "Sorbonne",
+      yearOfStudy: 4,
+    });
+
+    expect(userRepositoryMock.findUsersByUsername).toHaveBeenCalledTimes(2);
+    expect(userRepositoryMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: expect.stringMatching(/^mentor-[0-9a-f]{6}$/),
+      })
+    );
+  });
+
+  it("throws when username generation keeps colliding", async () => {
+    vi.mocked(userRepositoryMock.findByEmail).mockResolvedValue(null);
+    vi.mocked(userRepositoryMock.findUsersByUsername).mockResolvedValue([{ id: 1 }]);
+
+    await expect(
+      service.provisionAmbassador({
+        bio: "Helping students",
+        degree: "Master",
+        email: "mentor@example.com",
+        fieldOfStudy: "COMPUTER_SCIENCE",
+        name: "Mentor",
+        university: "Sorbonne",
+        yearOfStudy: 4,
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+    });
+
+    expect(userRepositoryMock.findUsersByUsername).toHaveBeenCalledTimes(6);
+  });
+
   it("keeps provisioning successful even when the password setup email fails", async () => {
     vi.mocked(userRepositoryMock.findByEmail).mockResolvedValue({
       email: "mentor@example.com",
@@ -345,9 +416,13 @@ describe("ThotisAdminService", () => {
       name: "Mentor",
     });
     passwordResetRequestFn = vi.fn().mockRejectedValue(new Error("mailer down"));
-    service = new ThotisAdminService(profileServiceMock, profileRepositoryMock, mentorQualityRepositoryMock, {
+    service = new ThotisAdminService({
       bookingRepository: bookingRepositoryMock,
+      mentorQualityRepository: mentorQualityRepositoryMock,
       passwordResetRequestFn,
+      passwordResetRateLimitFn,
+      profileRepository: profileRepositoryMock,
+      profileService: profileServiceMock,
       scheduleRepository: scheduleRepositoryMock,
       schedulesRepository: schedulesRepositoryMock,
       userRepository: userRepositoryMock,
@@ -381,6 +456,7 @@ describe("ThotisAdminService", () => {
       locale: "fr",
       name: "Mentor",
     });
+    expect(passwordResetRateLimitFn).toHaveBeenCalledWith("thotis:admin:password-reset:10");
   });
 
   it("throws when sending a password setup email for an unknown user", async () => {
@@ -389,6 +465,34 @@ describe("ThotisAdminService", () => {
     await expect(service.sendInitialPasswordSetup(10)).rejects.toMatchObject({
       code: ErrorCode.NotFound,
     });
+  });
+
+  it("rejects password reset requests when the rate limit is exceeded", async () => {
+    vi.mocked(userRepositoryMock.findForPasswordReset).mockResolvedValue({
+      email: "mentor@example.com",
+      locale: "fr",
+      name: "Mentor",
+    });
+    passwordResetRateLimitFn = vi
+      .fn()
+      .mockRejectedValue(new ErrorWithCode(ErrorCode.BadRequest, "Password reset rate limit exceeded."));
+    service = new ThotisAdminService({
+      bookingRepository: bookingRepositoryMock,
+      mentorQualityRepository: mentorQualityRepositoryMock,
+      passwordResetRequestFn,
+      passwordResetRateLimitFn,
+      profileRepository: profileRepositoryMock,
+      profileService: profileServiceMock,
+      scheduleRepository: scheduleRepositoryMock,
+      schedulesRepository: schedulesRepositoryMock,
+      userRepository: userRepositoryMock,
+    });
+
+    await expect(service.sendInitialPasswordSetup(10)).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+    });
+
+    expect(passwordResetRequestFn).not.toHaveBeenCalled();
   });
 
   it("delegates ambassador listing to the profile repository", async () => {
@@ -488,7 +592,7 @@ describe("ThotisAdminService", () => {
       uid: "booking-uid",
     });
 
-    const listed = await service.listBookings({ status: "PENDING" });
+    const listed = await service.listBookings({ status: BookingStatus.PENDING });
     const details = await service.getBookingDetails(1);
 
     expect(listed.total).toBe(1);
@@ -572,6 +676,30 @@ describe("ThotisAdminService", () => {
       scheduleId: 55,
     });
     expect(updatedSchedule).toEqual({ success: true });
+  });
+
+  it("rejects invalid schedule time ranges", async () => {
+    vi.mocked(userRepositoryMock.getTimeZoneAndDefaultScheduleId).mockResolvedValue({
+      defaultScheduleId: 55,
+      timeZone: "Europe/Paris",
+    });
+
+    await expect(
+      service.updateMentorSchedule(10, {
+        availability: [
+          {
+            days: [1, 2],
+            endTime: "09:00",
+            startTime: "17:00",
+          },
+        ],
+        timeZone: "Europe/Paris",
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+    });
+
+    expect(schedulesRepositoryMock.replaceAvailability).not.toHaveBeenCalled();
   });
 
   it("returns a no-schedule placeholder and the concrete schedule when available", async () => {

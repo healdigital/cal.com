@@ -6,9 +6,11 @@ import type { AcademicField } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
+import { SkeletonButton, SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MentorSearchFilters, type MentorSearchFiltersState } from "~/thotis/components/MentorSearchFilters";
+import { ThotisErrorState } from "~/thotis/components/ThotisAsyncState";
 
 const PAGE_SIZE = 12;
 
@@ -20,18 +22,83 @@ interface ThotisIntent {
   scheduleConstraints?: unknown;
 }
 
+function readMentorSearchState(searchParams: { get: (key: string) => string | null } | null): {
+  filters: MentorSearchFiltersState;
+  page: number;
+} {
+  const parsedPage = Number(searchParams?.get("page") || "1");
+
+  return {
+    filters: {
+      fieldOfStudy: searchParams?.get("field") || "",
+      university: searchParams?.get("university") || "",
+      minRating: searchParams?.get("minRating") ? Number(searchParams.get("minRating")) : 0,
+    },
+    page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+  };
+}
+
+function hasSameFilters(
+  currentFilters: MentorSearchFiltersState,
+  nextFilters: MentorSearchFiltersState
+): boolean {
+  return (
+    currentFilters.fieldOfStudy === nextFilters.fieldOfStudy &&
+    currentFilters.university === nextFilters.university &&
+    currentFilters.minRating === nextFilters.minRating
+  );
+}
+
+function MentorResultsSkeleton() {
+  return (
+    <SkeletonContainer className="space-y-6">
+      <div className="flex items-center justify-between">
+        <SkeletonText className="h-4 w-36" />
+        <div className="flex items-center gap-3">
+          <SkeletonText className="h-8 w-32 rounded-md" />
+          <div className="flex gap-2">
+            <SkeletonButton className="h-8 w-8 rounded-md" />
+            <SkeletonButton className="h-8 w-8 rounded-md" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: PAGE_SIZE }).map((_, index) => (
+          <div key={index} className="rounded-md border border-subtle bg-default p-5">
+            <div className="mb-4 flex items-start justify-between">
+              <SkeletonText className="h-16 w-16 rounded-full" />
+              <div className="space-y-2">
+                <SkeletonText className="h-5 w-20 rounded-full" />
+                <SkeletonText className="h-5 w-16 rounded-full" />
+              </div>
+            </div>
+            <SkeletonText className="mb-2 h-6 w-36" />
+            <SkeletonText className="mb-2 h-4 w-48" />
+            <SkeletonText className="mb-1 h-4 w-40" />
+            <SkeletonText className="mb-4 h-4 w-32" />
+            <SkeletonText className="mb-2 h-4 w-full" />
+            <SkeletonText className="mb-2 h-4 w-5/6" />
+            <SkeletonText className="mb-6 h-4 w-4/6" />
+            <div className="flex items-center justify-between">
+              <SkeletonText className="h-5 w-16" />
+              <SkeletonButton className="h-9 w-32 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </SkeletonContainer>
+  );
+}
+
 export default function MentorsPage() {
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialSearchState = readMentorSearchState(searchParams);
+  const searchParamsString = searchParams?.toString() ?? "";
 
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const [filters, setFilters] = useState<MentorSearchFiltersState>({
-    fieldOfStudy: searchParams?.get("field") || "",
-    university: searchParams?.get("university") || "",
-    minRating: searchParams?.get("minRating") ? Number(searchParams.get("minRating")) : 0,
-  });
+  const [currentPage, setCurrentPage] = useState(initialSearchState.page);
+  const [filters, setFilters] = useState<MentorSearchFiltersState>(initialSearchState.filters);
 
   const [localIntent, _setLocalIntent] = useState<ThotisIntent | null>(() => {
     if (typeof window !== "undefined") {
@@ -47,14 +114,47 @@ export default function MentorsPage() {
     return null;
   });
 
+  useEffect(() => {
+    const nextSearchState = readMentorSearchState(searchParams);
+
+    setFilters((currentFilters) =>
+      hasSameFilters(currentFilters, nextSearchState.filters) ? currentFilters : nextSearchState.filters
+    );
+    setCurrentPage((page) => (page === nextSearchState.page ? page : nextSearchState.page));
+  }, [searchParams, searchParamsString]);
+
+  const syncSearchStateToUrl = useCallback(
+    (nextFilters: MentorSearchFiltersState, nextPage: number) => {
+      const params = new URLSearchParams();
+
+      if (nextFilters.fieldOfStudy) params.set("field", nextFilters.fieldOfStudy);
+      if (nextFilters.university) params.set("university", nextFilters.university);
+      if (nextFilters.minRating) params.set("minRating", String(nextFilters.minRating));
+      if (nextPage > 1) params.set("page", String(nextPage));
+
+      const nextQueryString = params.toString();
+      if (nextQueryString === searchParamsString) {
+        return;
+      }
+
+      router.replace(`/thotis/mentors${nextQueryString ? `?${nextQueryString}` : ""}`);
+    },
+    [router, searchParamsString]
+  );
+
   const { data: intentData } = trpc.thotis.intent.get.useQuery(undefined, {
-    enabled: !!searchParams?.get("field") === false && typeof window !== "undefined", // Only fetch intent if not searching by field explicitly
+    enabled: !filters.fieldOfStudy && typeof window !== "undefined",
   });
 
   // Effective intent (DB or localStorage fallback)
   const effectiveIntent = intentData || localIntent;
 
-  const { data: recommendations, isLoading: isRefLoading } = trpc.thotis.intent.getRecommended.useQuery(
+  const {
+    data: recommendations,
+    error: recommendationsError,
+    isLoading: isRefLoading,
+    refetch: refetchRecommendations,
+  } = trpc.thotis.intent.getRecommended.useQuery(
     {
       targetFields: effectiveIntent?.targetFields || [],
       academicLevel: effectiveIntent?.academicLevel || "",
@@ -66,7 +166,12 @@ export default function MentorsPage() {
     }
   );
 
-  const { data, isLoading, error } = trpc.thotis.profile.search.useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+  } = trpc.thotis.profile.search.useQuery({
     fieldOfStudy: (filters.fieldOfStudy || undefined) as AcademicField | undefined,
     university: filters.university || undefined,
     minRating: filters.minRating || undefined,
@@ -78,17 +183,9 @@ export default function MentorsPage() {
     (newFilters: MentorSearchFiltersState) => {
       setFilters(newFilters);
       setCurrentPage(1);
-
-      // Sync filters to URL params
-      const params = new URLSearchParams();
-      if (newFilters.fieldOfStudy) params.set("field", newFilters.fieldOfStudy);
-      if (newFilters.university) params.set("university", newFilters.university);
-      if (newFilters.minRating) params.set("minRating", String(newFilters.minRating));
-
-      const qs = params.toString();
-      router.push(`/thotis/mentors${qs ? `?${qs}` : ""}`);
+      syncSearchStateToUrl(newFilters, 1);
     },
-    [router]
+    [syncSearchStateToUrl]
   );
 
   const handleBookSession = useCallback(
@@ -98,15 +195,26 @@ export default function MentorsPage() {
     [router]
   );
 
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      setCurrentPage(nextPage);
+      syncSearchStateToUrl(filters, nextPage);
+    },
+    [filters, syncSearchStateToUrl]
+  );
+
   const selectedFieldLabel = filters.fieldOfStudy
     ? t(`thotis_field_${filters.fieldOfStudy.toLowerCase()}`)
     : null;
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-10 text-center">
-        <h2 className="font-semibold text-red-600 text-xl">{t("thotis_error_loading_mentors")}</h2>
-        <p className="text-gray-600">{error.message}</p>
+      <div className="container mx-auto px-4 py-10">
+        <ThotisErrorState
+          message={error.message}
+          onAction={() => void refetch()}
+          title={t("thotis_error_loading_mentors")}
+        />
       </div>
     );
   }
@@ -120,6 +228,16 @@ export default function MentorsPage() {
         </div>
 
         {/* Recommendations Section */}
+        {recommendationsError && !filters.fieldOfStudy ? (
+          <div className="mb-10">
+            <ThotisErrorState
+              message={recommendationsError.message}
+              onAction={() => void refetchRecommendations()}
+              title={t("thotis_something_wrong")}
+            />
+          </div>
+        ) : null}
+
         {recommendations && recommendations.length > 0 && !filters.fieldOfStudy && (
           <div className="mb-10">
             <div className="mb-4 flex items-center gap-2">
@@ -149,12 +267,16 @@ export default function MentorsPage() {
               : t("thotis_all_mentors")}
           </h2>
         </div>
-        <MentorListView
-          profiles={data?.profiles || []}
-          isLoading={isLoading && !data}
-          total={data?.total || 0}
-          onBookSession={handleBookSession}
-        />
+        {isLoading && !data ? (
+          <MentorResultsSkeleton />
+        ) : (
+          <MentorListView
+            profiles={data?.profiles || []}
+            isLoading={false}
+            total={data?.total || 0}
+            onBookSession={handleBookSession}
+          />
+        )}
 
         {/* Pagination */}
         {(data?.total ?? 0) > PAGE_SIZE && (
@@ -162,7 +284,7 @@ export default function MentorsPage() {
             <Button
               color="secondary"
               disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}>
               <Icon name="arrow-left" className="mr-1 h-4 w-4" />
               {t("previous")}
             </Button>
@@ -175,7 +297,7 @@ export default function MentorsPage() {
             <Button
               color="secondary"
               disabled={currentPage >= Math.ceil((data?.total ?? 0) / PAGE_SIZE)}
-              onClick={() => setCurrentPage((p) => p + 1)}>
+              onClick={() => handlePageChange(currentPage + 1)}>
               {t("next")}
               <Icon name="arrow-right" className="ml-1 h-4 w-4" />
             </Button>

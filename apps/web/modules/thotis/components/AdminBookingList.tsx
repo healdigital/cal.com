@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import type { BookingStatus } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Label, Select, TextField } from "@calcom/ui/components/form";
@@ -26,6 +27,8 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
+      role="status"
+      aria-label={labelMap[status] || status}
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${
         colorMap[status] || "bg-subtle text-subtle"
       }`}>
@@ -37,7 +40,7 @@ function StatusBadge({ status }: { status: string }) {
 export function AdminBookingList() {
   const { t } = useLocale();
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<BookingStatus | "">("");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
@@ -114,7 +117,7 @@ export function AdminBookingList() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10">
+        <div className="flex justify-center py-10" aria-live="polite">
           <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
         </div>
       ) : (
@@ -166,7 +169,12 @@ export function AdminBookingList() {
                       </div>
                     </Table.Cell>
                     <Table.Cell>
-                      <div className="text-default text-sm">{booking.attendees?.[0]?.email || "\u2014"}</div>
+                      <div>
+                        <div className="font-medium text-default">
+                          {booking.attendees?.[0]?.name || "\u2014"}
+                        </div>
+                        <div className="text-muted text-xs">{booking.attendees?.[0]?.email || ""}</div>
+                      </div>
                     </Table.Cell>
                     <Table.Cell>
                       <StatusBadge status={booking.status} />
@@ -177,7 +185,11 @@ export function AdminBookingList() {
                       </span>
                     </Table.Cell>
                     <Table.Cell>
-                      <Button size="sm" color="secondary" onClick={() => setSelectedBookingId(booking.id)}>
+                      <Button
+                        size="sm"
+                        color="secondary"
+                        aria-label={t("thotis_admin_view_details")}
+                        onClick={() => setSelectedBookingId(booking.id)}>
                         {t("thotis_admin_view_details")}
                       </Button>
                     </Table.Cell>

@@ -1,10 +1,14 @@
 import process from "node:process";
+import {
+  sendThotisEmailWithRetry,
+  ThotisEmailService,
+} from "@calcom/features/thotis/services/ThotisEmailService";
+import { getTranslation } from "@calcom/lib/server/i18n";
 import prisma from "@calcom/prisma";
 import { Prisma } from "@calcom/prisma/client";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import type { TFunction } from "next-i18next";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +64,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       status: true,
       responses: true,
       metadata: true,
+      attendees: {
+        select: {
+          email: true,
+          locale: true,
+          name: true,
+          timeZone: true,
+        },
+      },
       eventType: {
         select: {
           id: true,
@@ -91,31 +103,41 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   };
 
   const webAppUrl = process.env.NEXT_PUBLIC_WEBAPP_URL || "https://app.cal.com";
+  const emailService = new ThotisEmailService();
 
   for (const booking of bookings) {
     try {
       const responses = booking.responses as { email?: string; name?: string } | null;
-      const attendeeEmail = responses?.email;
-      const attendeeName = responses?.name || "Student";
+      const attendeeRecord = booking.attendees?.[0];
+      const attendeeEmail = attendeeRecord?.email || responses?.email;
+      const attendeeName = attendeeRecord?.name || responses?.name || "Student";
 
       if (!attendeeEmail) continue;
 
       const mentor = booking.user;
       if (!mentor) continue;
 
-      // Construct minimalist objects for Email template
+      const organizerLocale = mentor.locale || "en";
+      const attendeeLocale = attendeeRecord?.locale || "en";
+
       const organizer: Person = {
         name: mentor.name || "Mentor",
         email: mentor.email,
         timeZone: mentor.timeZone || "Europe/Paris",
-        language: { translate: ((key: string) => key) as TFunction, locale: mentor.locale || "fr" },
+        language: {
+          translate: await getTranslation(organizerLocale, "common"),
+          locale: organizerLocale,
+        },
       };
 
       const attendee: Person = {
         name: attendeeName,
         email: attendeeEmail,
-        timeZone: "Europe/Paris",
-        language: { translate: ((key: string) => key) as TFunction, locale: "fr" },
+        timeZone: attendeeRecord?.timeZone || "Europe/Paris",
+        language: {
+          translate: await getTranslation(attendeeLocale, "common"),
+          locale: attendeeLocale,
+        },
       };
 
       const calEvent: CalendarEvent = {
@@ -136,7 +158,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const { default: MentorNudgeEmail } = await import("@calcom/emails/templates/thotis/mentor-nudge");
         const addSummaryLink = `${webAppUrl}/thotis/dashboard`;
         const email = new MentorNudgeEmail({ calEvent, attendee, addSummaryLink });
-        await email.sendEmail();
+        await sendThotisEmailWithRetry(email);
 
         await prisma.booking.update({
           where: { id: booking.id },
@@ -153,18 +175,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // 2. Send feedback email to student
       // Only send feedback request if mentor summary exists
       if (!metadata.feedbackEmailSent && booking.thotisSessionSummary) {
-        // Dynamic import to avoid pulling React into the API route at build time
-        const { default: FeedbackRequestEmail } = await import(
-          "@calcom/emails/templates/thotis/feedback-request"
-        );
         const { ThotisGuestService } = await import("@calcom/features/thotis/services/ThotisGuestService");
         const guestService = new ThotisGuestService();
         // Token for dashboard access (1 day validity)
         const { token } = await guestService.requestInboxLink(attendeeEmail, undefined, 1440);
         const feedbackLink = `${webAppUrl}/thotis/my-sessions?token=${token}`;
 
-        const email = new FeedbackRequestEmail(calEvent, attendee, feedbackLink);
-        await email.sendEmail();
+        await emailService.sendFeedbackRequest(calEvent, attendee, feedbackLink);
 
         await prisma.booking.update({
           where: { id: booking.id },

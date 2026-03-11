@@ -1,4 +1,4 @@
-import type { AcademicField } from "@calcom/prisma/enums";
+import { type AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import type { PrismaClient } from "@prisma/client";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockDeep, mockReset } from "vitest-mock-extended";
@@ -52,6 +52,7 @@ describe("ProfileRepository", () => {
           userId,
           ...profileData,
           expertise: [],
+          status: "VERIFIED",
         },
         select: expect.any(Object),
       });
@@ -297,7 +298,7 @@ describe("ProfileRepository", () => {
       expect(result.page).toBe(1);
       expect(result.pageSize).toBe(20);
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { field, isActive: true },
+        where: { field, isActive: true, status: MentorStatus.VERIFIED },
         select: expect.any(Object),
         skip: 0,
         take: 20,
@@ -316,7 +317,7 @@ describe("ProfileRepository", () => {
       expect(result.pageSize).toBe(10);
       expect(result.total).toBe(45);
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { field, isActive: true },
+        where: { field, isActive: true, status: MentorStatus.VERIFIED },
         select: expect.any(Object),
         skip: 10,
         take: 10,
@@ -334,7 +335,7 @@ describe("ProfileRepository", () => {
       await repository.getProfilesByField(field, { university });
 
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { field, isActive: true, university },
+        where: { field, isActive: true, status: MentorStatus.VERIFIED, university },
         select: expect.any(Object),
         skip: 0,
         take: 20,
@@ -352,7 +353,7 @@ describe("ProfileRepository", () => {
       await repository.getProfilesByField(field, { minRating });
 
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { field, isActive: true, averageRating: { gte: minRating } },
+        where: { field, isActive: true, status: MentorStatus.VERIFIED, averageRating: { gte: minRating } },
         select: expect.any(Object),
         skip: 0,
         take: 20,
@@ -377,6 +378,7 @@ describe("ProfileRepository", () => {
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
         where: {
           isActive: true,
+          status: MentorStatus.VERIFIED,
           field: query.field,
           university: query.university,
           averageRating: { gte: query.minRating },
@@ -397,7 +399,7 @@ describe("ProfileRepository", () => {
       await repository.searchProfiles(query);
 
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { isActive: true, field: query.field },
+        where: { isActive: true, status: MentorStatus.VERIFIED, field: query.field },
         select: expect.any(Object),
         skip: 0,
         take: 20,
@@ -412,7 +414,7 @@ describe("ProfileRepository", () => {
       await repository.searchProfiles({});
 
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith({
-        where: { isActive: true },
+        where: { isActive: true, status: MentorStatus.VERIFIED },
         select: expect.any(Object),
         skip: 0,
         take: 20,
@@ -435,7 +437,7 @@ describe("ProfileRepository", () => {
       expect(result).toHaveLength(2);
       expect(prismaMock.studentProfile.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isActive: true },
+          where: { isActive: true, status: MentorStatus.VERIFIED },
           orderBy: [{ averageRating: "desc" }, { totalSessions: "desc" }],
         })
       );
@@ -443,23 +445,39 @@ describe("ProfileRepository", () => {
 
     it("should prioritize profiles matching the requested field", async () => {
       const field = "LAW" as AcademicField;
-      const mockProfiles = [
-        { id: "p1", field: "MEDICINE" as AcademicField, averageRating: 5.0, totalSessions: 100 },
-        { id: "p2", field: "LAW" as AcademicField, averageRating: 4.0, totalSessions: 10 },
-        { id: "p3", field: "LAW" as AcademicField, averageRating: 4.5, totalSessions: 15 },
-      ];
-
-      prismaMock.studentProfile.findMany.mockResolvedValue(mockProfiles);
+      prismaMock.studentProfile.findMany
+        .mockResolvedValueOnce([
+          { id: "p3", field: "LAW" as AcademicField, averageRating: 4.5, totalSessions: 15 },
+          { id: "p2", field: "LAW" as AcademicField, averageRating: 4.0, totalSessions: 10 },
+        ])
+        .mockResolvedValueOnce([
+          { id: "p1", field: "MEDICINE" as AcademicField, averageRating: 5.0, totalSessions: 100 },
+        ]);
 
       const result = await repository.getRecommendedProfiles(field, 3);
 
       expect(result).toHaveLength(3);
-      // P3 and P2 should come first because they match the field
-      // Between P3 and P2, P3 should be first (higher rating)
-      // P1 should be last despite high rating because it's a different field
       expect(result[0].id).toBe("p3");
       expect(result[1].id).toBe("p2");
       expect(result[2].id).toBe("p1");
+      expect(prismaMock.studentProfile.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          take: 3,
+          where: { field, isActive: true, status: MentorStatus.VERIFIED },
+        })
+      );
+      expect(prismaMock.studentProfile.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          take: 1,
+          where: {
+            field: { not: field },
+            isActive: true,
+            status: MentorStatus.VERIFIED,
+          },
+        })
+      );
     });
   });
 

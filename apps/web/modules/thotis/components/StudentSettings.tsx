@@ -7,6 +7,7 @@ import { Form, Label, Switch, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
 
 interface StudentSettingsProps {
   user: {
@@ -21,7 +22,12 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
   const utils = trpc.useUtils();
 
   // Load student profile preferences from DB via existing profile.get route
-  const { data: studentProfile } = trpc.thotis.profile.get.useQuery();
+  const {
+    data: studentProfile,
+    error: studentProfileError,
+    isPending: isPendingStudentProfile,
+    refetch,
+  } = trpc.thotis.profile.get.useQuery();
 
   const form = useForm({
     defaultValues: {
@@ -73,7 +79,16 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
     <div className="bg-default border-subtle rounded-lg border p-6">
       <h2 className="text-emphasis mb-4 text-lg font-bold">{t("thotis_my_profile")}</h2>
 
-      <Form form={form} handleSubmit={onSubmit} className="space-y-6 max-w-md">
+      {isPendingStudentProfile ? <ThotisLoadingState className="py-6" /> : null}
+      {studentProfileError ? (
+        <ThotisErrorState className="mb-6" message={studentProfileError.message} onAction={() => void refetch()} />
+      ) : null}
+
+      <Form
+        form={form}
+        handleSubmit={onSubmit}
+        className="space-y-6 max-w-md"
+        style={isPendingStudentProfile || studentProfileError ? { opacity: 0.5 } : undefined}>
         <div>
           <Label htmlFor="email">{t("email")}</Label>
           <TextField id="email" value={user.email} disabled className="bg-subtle text-muted" />
@@ -92,13 +107,20 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
               <p className="text-emphasis text-sm font-medium">{t("thotis_marketing_consent")}</p>
               <p className="text-subtle text-xs">{t("thotis_marketing_consent_desc")}</p>
             </div>
-            <Switch checked={marketingConsent} onCheckedChange={handleMarketingConsentChange} />
+            <Switch
+              checked={marketingConsent}
+              disabled={isPendingStudentProfile || !!studentProfileError}
+              onCheckedChange={handleMarketingConsentChange}
+            />
           </div>
           <p className="text-subtle text-xs mt-4">{t("thotis_gdpr_note")}</p>
         </div>
 
         <div className="pt-4">
-          <Button type="submit" loading={updateProfileMutation.isPending}>
+          <Button
+            type="submit"
+            loading={updateProfileMutation.isPending}
+            disabled={isPendingStudentProfile || !!studentProfileError}>
             {t("save_changes")}
           </Button>
         </div>
