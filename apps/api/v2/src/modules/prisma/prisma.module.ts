@@ -1,0 +1,47 @@
+import { PrismaClient } from "@calcom/prisma/client";
+import { Global, Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { PrismaReadService } from "@/modules/prisma/prisma-read.service";
+import { PrismaWriteService } from "@/modules/prisma/prisma-write.service";
+
+@Global()
+@Module({
+  imports: [ConfigModule],
+  providers: [
+    {
+      provide: PrismaReadService,
+      useFactory: (config: ConfigService) => {
+        const service = new PrismaReadService();
+        service.setOptions({
+          readUrl: config.get<string>("db.readUrl", { infer: true }),
+          maxReadConnections: parseInt(config.get<number>("db.readPoolMax", { infer: true }), 10),
+          e2e: config.get<boolean>("e2e", { infer: true }) ?? false,
+          type: "main",
+        });
+        return service;
+      },
+      inject: [ConfigService],
+    },
+    {
+      provide: PrismaWriteService,
+      useFactory: (config: ConfigService) => {
+        const service = new PrismaWriteService();
+        service.setOptions({
+          writeUrl: config.get<string>("db.writeUrl", { infer: true }),
+          maxWriteConnections: parseInt(config.get<number>("db.writePoolMax", { infer: true }), 10),
+          e2e: config.get<boolean>("e2e", { infer: true }) ?? false,
+          type: "main",
+        });
+        return service;
+      },
+      inject: [ConfigService],
+    },
+    {
+      provide: PrismaClient,
+      useFactory: (prisma: PrismaWriteService) => prisma.prisma,
+      inject: [PrismaWriteService],
+    },
+  ],
+  exports: [PrismaReadService, PrismaWriteService, PrismaClient],
+})
+export class PrismaModule {}

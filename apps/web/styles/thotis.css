@@ -1,0 +1,14 @@
+:root {
+  --brand-color: #ff6b35;
+  --brand-text-color: #ffffff;
+  --thotis-blue: #004e89;
+  --thotis-yellow: #f7b801;
+}
+
+.thotis-branding {
+  background: linear-gradient(135deg, var(--brand-color) 0%, var(--thotis-blue) 100%);
+}
+
+.text-thotis-primary {
+  color: var(--brand-color);
+}

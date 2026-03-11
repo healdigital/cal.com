@@ -1,0 +1,8 @@
+import { Injectable } from "@nestjs/common";
+
+@Injectable()
+export class DeploymentsService {
+  async checkLicense() {
+    return true;
+  }
+}

@@ -1,0 +1,46 @@
+import { Prisma } from "../client";
+
+export const checkUndefinedInValue = (where: Record<string, unknown>) => {
+  if (where) {
+    for (const key in where) {
+      // INFO: Since this is for $allModels, we don't have a way to get the correct
+      // where type
+      const whereInput = where[key] as Record<string, unknown> | null | undefined;
+      let message;
+      if (whereInput === undefined) {
+        message = `The value for the field "${key}" cannot be undefined.`;
+        throw new Error(message);
+      }
+
+      if (whereInput === null) {
+        continue;
+      }
+
+      if (Object.hasOwn(whereInput, "in") && typeof whereInput.in === "undefined") {
+        message = `The "in" value for the field "${key}" cannot be undefined.`;
+        throw new Error(message);
+      }
+    }
+  }
+};
+
+export function disallowUndefinedDeleteUpdateManyExtension() {
+  return Prisma.defineExtension({
+    query: {
+      $allModels: {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        async deleteMany({ args, query }) {
+          checkUndefinedInValue(args.where);
+          return query(args);
+        },
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        async updateMany({ args, query }) {
+          checkUndefinedInValue(args.where);
+          return query(args);
+        },
+      },
+    },
+  });
+}

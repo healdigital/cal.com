@@ -1,0 +1,120 @@
+# Dockerfile.coolify - Based on official Cal.com Dockerfile
+# Optimized for Coolify deployment
+# Cache bust: 2026-02-17-v4
+FROM node:20 AS builder
+
+WORKDIR /calcom
+
+# Build arguments - Coolify passes these from environment variables
+ARG NEXT_PUBLIC_LICENSE_CONSENT
+ARG NEXT_PUBLIC_WEBSITE_TERMS_URL
+ARG NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL
+ARG CALCOM_TELEMETRY_DISABLED=1
+ARG DATABASE_URL
+ARG NEXTAUTH_SECRET
+ARG CALENDSO_ENCRYPTION_KEY
+ARG MAX_OLD_SPACE_SIZE=8192
+ARG NEXT_PUBLIC_API_V2_URL
+ARG CSP_POLICY
+ARG NEXT_PUBLIC_SINGLE_ORG_SLUG
+ARG ORGANIZATIONS_ENABLED
+
+ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
+  NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL \
+  NEXT_PUBLIC_LICENSE_CONSENT=$NEXT_PUBLIC_LICENSE_CONSENT \
+  NEXT_PUBLIC_WEBSITE_TERMS_URL=$NEXT_PUBLIC_WEBSITE_TERMS_URL \
+  NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL=$NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL \
+  CALCOM_TELEMETRY_DISABLED=$CALCOM_TELEMETRY_DISABLED \
+  DATABASE_URL=$DATABASE_URL \
+  DATABASE_DIRECT_URL=$DATABASE_URL \
+  NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
+  CALENDSO_ENCRYPTION_KEY=${CALENDSO_ENCRYPTION_KEY} \
+  NEXT_PUBLIC_SINGLE_ORG_SLUG=$NEXT_PUBLIC_SINGLE_ORG_SLUG \
+  ORGANIZATIONS_ENABLED=$ORGANIZATIONS_ENABLED \
+  NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
+  BUILD_STANDALONE=true \
+  CSP_POLICY=$CSP_POLICY \
+  HUSKY=0
+
+# Cache buster to force Docker to re-copy source files on each deploy
+ARG CACHEBUST=1
+
+# Copy all source files needed for the build
+COPY package.json yarn.lock .yarnrc.yml playwright.config.ts turbo.json i18n.json ./
+COPY .yarn ./.yarn
+COPY apps/web ./apps/web
+COPY apps/api/v2 ./apps/api/v2
+COPY packages ./packages
+
+# Install dependencies (lifecycle scripts may fail for non-critical packages
+# like platform-enums; we run prisma generate and post-install manually after)
+RUN yarn install --inline-builds || true
+
+# Generate Prisma client (critical - must succeed)
+RUN yarn prisma generate
+
+# Run post-install hooks (may partially fail for non-critical packages)
+RUN npx turbo run post-install || true
+
+# Build tRPC package (required by web)
+RUN yarn workspace @calcom/trpc run build
+
+# Build embed-core and copy static assets
+RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
+RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
+
+# Use Turbopack with --experimental-build-mode compile to skip the
+# "Collecting page data" phase which triggers React.createContext errors
+# from transitive @calcom/app-store imports in API routes.
+RUN cd apps/web && npx next build --experimental-build-mode compile
+
+# Clean up caches to reduce image size
+RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
+
+FROM node:20-slim AS builder-two
+
+WORKDIR /calcom
+ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+
+ENV NODE_ENV=production
+
+COPY package.json .yarnrc.yml turbo.json i18n.json ./
+COPY .yarn ./.yarn
+COPY --from=builder /calcom/yarn.lock ./yarn.lock
+COPY --from=builder /calcom/node_modules ./node_modules
+COPY --from=builder /calcom/packages ./packages
+COPY --from=builder /calcom/apps/web ./apps/web
+COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
+COPY scripts scripts
+RUN chmod +x scripts/*
+
+# Re-generate Prisma client in builder-two to ensure it matches this
+# stage's node_modules layout (the builder stage generated it but the
+# multi-stage copy can lose the generated output).
+# Must cd into packages/prisma so the custom enum-generator.ts is found.
+RUN cd packages/prisma && npx prisma generate
+
+ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
+  BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
+
+RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
+
+FROM node:20-slim AS runner
+
+WORKDIR /calcom
+
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd wget curl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder-two /calcom ./
+ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
+  BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# start-period: grace period for prisma migrate + seed + first route compile
+HEALTHCHECK --interval=30s --timeout=30s --start-period=240s --retries=5 \
+  CMD curl -f http://localhost:3000/api/auth/csrf || exit 1
+
+CMD ["/calcom/scripts/start.sh"]

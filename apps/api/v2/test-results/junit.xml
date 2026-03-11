@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="3" failures="3" errors="0" time="6.398">
+  <testsuite name="BookingsController (e2e)" errors="0" failures="3" skipped="0" timestamp="2026-02-07T00:36:18" time="6.248" tests="3">
+    <testcase classname="BookingsController (e2e) V2 Booking Flow POST /v2/bookings - should create a booking" name="BookingsController (e2e) V2 Booking Flow POST /v2/bookings - should create a booking" time="0.461">
+      <failure>Error: expected 201 &quot;Created&quot;, got 500 &quot;Internal Server Error&quot;
+    at Object.&lt;anonymous&gt; (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/apps/api/v2/src/modules/bookings/bookings.e2e-spec.ts:112:10)
+    at Promise.then.completed (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/testWorker.js:106:12)
+----
+    at Test._assertStatus (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:252:14)
+    at /Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:308:13
+    at Test._assertFunction (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:285:13)
+    at Test.assert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:164:23)
+    at Server.localAssert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:120:14)
+    at Object.onceWrapper (node:events:632:28)
+    at Server.emit (node:events:518:28)
+    at emitCloseNT (node:net:2416:8)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21)</failure>
+    </testcase>
+    <testcase classname="BookingsController (e2e) V2 Booking Flow PATCH /v2/bookings/:id/reschedule - should reschedule" name="BookingsController (e2e) V2 Booking Flow PATCH /v2/bookings/:id/reschedule - should reschedule" time="0.002">
+      <failure>Error: expected 200 &quot;OK&quot;, got 400 &quot;Bad Request&quot;
+    at Object.&lt;anonymous&gt; (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/apps/api/v2/src/modules/bookings/bookings.e2e-spec.ts:130:10)
+    at Promise.then.completed (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/jest-runner/build/testWorker.js:106:12)
+----
+    at Test._assertStatus (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:252:14)
+    at /Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:308:13
+    at Test._assertFunction (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:285:13)
+    at Test.assert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:164:23)
+    at Server.localAssert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:120:14)
+    at Object.onceWrapper (node:events:632:28)
+    at Server.emit (node:events:518:28)
+    at emitCloseNT (node:net:2416:8)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21)</failure>
+    </testcase>
+    <testcase classname="BookingsController (e2e) POST /bookings/:id/rating should allow rating a booking" name="BookingsController (e2e) POST /bookings/:id/rating should allow rating a booking" time="0.003">
+      <failure>Error: expected 201 &quot;Created&quot;, got 500 &quot;Internal Server Error&quot;
+    at Object.&lt;anonymous&gt; (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/apps/api/v2/src/modules/bookings/bookings.e2e-spec.ts:156:10)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+----
+    at Test._assertStatus (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:252:14)
+    at /Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:308:13
+    at Test._assertFunction (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:285:13)
+    at Test.assert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:164:23)
+    at Server.localAssert (/Users/leoturbetdelof/Downloads/Thotis Final/cal.com-main/node_modules/supertest/lib/test.js:120:14)
+    at Object.onceWrapper (node:events:632:28)
+    at Server.emit (node:events:518:28)
+    at emitCloseNT (node:net:2416:8)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

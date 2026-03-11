@@ -1,0 +1,258 @@
+// Thotis Student Mentoring Platform Models
+
+enum AcademicField {
+  LAW
+  MEDICINE
+  ENGINEERING
+  BUSINESS
+  COMPUTER_SCIENCE
+  PSYCHOLOGY
+  EDUCATION
+  ARTS
+  SCIENCES
+  POLITICAL_SCIENCE
+  ECONOMICS
+  LANGUAGES
+  OTHER
+}
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId Int    @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  university  String
+  degree      String
+  field       AcademicField
+  currentYear Int
+
+  bio             String   @db.Text
+  profilePhotoUrl String?
+  linkedInUrl     String?
+  expertise       String[] @default([])
+
+  timezone         String  @default("Europe/Paris")
+  marketingConsent Boolean @default(false)
+
+  isActive Boolean      @default(true)
+  status   MentorStatus @default(PENDING_VERIFICATION)
+
+  incidents         MentorQualityIncident[]
+  moderationActions MentorModerationAction[]
+
+  totalSessions     Int      @default(0)
+  completedSessions Int      @default(0)
+  cancelledSessions Int      @default(0)
+  averageRating     Decimal? @db.Decimal(3, 2)
+  totalRatings      Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ratings SessionRating[]
+
+  @@index([field, isActive])
+  @@index([userId])
+}
+
+model SessionRating {
+  id        String  @id @default(cuid())
+  bookingId Int     @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  rating           Int
+  feedback         String?  @db.Text
+  prospectiveEmail String
+  createdAt        DateTime @default(now())
+
+  @@index([studentProfileId])
+}
+
+model ThotisOrientationIntent {
+  id                  String   @id @default(cuid())
+  userId              Int
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetFields        String[]
+  academicLevel       String
+  scheduleConstraints Json?
+  zone                String?
+  goals               String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId])
+  @@index([userId])
+}
+
+model ThotisGuestIdentity {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  normalizedEmail String   @unique
+  lastRequestAt   DateTime @default(dbgenerated("'1970-01-01 00:00:00'"))
+  blocked         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  magicLinks ThotisMagicLinkToken[]
+  auditLogs  ThotisGuestAccessLog[]
+}
+
+model ThotisMagicLinkToken {
+  id          String              @id @default(cuid())
+  tokenHash   String              @unique
+  guestId     String
+  guest       ThotisGuestIdentity @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  invalidated Boolean             @default(false)
+
+  bookingId Int?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([guestId])
+  @@index([tokenHash])
+  @@index([bookingId])
+}
+
+model ThotisGuestAccessLog {
+  id         String               @id @default(cuid())
+  guestId    String?
+  guest      ThotisGuestIdentity? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  ipAddress  String?
+  userAgent  String?
+  endpoint   String
+  action     String
+  resourceId String?
+  success    Boolean              @default(true)
+  metadata   Json?
+  createdAt  DateTime             @default(now())
+
+  @@index([guestId])
+}
+
+model ThotisSessionSummary {
+  id        String   @id @default(cuid())
+  bookingId Int      @unique
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  content   String
+  nextSteps String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ThotisSessionResource {
+  id        String   @id @default(cuid())
+  bookingId Int
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  url       String
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+enum MentorStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  SUSPENDED
+  DELISTED
+}
+
+enum MentorIncidentType {
+  NO_SHOW
+  LATE_ARRIVAL
+  INAPPROPRIATE_BEHAVIOR
+  POOR_QUALITY
+  OTHER
+}
+
+enum MentorModerationActionType {
+  WARNING
+  SUSPENSION
+  DELISTING
+  MANUAL_STATUS_CHANGE
+}
+
+model MentorQualityIncident {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  reportedByUserId Int?
+  reportedByUser   User? @relation(fields: [reportedByUserId], references: [id], onDelete: SetNull)
+
+  bookingUid String?
+  booking    Booking? @relation(fields: [bookingUid], references: [uid], onDelete: SetNull)
+
+  type        MentorIncidentType
+  description String?            @db.Text
+  severity    Int                @default(1)
+
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentProfileId])
+  @@index([reportedByUserId])
+  @@index([bookingUid])
+}
+
+model MentorModerationAction {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  actionByUserId Int
+  actionByUser   User @relation(fields: [actionByUserId], references: [id], onDelete: Cascade)
+
+  actionType MentorModerationActionType
+  reason     String?                    @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([studentProfileId])
+  @@index([actionByUserId])
+}
+
+enum ThotisAnalyticsEventType {
+  profile_viewed
+  booking_started
+  booking_confirmed
+  session_completed
+  rating_submitted
+  cancelled
+  rescheduled
+  no_show
+}
+
+model ThotisAnalyticsEvent {
+  id        String                   @id @default(cuid())
+  eventType ThotisAnalyticsEventType
+
+  userId  Int?
+  guestId String?
+
+  profileId String?
+  bookingId Int?
+
+  field    String?
+  source   String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([profileId])
+  @@index([field])
+  @@index([userId])
+  @@index([guestId])
+  @@index([bookingId])
+}

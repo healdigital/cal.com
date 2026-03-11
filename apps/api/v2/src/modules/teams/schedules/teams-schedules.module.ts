@@ -1,0 +1,38 @@
+import { Module } from "@nestjs/common";
+import { AppsRepository } from "@/modules/apps/apps.repository";
+import { CredentialsRepository } from "@/modules/credentials/credentials.repository";
+import { MembershipsModule } from "@/modules/memberships/memberships.module";
+import { OrganizationsRepository } from "@/modules/organizations/index/organizations.repository";
+import { OrganizationSchedulesRepository } from "@/modules/organizations/schedules/organizations-schedules.repository";
+import { OrganizationsTeamsRepository } from "@/modules/organizations/teams/index/organizations-teams.repository";
+import { PrismaModule } from "@/modules/prisma/prisma.module";
+import { RedisModule } from "@/modules/redis/redis.module";
+import { StripeService } from "@/modules/stripe/stripe.service";
+import { TeamsEventTypesModule } from "@/modules/teams/event-types/teams-event-types.module";
+import { TeamsMembershipsRepository } from "@/modules/teams/memberships/teams-memberships.repository";
+import { TeamsSchedulesController } from "@/modules/teams/schedules/controllers/teams-schedules.controller";
+import { TeamsSchedulesService } from "@/modules/teams/schedules/services/teams-schedules.service";
+import { TeamsController } from "@/modules/teams/teams/controllers/teams.controller";
+import { TeamsService } from "@/modules/teams/teams/services/teams.service";
+import { TeamsRepository } from "@/modules/teams/teams/teams.repository";
+import { UsersRepository } from "@/modules/users/users.repository";
+
+@Module({
+  imports: [PrismaModule, MembershipsModule, RedisModule, TeamsEventTypesModule],
+  providers: [
+    TeamsRepository,
+    TeamsService,
+    TeamsMembershipsRepository,
+    OrganizationSchedulesRepository,
+    StripeService,
+    UsersRepository,
+    AppsRepository,
+    CredentialsRepository,
+    OrganizationsRepository,
+    TeamsSchedulesService,
+    OrganizationsTeamsRepository,
+  ],
+  controllers: [TeamsController, TeamsSchedulesController],
+  exports: [TeamsRepository],
+})
+export class TeamsSchedulesModule {}

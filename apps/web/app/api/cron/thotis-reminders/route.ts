@@ -1,0 +1,159 @@
+import process from "node:process";
+import prisma from "@calcom/prisma";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+const CRON_SECRET: string | undefined = process.env.CRON_SECRET;
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const authHeader = req.headers.get("authorization");
+  const apiKey = req.nextUrl.searchParams.get("apiKey");
+
+  if (!CRON_SECRET) {
+    return NextResponse.json({ message: "Misconfigured" }, { status: 500 });
+  }
+
+  if (authHeader !== `Bearer ${CRON_SECRET}` && apiKey !== CRON_SECRET) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  // Dynamic imports to avoid pulling React into the API route at build time
+  const { default: dayjs } = await import("@calcom/dayjs");
+  const { AnalyticsService } = await import("@calcom/features/thotis/services/AnalyticsService");
+  const { ThotisEmailService } = await import("@calcom/features/thotis/services/ThotisEmailService");
+  const { getTranslation } = await import("@calcom/lib/server/i18n");
+
+  const analytics = new AnalyticsService();
+  const thotisEmail = new ThotisEmailService();
+
+  const now = dayjs();
+  // Reminders exactly 24 hours before (window: starts in 23h30m to 24h30m)
+  const windowStart = now.add(23, "hour").add(30, "minute");
+  const windowEnd = now.add(24, "hour").add(30, "minute");
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      status: "PENDING", // In Thotis, sessions stay PENDING until completed
+      startTime: {
+        gte: windowStart.toDate(),
+        lte: windowEnd.toDate(),
+      },
+      metadata: {
+        path: ["isThotisSession"],
+        equals: true,
+      },
+      NOT: {
+        metadata: {
+          path: ["reminder24hSent"],
+          equals: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      uid: true,
+      title: true,
+      startTime: true,
+      endTime: true,
+      status: true,
+      metadata: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          timeZone: true,
+          locale: true,
+        },
+      },
+      attendees: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          timeZone: true,
+          locale: true,
+        },
+      },
+    },
+  });
+
+  let sentCount = 0;
+
+  for (const booking of bookings) {
+    try {
+      const metadata = (booking.metadata as Record<string, unknown>) || {};
+      const mentor = booking.user;
+
+      if (!mentor) continue;
+
+      const tMentor = await getTranslation(mentor.locale || "en", "common");
+
+      // Build CalendarEvent for emails
+      const calEvent = {
+        title: booking.title,
+        type: booking.title,
+        startTime: booking.startTime.toISOString(),
+        endTime: booking.endTime.toISOString(),
+        organizer: {
+          id: mentor.id,
+          name: mentor.name || "Mentor",
+          email: mentor.email,
+          timeZone: mentor.timeZone,
+          language: { translate: tMentor, locale: mentor.locale || "en" },
+        },
+        attendees: booking.attendees.map((a) => ({
+          name: a.name,
+          email: a.email,
+          timeZone: a.timeZone,
+          language: { translate: tMentor, locale: a.locale || "en" },
+        })),
+        location: (metadata.googleMeetLink as string) || "",
+        uid: booking.uid,
+      };
+
+      // 1. Send to Mentor
+      await thotisEmail.sendReminder(calEvent as any, {
+        name: mentor.name || "Mentor",
+        email: mentor.email,
+        timeZone: mentor.timeZone,
+        language: { translate: tMentor, locale: mentor.locale || "en" },
+      });
+
+      // 2. Send to Student (attendee)
+      for (const attendee of calEvent.attendees) {
+        await thotisEmail.sendReminder(calEvent as any, attendee);
+      }
+
+      // 3. Log to Mixpanel
+      analytics.trackBookingReminderSent({
+        id: booking.id,
+        userId: mentor.id,
+        metadata: booking.metadata,
+      });
+
+      // Trigger Webhook
+      const { thotisWebhooks } = await import("@calcom/features/thotis/services/ThotisWebhookClient");
+      await thotisWebhooks.onReminder(booking, "24h");
+
+      // 4. Mark as sent
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          metadata: {
+            ...metadata,
+            reminder24hSent: true,
+          },
+        },
+      });
+
+      sentCount++;
+    } catch (error) {
+      console.error(`Failed to send reminder for booking ${booking.id}`, error);
+    }
+  }
+
+  return NextResponse.json({ success: true, sentCount });
+}
