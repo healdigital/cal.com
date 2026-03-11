@@ -5,6 +5,7 @@ import BookingRescheduledEmail from "@calcom/emails/templates/thotis/booking-res
 import FeedbackRequestEmail from "@calcom/emails/templates/thotis/feedback-request";
 import MagicLinkEmail from "@calcom/emails/templates/thotis/magic-link";
 import logger from "@calcom/lib/logger";
+import { getTranslation } from "@calcom/lib/server/i18n";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 
 const log = logger.getSubLogger({ prefix: ["ThotisEmailService"] });
@@ -108,8 +109,23 @@ export class ThotisEmailService {
     await sendThotisEmailWithRetry(email);
   }
 
-  async sendMagicLink(emailAddress: string, magicLink: string, actionType: string = "LOGIN") {
-    const email = new MagicLinkEmail(emailAddress, magicLink, actionType);
+  async sendMagicLink(
+    emailAddress: string,
+    magicLink: string,
+    actionType: string = "LOGIN",
+    locale?: string
+  ) {
+    const t = await getTranslation(locale ?? "fr", "common");
+    const isLogin = !actionType || actionType === "LOGIN";
+    const email = new MagicLinkEmail(emailAddress, magicLink, {
+      actionType,
+      buttonText: isLogin ? t("thotis_magic_link_login_cta") : t("thotis_magic_link_action_cta"),
+      expiresNotice: t("thotis_magic_link_expires_notice"),
+      ignoreNotice: t("thotis_magic_link_ignore_notice"),
+      subject: isLogin ? t("thotis_magic_link_login_subject") : t("thotis_magic_link_action_subject"),
+      subtitle: isLogin ? t("thotis_magic_link_login_subtitle") : t("thotis_magic_link_action_subtitle"),
+      title: isLogin ? t("thotis_magic_link_login_subject") : t("thotis_magic_link_action_subject"),
+    });
     await sendThotisEmailWithRetry(email);
   }
 }

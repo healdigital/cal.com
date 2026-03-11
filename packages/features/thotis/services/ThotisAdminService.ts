@@ -10,7 +10,7 @@ import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import { rateLimiter } from "@calcom/lib/rateLimit";
 import { sanitizeStringArray, sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
-import type { User } from "@calcom/prisma/client";
+import type { Prisma, User } from "@calcom/prisma/client";
 import {
   type AcademicField,
   type BookingStatus,
@@ -18,7 +18,10 @@ import {
   type MentorIncidentType,
   type MentorModerationActionType,
   MentorStatus,
+  type ThotisAdminAuditAction,
+  type ThotisAdminAuditResourceType,
 } from "@calcom/prisma/enums";
+import type { AdminAuditLogRepository } from "../repositories/AdminAuditLogRepository";
 import type { MentorQualityRepository } from "../repositories/MentorQualityRepository";
 import type { ProfileRepository } from "../repositories/ProfileRepository";
 import type { ProfileService } from "./ProfileService";
@@ -65,7 +68,14 @@ export interface ProvisionAmbassadorInput {
   schedule?: ScheduleConfig;
 }
 
+export interface ThotisAdminActor {
+  email: string;
+  id: number;
+  name: string | null;
+}
+
 export class ThotisAdminService {
+  private adminAuditLogRepository: AdminAuditLogRepository;
   private profileRepository: ProfileRepository;
   private mentorQualityRepository: MentorQualityRepository;
   private profileService: ProfileService;
@@ -77,6 +87,7 @@ export class ThotisAdminService {
   private passwordResetRateLimitFn: (identifier: string) => Promise<void>;
 
   constructor(deps: {
+    adminAuditLogRepository: AdminAuditLogRepository;
     bookingRepository: BookingRepository;
     mentorQualityRepository: MentorQualityRepository;
     passwordResetRequestFn?: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
@@ -87,6 +98,7 @@ export class ThotisAdminService {
     schedulesRepository: SchedulesRepository;
     userRepository: UserRepository;
   }) {
+    this.adminAuditLogRepository = deps.adminAuditLogRepository;
     this.profileRepository = deps.profileRepository;
     this.profileService = deps.profileService;
     this.mentorQualityRepository = deps.mentorQualityRepository;
@@ -158,12 +170,48 @@ export class ThotisAdminService {
     );
   }
 
+  private getProfileDisplayName(
+    profile:
+      | {
+          id?: string;
+          user?: {
+            email?: string | null;
+            name?: string | null;
+          } | null;
+        }
+      | null
+      | undefined,
+    fallbackId: string
+  ): string {
+    return profile?.user?.name || profile?.user?.email || profile?.id || fallbackId;
+  }
+
+  private async createAdminAuditLog(input: {
+    actor: ThotisAdminActor;
+    action: ThotisAdminAuditAction;
+    metadata?: Prisma.InputJsonValue;
+    resourceDisplayName?: string | null;
+    resourceId: string;
+    resourceType: ThotisAdminAuditResourceType;
+  }) {
+    await this.adminAuditLogRepository.createLog({
+      adminUserEmail: input.actor.email,
+      adminUserId: input.actor.id,
+      adminUserName: input.actor.name,
+      action: input.action,
+      metadata: input.metadata,
+      resourceDisplayName: input.resourceDisplayName,
+      resourceId: input.resourceId,
+      resourceType: input.resourceType,
+    });
+  }
+
   /**
    * Provision a new ambassador account and profile.
    * If user doesn't exist, creates one. Then creates the student profile.
    * Idempotent: if profile already exists, returns it.
    */
-  async provisionAmbassador(input: ProvisionAmbassadorInput) {
+  async provisionAmbassador(input: ProvisionAmbassadorInput, actor?: ThotisAdminActor) {
     const scheduleConfig = {
       ...DEFAULT_SCHEDULE_CONFIG,
       ...input.schedule,
@@ -207,10 +255,44 @@ export class ThotisAdminService {
         timeZone: createdUser.timeZone,
       };
 
-      return this.provisionAmbassadorForUser(provisionedUser, input);
+      const provisionedProfile = await this.provisionAmbassadorForUser(provisionedUser, input);
+
+      if (actor) {
+        await this.createAdminAuditLog({
+          actor,
+          action: "AMBASSADOR_PROVISIONED",
+          metadata: {
+            email: input.email,
+            fieldOfStudy: input.fieldOfStudy,
+            university: input.university,
+          },
+          resourceDisplayName: this.getProfileDisplayName(provisionedProfile, provisionedProfile.id),
+          resourceId: provisionedProfile.id,
+          resourceType: "STUDENT_PROFILE",
+        });
+      }
+
+      return provisionedProfile;
     }
 
-    return this.provisionAmbassadorForUser(user, input);
+    const provisionedProfile = await this.provisionAmbassadorForUser(user, input);
+
+    if (actor) {
+      await this.createAdminAuditLog({
+        actor,
+        action: "AMBASSADOR_PROVISIONED",
+        metadata: {
+          email: input.email,
+          fieldOfStudy: input.fieldOfStudy,
+          university: input.university,
+        },
+        resourceDisplayName: this.getProfileDisplayName(provisionedProfile, provisionedProfile.id),
+        resourceId: provisionedProfile.id,
+        resourceType: "STUDENT_PROFILE",
+      });
+    }
+
+    return provisionedProfile;
   }
 
   private async provisionAmbassadorForUser(
@@ -256,6 +338,10 @@ export class ThotisAdminService {
       });
     }
 
+    if (!profile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Unable to provision profile for user ${user.id}`);
+    }
+
     // 3. Ensure user has a default schedule
     const scheduleConfig = {
       ...DEFAULT_SCHEDULE_CONFIG,
@@ -294,7 +380,7 @@ export class ThotisAdminService {
 
     // 4. Send password reset email (non-blocking: don't fail provisioning if email fails)
     try {
-      await this.sendInitialPasswordSetup(user.id);
+      await this.sendInitialPasswordSetup(user.id, { audit: false });
     } catch (emailError) {
       log.warn("Failed to send password setup email", { error: emailError, userId: user.id });
       // Don't throw — the account is provisioned, admin can resend later
@@ -306,13 +392,32 @@ export class ThotisAdminService {
   /**
    * Send a password reset email for initial setup or admin-triggered reset.
    */
-  async sendInitialPasswordSetup(userId: number) {
+  async sendInitialPasswordSetup(
+    userId: number,
+    options?: {
+      actor?: ThotisAdminActor;
+      audit?: boolean;
+    }
+  ) {
     const user = await this.userRepository.findForPasswordReset({ id: userId });
 
     if (!user) throw new ErrorWithCode(ErrorCode.NotFound, "User not found");
 
     await this.passwordResetRateLimitFn(`thotis:admin:password-reset:${userId}`);
     await this.passwordResetRequestFn(user);
+
+    if (options?.audit !== false && options?.actor) {
+      await this.createAdminAuditLog({
+        actor: options.actor,
+        action: "PASSWORD_RESET_SENT",
+        metadata: {
+          email: user.email,
+        },
+        resourceDisplayName: user.name || user.email,
+        resourceId: String(userId),
+        resourceType: "USER",
+      });
+    }
 
     return { success: true };
   }
@@ -330,14 +435,61 @@ export class ThotisAdminService {
     return this.profileRepository.listAdminProfiles(filters);
   }
 
+  async listAuditLogs(filters: { action?: ThotisAdminAuditAction; page?: number; pageSize?: number }) {
+    return this.adminAuditLogRepository.listLogs(filters);
+  }
+
   /**
    * Set ambassador status
    */
-  async setAmbassadorStatus(profileId: string, status: MentorStatus) {
-    return await this.profileRepository.updateProfile(profileId, {
+  async setAmbassadorStatus(profileId: string, status: MentorStatus, actor?: ThotisAdminActor) {
+    const existingProfile = await this.profileRepository.getProfile(profileId);
+
+    if (!existingProfile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${profileId} not found`);
+    }
+
+    const updatedProfile = await this.profileRepository.updateProfile(profileId, {
       status,
       isActive: status === MentorStatus.VERIFIED,
     });
+
+    if (!updatedProfile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${profileId} not found`);
+    }
+
+    if (actor) {
+      await this.createAdminAuditLog({
+        actor,
+        action: "MENTOR_STATUS_UPDATED",
+        metadata: {
+          nextStatus: status,
+          previousStatus: existingProfile.status,
+        },
+        resourceDisplayName: this.getProfileDisplayName(updatedProfile, profileId),
+        resourceId: profileId,
+        resourceType: "STUDENT_PROFILE",
+      });
+    }
+
+    return updatedProfile;
+  }
+
+  async bulkSetAmbassadorStatus(profileIds: string[], status: MentorStatus, actor?: ThotisAdminActor) {
+    const uniqueProfileIds = Array.from(new Set(profileIds));
+
+    if (!uniqueProfileIds.length) {
+      throw new ErrorWithCode(ErrorCode.BadRequest, "At least one ambassador must be selected");
+    }
+
+    const updatedProfiles = await Promise.all(
+      uniqueProfileIds.map((profileId) => this.setAmbassadorStatus(profileId, status, actor))
+    );
+
+    return {
+      success: true,
+      updatedCount: updatedProfiles.filter(Boolean).length,
+    };
   }
 
   /**
@@ -356,33 +508,81 @@ export class ThotisAdminService {
   /**
    * Resolve an incident
    */
-  async resolveIncident(incidentId: string) {
-    return await this.mentorQualityRepository.updateIncident(incidentId, {
+  async resolveIncident(incidentId: string, actor?: ThotisAdminActor) {
+    const incident = await this.mentorQualityRepository.getIncidentById(incidentId);
+
+    if (!incident) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Incident ${incidentId} not found`);
+    }
+
+    const resolvedIncident = await this.mentorQualityRepository.updateIncident(incidentId, {
       resolved: true,
       resolvedAt: new Date(),
     });
+
+    if (actor) {
+      await this.createAdminAuditLog({
+        actor,
+        action: "INCIDENT_RESOLVED",
+        metadata: {
+          bookingUid: incident.bookingUid,
+          incidentType: incident.type,
+          mentorProfileId: incident.studentProfileId,
+        },
+        resourceDisplayName: incident.bookingUid || incidentId,
+        resourceId: incidentId,
+        resourceType: "INCIDENT",
+      });
+    }
+
+    return resolvedIncident;
   }
 
   /**
    * Take a moderation action
    */
   async takeModerationAction(input: {
+    actor: ThotisAdminActor;
     studentProfileId: string;
-    actionByUserId: number;
     actionType: MentorModerationActionType;
     reason?: string;
     updateStatusTo?: MentorStatus;
   }) {
+    const existingProfile = await this.profileRepository.getProfile(input.studentProfileId);
+
+    if (!existingProfile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${input.studentProfileId} not found`);
+    }
+
     const action = await this.mentorQualityRepository.createModerationAction({
       studentProfileId: input.studentProfileId,
-      actionByUserId: input.actionByUserId,
+      actionByUserId: input.actor.id,
       actionType: input.actionType,
       reason: input.reason,
     });
 
+    let nextStatus: MentorStatus | undefined;
     if (input.updateStatusTo) {
-      await this.setAmbassadorStatus(input.studentProfileId, input.updateStatusTo);
+      await this.profileRepository.updateProfile(input.studentProfileId, {
+        isActive: input.updateStatusTo === MentorStatus.VERIFIED,
+        status: input.updateStatusTo,
+      });
+      nextStatus = input.updateStatusTo;
     }
+
+    await this.createAdminAuditLog({
+      actor: input.actor,
+      action: "MODERATION_ACTION_TAKEN",
+      metadata: {
+        actionType: input.actionType,
+        nextStatus,
+        previousStatus: existingProfile.status,
+        reason: input.reason,
+      },
+      resourceDisplayName: this.getProfileDisplayName(existingProfile, input.studentProfileId),
+      resourceId: input.studentProfileId,
+      resourceType: "STUDENT_PROFILE",
+    });
 
     return action;
   }
@@ -417,7 +617,7 @@ export class ThotisAdminService {
   /**
    * Admin-initiated booking cancellation with audit trail
    */
-  async adminCancelBooking(bookingId: number, reason: string, adminUserId: number) {
+  async adminCancelBooking(bookingId: number, reason: string, actor: ThotisAdminActor) {
     const booking = await this.bookingRepository.getThotisAdminBookingForCancellation(bookingId);
 
     if (!booking) {
@@ -433,7 +633,7 @@ export class ThotisAdminService {
       typeof metadata.studentProfileId === "string" ? metadata.studentProfileId : undefined;
 
     await this.bookingRepository.cancelThotisAdminBooking({
-      adminUserId,
+      adminUserId: actor.id,
       bookingId,
       metadata,
       reason,
@@ -442,6 +642,18 @@ export class ThotisAdminService {
     if (studentProfileId) {
       await this.profileRepository.incrementCancelledSessions(studentProfileId);
     }
+
+    await this.createAdminAuditLog({
+      actor,
+      action: "BOOKING_CANCELLED",
+      metadata: {
+        reason,
+        status: booking.status,
+      },
+      resourceDisplayName: booking.uid ?? booking.title ?? String(bookingId),
+      resourceId: String(bookingId),
+      resourceType: "BOOKING",
+    });
 
     return { success: true };
   }
@@ -458,7 +670,8 @@ export class ThotisAdminService {
       field?: AcademicField;
       expertise?: string[];
       currentYear?: number;
-    }
+    },
+    actor?: ThotisAdminActor
   ) {
     const profile = await this.profileRepository.getProfile(profileId);
     if (!profile) {
@@ -474,7 +687,28 @@ export class ThotisAdminService {
       ...(data.expertise !== undefined ? { expertise: sanitizeStringArray(data.expertise, 10, 50) } : {}),
     };
 
-    return this.profileRepository.updateProfile(profileId, sanitizedData);
+    const updatedProfile = await this.profileRepository.updateProfile(profileId, sanitizedData);
+
+    if (!updatedProfile) {
+      throw new ErrorWithCode(ErrorCode.NotFound, `Profile ${profileId} not found`);
+    }
+
+    if (actor) {
+      await this.createAdminAuditLog({
+        actor,
+        action: "MENTOR_PROFILE_UPDATED",
+        metadata: {
+          changedFields: Object.entries(sanitizedData)
+            .filter(([, value]) => value !== undefined)
+            .map(([key]) => key),
+        },
+        resourceDisplayName: this.getProfileDisplayName(updatedProfile, profileId),
+        resourceId: profileId,
+        resourceType: "STUDENT_PROFILE",
+      });
+    }
+
+    return updatedProfile;
   }
 
   /**
@@ -524,7 +758,8 @@ export class ThotisAdminService {
         startTime: string;
         endTime: string;
       }>;
-    }
+    },
+    actor?: ThotisAdminActor
   ) {
     const user = await this.userRepository.getTimeZoneAndDefaultScheduleId({ userId: mentorUserId });
 
@@ -553,6 +788,22 @@ export class ThotisAdminService {
       await this.schedulesRepository.updateSchedule({
         scheduleId,
         timeZone: scheduleData.timeZone,
+      });
+    }
+
+    if (actor) {
+      const profile = await this.profileRepository.getProfileByUserId(mentorUserId);
+
+      await this.createAdminAuditLog({
+        actor,
+        action: "MENTOR_SCHEDULE_UPDATED",
+        metadata: {
+          slotCount: scheduleData.availability.length,
+          timeZone: scheduleData.timeZone || user.timeZone,
+        },
+        resourceDisplayName: this.getProfileDisplayName(profile, String(mentorUserId)),
+        resourceId: profile?.id || String(mentorUserId),
+        resourceType: profile ? "STUDENT_PROFILE" : "USER",
       });
     }
 

@@ -76,23 +76,27 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
   };
 
   return (
-    <div className="bg-default border-subtle rounded-lg border p-6">
-      <h2 className="text-emphasis mb-4 text-lg font-bold">{t("thotis_my_profile")}</h2>
+    <div className="rounded-lg border border-subtle bg-default p-6">
+      <h2 className="mb-4 font-bold text-emphasis text-lg">{t("thotis_my_profile")}</h2>
 
       {isPendingStudentProfile ? <ThotisLoadingState className="py-6" /> : null}
       {studentProfileError ? (
-        <ThotisErrorState className="mb-6" message={studentProfileError.message} onAction={() => void refetch()} />
+        <ThotisErrorState
+          className="mb-6"
+          message={studentProfileError.message}
+          onAction={() => void refetch()}
+        />
       ) : null}
 
       <Form
         form={form}
         handleSubmit={onSubmit}
-        className="space-y-6 max-w-md"
+        className="max-w-md space-y-6"
         style={isPendingStudentProfile || studentProfileError ? { opacity: 0.5 } : undefined}>
         <div>
           <Label htmlFor="email">{t("email")}</Label>
           <TextField id="email" value={user.email} disabled className="bg-subtle text-muted" />
-          <p className="text-subtle text-xs mt-1">{t("thotis_email_cannot_change")}</p>
+          <p className="mt-1 text-subtle text-xs">{t("thotis_email_cannot_change")}</p>
         </div>
 
         <div>
@@ -100,11 +104,11 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
           <TextField id="name" {...form.register("name")} />
         </div>
 
-        <div className="pt-4 border-t border-subtle">
-          <h3 className="text-emphasis font-medium mb-3">{t("thotis_data_consents")}</h3>
+        <div className="border-subtle border-t pt-4">
+          <h3 className="mb-3 font-medium text-emphasis">{t("thotis_data_consents")}</h3>
           <div className="flex items-center justify-between">
             <div className="mr-4">
-              <p className="text-emphasis text-sm font-medium">{t("thotis_marketing_consent")}</p>
+              <p className="font-medium text-emphasis text-sm">{t("thotis_marketing_consent")}</p>
               <p className="text-subtle text-xs">{t("thotis_marketing_consent_desc")}</p>
             </div>
             <Switch
@@ -113,7 +117,7 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
               onCheckedChange={handleMarketingConsentChange}
             />
           </div>
-          <p className="text-subtle text-xs mt-4">{t("thotis_gdpr_note")}</p>
+          <p className="mt-4 text-subtle text-xs">{t("thotis_gdpr_note")}</p>
         </div>
 
         <div className="pt-4">

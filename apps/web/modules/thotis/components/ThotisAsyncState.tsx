@@ -3,6 +3,7 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
+import type { ReactElement } from "react";
 
 interface ThotisLoadingStateProps {
   className?: string;
@@ -10,11 +11,11 @@ interface ThotisLoadingStateProps {
   spinnerClassName?: string;
 }
 
-export const ThotisLoadingState = ({
+const ThotisLoadingState = ({
   className,
   label,
   spinnerClassName,
-}: ThotisLoadingStateProps) => {
+}: ThotisLoadingStateProps): ReactElement => {
   const { t } = useLocale();
 
   return (
@@ -23,7 +24,7 @@ export const ThotisLoadingState = ({
       role="status"
       aria-label={label ?? t("loading")}>
       <div
-        className={`h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-emphasis ${
+        className={`h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2 ${
           spinnerClassName ?? ""
         }`}
       />
@@ -41,30 +42,42 @@ interface ThotisErrorStateProps {
   title?: string;
 }
 
-export const ThotisErrorState = ({
+const ThotisErrorState = ({
   actionLabel,
   className,
   icon = "circle-alert",
   message,
   onAction,
   title,
-}: ThotisErrorStateProps) => {
+}: ThotisErrorStateProps): ReactElement => {
   const { t } = useLocale();
+  let messageContent: ReactElement | null = null;
+  let actionContent: ReactElement | null = null;
+
+  if (message) {
+    messageContent = <p className="mx-auto max-w-md text-sm text-subtle">{message}</p>;
+  }
+
+  if (onAction) {
+    actionContent = (
+      <div className="mt-5">
+        <Button color="secondary" onClick={onAction}>
+          {actionLabel ?? t("retry")}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div
       className={`rounded-lg border border-subtle bg-default px-6 py-10 text-center ${className ?? ""}`}
       role="alert">
       <Icon name={icon} className="mx-auto mb-3 h-10 w-10 text-subtle" />
-      <h3 className="mb-2 text-lg font-bold text-emphasis">{title ?? t("thotis_something_wrong")}</h3>
-      {message ? <p className="mx-auto max-w-md text-sm text-subtle">{message}</p> : null}
-      {onAction ? (
-        <div className="mt-5">
-          <Button color="secondary" onClick={onAction}>
-            {actionLabel ?? t("retry")}
-          </Button>
-        </div>
-      ) : null}
+      <h3 className="mb-2 font-bold text-emphasis text-lg">{title ?? t("thotis_something_wrong")}</h3>
+      {messageContent}
+      {actionContent}
     </div>
   );
 };
+
+export { ThotisErrorState, ThotisLoadingState };

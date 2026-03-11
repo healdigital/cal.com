@@ -1,5 +1,6 @@
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import { generateCSV, type Mentor } from "@calcom/features/thotis/components/AdminDashboardUtils";
+import { AdminAuditLogRepository } from "@calcom/features/thotis/repositories/AdminAuditLogRepository";
 import { UserPermissionRole } from "@calcom/prisma/enums";
 import { profileService } from "@calcom/trpc/server/routers/thotis/_shared";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
@@ -55,6 +56,20 @@ export async function GET(): Promise<Response> {
     }));
 
     const csv = generateCSV(mentors);
+    const auditLogRepository = new AdminAuditLogRepository();
+
+    await auditLogRepository.createLog({
+      action: "CSV_EXPORTED",
+      adminUserEmail: session.user.email,
+      adminUserId: session.user.id,
+      adminUserName: session.user.name,
+      metadata: {
+        mentorCount: mentors.length,
+      },
+      resourceDisplayName: "Thotis platform stats",
+      resourceId: "thotis-platform-stats",
+      resourceType: "PLATFORM",
+    });
 
     return new Response(csv, {
       headers: {

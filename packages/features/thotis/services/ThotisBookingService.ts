@@ -9,10 +9,9 @@ import logger from "@calcom/lib/logger";
 import { sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
 import { getTranslation } from "@calcom/lib/server/i18n";
 import { TimeFormat } from "@calcom/lib/timeFormat";
-import prisma from "@calcom/prisma";
 import { Prisma, type PrismaClient } from "@calcom/prisma/client";
 import { MentorIncidentType, MentorStatus, ThotisAnalyticsEventType } from "@calcom/prisma/enums";
-import { bookingResponses, EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
+import { bookingResponses } from "@calcom/prisma/zod-utils";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 import type { CredentialForCalendarService } from "@calcom/types/Credential";
 import { uuid } from "short-uuid";
@@ -565,7 +564,7 @@ export class ThotisBookingService {
           },
         });
         return fallbackLink;
-      } catch (err) {
+      } catch (_err) {
         if (attempt === MAX_RETRIES) {
           // Last attempt failed — return the link anyway so the booking isn't blocked
           return fallbackLink;
@@ -618,7 +617,7 @@ export class ThotisBookingService {
     }
 
     // Use the student's configured timezone instead of hardcoded default
-    const effectiveTimeZone = studentProfile.timezone || timeZone;
+    const _effectiveTimeZone = studentProfile.timezone || timeZone;
 
     if (studentProfile.status !== MentorStatus.VERIFIED) {
       return [];
@@ -692,7 +691,7 @@ export class ThotisBookingService {
         daySlots.forEach((slot) => {
           slots.push({
             start: new Date(slot.time),
-            end: new Date(new Date(slot.time).getTime() + eventType!.length * 60 * 1000),
+            end: new Date(new Date(slot.time).getTime() + eventType?.length * 60 * 1000),
             available: true,
           });
         });
@@ -1431,7 +1430,7 @@ export class ThotisBookingService {
     }
 
     const eventTypeId = eventType?.id;
-    const slotLength = eventType?.length || 15;
+    const _slotLength = eventType?.length || 15;
 
     // 2. Use Cal.com's availability service
     try {
@@ -1470,7 +1469,7 @@ export class ThotisBookingService {
       // 3. Check if our exact slot is in the available list
       let isAvailable = false;
       const requestedStartTime = startTime.getTime();
-      const requestedEndTime = endTime.getTime();
+      const _requestedEndTime = endTime.getTime();
 
       // Flatten slots
       const allSlots: { time: string }[] = [];
@@ -1596,7 +1595,7 @@ export class ThotisBookingService {
     const key = `rate-limit:booking:${email}`;
     try {
       const current = await this.redis.get(key);
-      const count = current ? parseInt(current as string) : 0;
+      const count = current ? parseInt(current as string, 10) : 0;
 
       const maxBookings = 2; // Strict limit: 2 bookings per hour to prevent spam
       if (count >= maxBookings) {

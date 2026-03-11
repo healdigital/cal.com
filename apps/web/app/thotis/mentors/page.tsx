@@ -166,12 +166,7 @@ export default function MentorsPage() {
     }
   );
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = trpc.thotis.profile.search.useQuery({
+  const { data, isLoading, error, refetch } = trpc.thotis.profile.search.useQuery({
     fieldOfStudy: (filters.fieldOfStudy || undefined) as AcademicField | undefined,
     university: filters.university || undefined,
     minRating: filters.minRating || undefined,

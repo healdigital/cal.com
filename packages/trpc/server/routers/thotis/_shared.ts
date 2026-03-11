@@ -5,6 +5,7 @@ import { DI_TOKENS } from "@calcom/features/di/tokens";
 import { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
 import { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
 import { AnalyticsRepository } from "@calcom/features/thotis/repositories/AnalyticsRepository";
+import { AdminAuditLogRepository } from "@calcom/features/thotis/repositories/AdminAuditLogRepository";
 import { MentorQualityRepository } from "@calcom/features/thotis/repositories/MentorQualityRepository";
 import { ProfileRepository } from "@calcom/features/thotis/repositories/ProfileRepository";
 import { SessionRatingRepository } from "@calcom/features/thotis/repositories/SessionRatingRepository";
@@ -25,6 +26,7 @@ const THOTIS_TOKENS = {
   ANALYTICS_REPOSITORY: Symbol("ThotisAnalyticsRepository"),
   ANALYTICS_SERVICE: Symbol("ThotisAnalyticsService"),
   ADMIN_SERVICE: Symbol("ThotisAdminService"),
+  ADMIN_AUDIT_LOG_REPOSITORY: Symbol("ThotisAdminAuditLogRepository"),
   BOOKING_REPOSITORY: Symbol("ThotisBookingRepository"),
   BOOKING_SERVICE: Symbol("ThotisBookingService"),
   EMAIL_SERVICE: Symbol("ThotisEmailService"),
@@ -51,6 +53,10 @@ function getProfileRepository(resolve: ResolveFunction): ProfileRepository {
 
 function getAnalyticsRepository(resolve: ResolveFunction): AnalyticsRepository {
   return resolve(THOTIS_TOKENS.ANALYTICS_REPOSITORY) as AnalyticsRepository;
+}
+
+function getAdminAuditLogRepository(resolve: ResolveFunction): AdminAuditLogRepository {
+  return resolve(THOTIS_TOKENS.ADMIN_AUDIT_LOG_REPOSITORY) as AdminAuditLogRepository;
 }
 
 function getMentorQualityRepository(resolve: ResolveFunction): MentorQualityRepository {
@@ -119,6 +125,12 @@ thotisModule
   .bind(THOTIS_TOKENS.ANALYTICS_REPOSITORY)
   .toFactory(
     (resolve: ResolveFunction) => new AnalyticsRepository({ prismaClient: getPrismaClient(resolve) }),
+    "singleton"
+  );
+thotisModule
+  .bind(THOTIS_TOKENS.ADMIN_AUDIT_LOG_REPOSITORY)
+  .toFactory(
+    (resolve: ResolveFunction) => new AdminAuditLogRepository({ prismaClient: getPrismaClient(resolve) }),
     "singleton"
   );
 thotisModule
@@ -201,6 +213,7 @@ thotisModule
 thotisModule.bind(THOTIS_TOKENS.ADMIN_SERVICE).toFactory(
   (resolve: ResolveFunction) =>
     new ThotisAdminService({
+      adminAuditLogRepository: getAdminAuditLogRepository(resolve),
       bookingRepository: getBookingRepository(resolve),
       mentorQualityRepository: getMentorQualityRepository(resolve),
       profileRepository: getProfileRepository(resolve),

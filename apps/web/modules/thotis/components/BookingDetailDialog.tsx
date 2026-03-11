@@ -8,6 +8,7 @@ import { TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
 import { getMentorIncidentTypeLabel } from "../lib/displayLabels";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
 
 interface BookingDetailDialogProps {
   bookingId: number | null;
@@ -27,7 +28,12 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
     REJECTED: t("thotis_admin_status_rejected"),
   };
 
-  const { data: booking, isLoading } = trpc.thotis.admin.getBookingDetails.useQuery(
+  const {
+    data: booking,
+    error,
+    isLoading,
+    refetch,
+  } = trpc.thotis.admin.getBookingDetails.useQuery(
     { bookingId: bookingId! },
     { enabled: !!bookingId && isOpen }
   );
@@ -77,9 +83,14 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
         <DialogHeader title={t("thotis_admin_booking_details")} />
 
         {isLoading ? (
-          <div className="flex justify-center py-8" aria-live="polite">
-            <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
-          </div>
+          <ThotisLoadingState className="py-8" />
+        ) : error ? (
+          <ThotisErrorState
+            className="px-4 py-8"
+            message={error.message}
+            onAction={() => void refetch()}
+            title={t("thotis_admin_error")}
+          />
         ) : !booking ? (
           <p className="py-4 text-center text-subtle">{t("thotis_admin_no_bookings")}</p>
         ) : (
@@ -193,9 +204,9 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
                 {booking.mentorQualityIncidents.map((inc) => (
                   <div
                     key={inc.id}
-                    className="flex items-center justify-between py-2 border-b border-subtle last:border-b-0">
+                    className="flex items-center justify-between border-subtle border-b py-2 last:border-b-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-default text-sm font-medium">
+                      <span className="font-medium text-default text-sm">
                         {getMentorIncidentTypeLabel(t, inc.type)}
                       </span>
                       <span
@@ -264,7 +275,7 @@ export function BookingDetailDialog({ bookingId, isOpen, onClose }: BookingDetai
             )}
 
             {showCancelConfirm && (
-              <div className="space-y-3 rounded-md border border-error p-3 bg-error/5">
+              <div className="space-y-3 rounded-md border border-error bg-error/5 p-3">
                 <p className="font-medium text-error text-sm">{t("thotis_admin_confirm_cancel")}</p>
                 <TextField
                   label={t("thotis_admin_cancel_reason")}

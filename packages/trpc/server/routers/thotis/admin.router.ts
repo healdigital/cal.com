@@ -4,6 +4,7 @@ import {
   MentorIncidentType,
   MentorModerationActionType,
   MentorStatus,
+  ThotisAdminAuditAction,
 } from "@calcom/prisma/enums";
 import { z } from "zod";
 import { authedAdminProcedure } from "../../procedures/authedProcedure";
@@ -78,8 +79,12 @@ export const adminRouter = router({
         schedule: scheduleConfigSchema.optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      return await adminService.provisionAmbassador(input);
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.provisionAmbassador(input, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 
   updateStatus: authedAdminProcedure
@@ -89,14 +94,39 @@ export const adminRouter = router({
         status: z.nativeEnum(MentorStatus),
       })
     )
-    .mutation(async ({ input }) => {
-      return await adminService.setAmbassadorStatus(input.profileId, input.status);
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.setAmbassadorStatus(input.profileId, input.status, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
+    }),
+
+  bulkUpdateStatus: authedAdminProcedure
+    .input(
+      z.object({
+        profileIds: z.array(z.string()).min(1),
+        status: z.nativeEnum(MentorStatus),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.bulkSetAmbassadorStatus(input.profileIds, input.status, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 
   sendPasswordReset: authedAdminProcedure
     .input(z.object({ userId: z.number() }))
-    .mutation(async ({ input }) => {
-      return await adminService.sendInitialPasswordSetup(input.userId);
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.sendInitialPasswordSetup(input.userId, {
+        actor: {
+          email: ctx.user.email,
+          id: ctx.user.id,
+          name: ctx.user.name,
+        },
+      });
     }),
 
   listIncidents: authedAdminProcedure
@@ -115,8 +145,12 @@ export const adminRouter = router({
 
   resolveIncident: authedAdminProcedure
     .input(z.object({ incidentId: z.string() }))
-    .mutation(async ({ input }) => {
-      return await adminService.resolveIncident(input.incidentId);
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.resolveIncident(input.incidentId, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 
   takeModerationAction: authedAdminProcedure
@@ -130,9 +164,25 @@ export const adminRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.takeModerationAction({
+        actor: {
+          email: ctx.user.email,
+          id: ctx.user.id,
+          name: ctx.user.name,
+        },
         ...input,
-        actionByUserId: ctx.user.id,
       });
+    }),
+
+  listAuditLogs: authedAdminProcedure
+    .input(
+      z.object({
+        action: z.nativeEnum(ThotisAdminAuditAction).optional(),
+        page: z.number().optional(),
+        pageSize: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await adminService.listAuditLogs(input);
     }),
 
   listBookings: authedAdminProcedure
@@ -164,7 +214,11 @@ export const adminRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return await adminService.adminCancelBooking(input.bookingId, input.reason, ctx.user.id);
+      return await adminService.adminCancelBooking(input.bookingId, input.reason, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 
   updateMentorProfile: authedAdminProcedure
@@ -179,9 +233,13 @@ export const adminRouter = router({
         currentYear: z.number().min(1).max(10).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const { profileId, ...data } = input;
-      return await adminService.updateMentorProfile(profileId, data);
+      return await adminService.updateMentorProfile(profileId, data, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 
   getMentorSchedule: authedAdminProcedure
@@ -198,8 +256,12 @@ export const adminRouter = router({
         availability: z.array(availabilitySlotSchema),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const { mentorUserId, ...scheduleData } = input;
-      return await adminService.updateMentorSchedule(mentorUserId, scheduleData);
+      return await adminService.updateMentorSchedule(mentorUserId, scheduleData, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
     }),
 });

@@ -7,8 +7,8 @@ import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
-import { useEffect, useState, useRef } from "react";
 import type { KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 interface EditMentorProfileModalProps {
@@ -74,7 +74,7 @@ function TagInput({
       {value.map((tag, i) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-subtle px-2 py-0.5 text-xs font-medium text-default">
+          className="inline-flex items-center gap-1 rounded-md bg-subtle px-2 py-0.5 font-medium text-default text-xs">
           {tag}
           <button
             type="button"

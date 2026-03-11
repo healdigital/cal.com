@@ -94,7 +94,7 @@ describe("BookingWidget Property Tests", () => {
           const postMessageSpy = vi.spyOn(window.parent, "postMessage");
 
           // Mock successful mutation
-          mockMutate.mockImplementation((variables, options) => {
+          mockMutate.mockImplementation((_variables, options) => {
             options?.onSuccess({ id: bookingId, googleMeetLink: meetLink });
           });
 

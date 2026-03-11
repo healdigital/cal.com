@@ -199,12 +199,7 @@ const IncidentsModal: React.FC<{
   name: string | null;
 }> = ({ isOpen, onClose, profileId, name }) => {
   const { t } = useLocale();
-  const {
-    data,
-    error,
-    isPending,
-    refetch,
-  } = trpc.thotis.admin.listIncidents.useQuery(
+  const { data, error, isPending, refetch } = trpc.thotis.admin.listIncidents.useQuery(
     {
       studentProfileId: profileId || undefined,
       resolved: undefined, // Show all
@@ -375,12 +370,7 @@ export const AmbassadorManagement: React.FC = () => {
 
   const utils = trpc.useUtils();
 
-  const {
-    data,
-    error,
-    isLoading,
-    refetch,
-  } = trpc.thotis.admin.listAmbassadors.useQuery({
+  const { data, error, isLoading, refetch } = trpc.thotis.admin.listAmbassadors.useQuery({
     page,
     pageSize,
     fieldOfStudy,
@@ -464,7 +454,11 @@ export const AmbassadorManagement: React.FC = () => {
 
       {isLoading ? <ThotisLoadingState /> : null}
       {error ? (
-        <ThotisErrorState message={error.message} onAction={() => void refetch()} title={t("thotis_admin_error")} />
+        <ThotisErrorState
+          message={error.message}
+          onAction={() => void refetch()}
+          title={t("thotis_admin_error")}
+        />
       ) : null}
 
       <Table>

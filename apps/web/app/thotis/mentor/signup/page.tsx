@@ -4,11 +4,12 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Icon } from "@calcom/ui/components/icon";
 import { useRouter } from "next/navigation";
+import type { ReactElement } from "react";
 import { useEffect } from "react";
 import { MentorOnboarding } from "~/thotis/components/MentorOnboarding";
 import { ThotisErrorState, ThotisLoadingState } from "~/thotis/components/ThotisAsyncState";
 
-export default function MentorSignupPage() {
+export default function MentorSignupPage(): ReactElement | null {
   const { t } = useLocale();
   const router = useRouter();
 
@@ -39,19 +40,30 @@ export default function MentorSignupPage() {
 
   if (error) {
     const isUnauthorized = error.data?.code === "UNAUTHORIZED";
+    let actionLabel: string | undefined;
+    let icon: "circle-alert" | "lock" = "circle-alert";
+    let onAction: () => void;
+
+    if (isUnauthorized) {
+      actionLabel = t("sign_in");
+      icon = "lock";
+      onAction = () => {
+        router.push("/auth/signin?callbackUrl=/thotis/mentor/signup");
+      };
+    } else {
+      onAction = () => {
+        void refetch();
+      };
+    }
 
     return (
       <div className="flex min-h-screen flex-col bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-2xl">
           <ThotisErrorState
-            actionLabel={isUnauthorized ? t("sign_in") : undefined}
-            icon={isUnauthorized ? "lock" : "circle-alert"}
+            actionLabel={actionLabel}
+            icon={icon}
             message={error.message}
-            onAction={
-              isUnauthorized
-                ? () => router.push("/auth/signin?callbackUrl=/thotis/mentor/signup")
-                : () => void refetch()
-            }
+            onAction={onAction}
           />
         </div>
       </div>
@@ -70,7 +82,7 @@ export default function MentorSignupPage() {
           <button
             type="button"
             onClick={() => router.push("/thotis")}
-            className="flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700">
+            className="flex items-center text-gray-500 text-sm transition-colors hover:text-gray-700">
             <Icon name="arrow-left" className="mr-1 h-4 w-4" />
             {t("thotis_back_to_thotis")}
           </button>

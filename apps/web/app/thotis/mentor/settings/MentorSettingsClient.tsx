@@ -35,12 +35,7 @@ export const MentorSettingsClient = () => {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const {
-    data: profile,
-    error: profileError,
-    isLoading,
-    refetch,
-  } = trpc.thotis.profile.get.useQuery();
+  const { data: profile, error: profileError, isLoading, refetch } = trpc.thotis.profile.get.useQuery();
 
   const updateProfile = trpc.thotis.profile.update.useMutation({
     onSuccess: () => {

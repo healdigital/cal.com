@@ -84,7 +84,7 @@ export class ThotisAnalyticsService {
 
     // 4. Pilotage Insight: Check for missing data in tracked events
     if (confirmedCount > 0 && completedCount === 0) {
-      const now = new Date();
+      const _now = new Date();
       // If we have confirmed but zero completed in a long period, something might be wrong with tracking
       if (period === "monthly" || period === "weekly") {
         issues.push("Warning: Confirmed bookings exist but zero completions tracked in this period.");

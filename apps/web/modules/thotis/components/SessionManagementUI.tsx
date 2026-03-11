@@ -2,7 +2,6 @@
 
 import dayjs from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import type { Prisma } from "@calcom/prisma/client";
 import type { BookingStatus } from "@calcom/prisma/enums";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
@@ -70,7 +69,7 @@ export const SessionManagementUI = ({
   const [showPostSessionForm, setShowPostSessionForm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [newDateTime, setNewDateTime] = useState("");
+  const [_newDateTime, setNewDateTime] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -279,27 +278,27 @@ export const SessionManagementUI = ({
   const getStatusBadge = () => {
     if (isCancelled) {
       return (
-        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 font-medium text-red-700 text-xs">
           {t("thotis_session_cancelled_status")}
         </span>
       );
     }
     if (metadata?.completedAt) {
       return (
-        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 font-medium text-green-700 text-xs">
           {t("thotis_session_completed_status")}
         </span>
       );
     }
     if (isPast) {
       return (
-        <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700">
+        <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 font-medium text-xs text-yellow-700">
           {t("thotis_session_pending")}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 font-medium text-blue-700 text-xs">
         {t("thotis_session_accepted")}
       </span>
     );
@@ -324,12 +323,12 @@ export const SessionManagementUI = ({
 
   return (
     <article
-      className="bg-default border-subtle rounded-lg border p-4"
+      className="rounded-lg border border-subtle bg-default p-4"
       aria-label={sessionLabel}
       role="region">
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <div className="mb-3 rounded-md bg-green-50 px-3 py-2 text-green-800 text-sm">
           {successMessage}
           <button
             type="button"
@@ -340,7 +339,7 @@ export const SessionManagementUI = ({
         </div>
       )}
       {errorMessage && (
-        <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-red-800 text-sm">
           {errorMessage}
           <button
             type="button"
@@ -355,12 +354,12 @@ export const SessionManagementUI = ({
       <div className="mb-3 flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-emphasis text-sm font-semibold">
+            <h3 className="font-semibold text-emphasis text-sm">
               {responses?.name ? t("thotis_session_with", { name: responses.name }) : booking.title}
             </h3>
             {getStatusBadge()}
           </div>
-          <div className="text-subtle mt-1 flex flex-wrap items-center gap-3 text-xs">
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-subtle text-xs">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
               <Icon name="info" className="h-4 w-4 text-blue-600" />
             </div>
@@ -413,7 +412,7 @@ export const SessionManagementUI = ({
         canComplete ||
         (isMentor && metadata?.completedAt) ||
         (!isMentor && booking.thotisSessionSummary)) && (
-        <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+        <div className="flex flex-wrap gap-2 border-gray-100 border-t pt-3">
           {isMentor && metadata?.completedAt && (
             <Button
               color="primary"
@@ -476,7 +475,7 @@ export const SessionManagementUI = ({
       {/* Cancel Modal */}
       {modalState === "cancel" && (
         <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3">
-          <h4 className="mb-2 text-sm font-medium text-red-800">{t("thotis_cancel_session")}</h4>
+          <h4 className="mb-2 font-medium text-red-800 text-sm">{t("thotis_cancel_session")}</h4>
           <textarea
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
@@ -504,12 +503,12 @@ export const SessionManagementUI = ({
       {/* Reschedule Modal */}
       {modalState === "reschedule" && (
         <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3">
-          <h4 className="mb-2 text-sm font-medium text-blue-800">{t("thotis_reschedule_session")}</h4>
-          <p className="mb-3 text-xs text-blue-700">{t("thotis_reschedule_description")}</p>
+          <h4 className="mb-2 font-medium text-blue-800 text-sm">{t("thotis_reschedule_session")}</h4>
+          <p className="mb-3 text-blue-700 text-xs">{t("thotis_reschedule_description")}</p>
 
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-blue-700">
+              <label className="mb-1 block font-medium text-blue-700 text-xs">
                 {t("thotis_select_date")}
               </label>
               <DatePicker
@@ -523,15 +522,15 @@ export const SessionManagementUI = ({
 
             {selectedDate && (
               <div className="mt-2">
-                <label className="mb-1 block text-xs font-medium text-blue-700">
+                <label className="mb-1 block font-medium text-blue-700 text-xs">
                   {t("thotis_available_slots")}
                 </label>
                 {isAvailabilityLoading ? (
                   <div className="flex justify-center py-4">
-                    <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+                    <div className="h-5 w-5 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
                   </div>
                 ) : !availability || availability.length === 0 ? (
-                  <p className="text-xs text-blue-600 italic">No slots available for this date.</p>
+                  <p className="text-blue-600 text-xs italic">No slots available for this date.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {availability.map((slot: { start: Date; end: Date; available: boolean }) => {
@@ -586,7 +585,7 @@ export const SessionManagementUI = ({
       {/* Incident Modal */}
       {modalState === "incident" && (
         <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3">
-          <h4 className="mb-2 text-sm font-medium text-yellow-800">{t("thotis_report_issue")}</h4>
+          <h4 className="mb-2 font-medium text-sm text-yellow-800">{t("thotis_report_issue")}</h4>
           <div className="mb-2">
             <label className="mb-1 block text-xs text-yellow-700">{t("thotis_incident_type")}</label>
             <select
@@ -629,8 +628,8 @@ export const SessionManagementUI = ({
       {/* Complete Confirmation */}
       {modalState === "complete" && (
         <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-3">
-          <h4 className="mb-2 text-sm font-medium text-green-800">{t("thotis_mark_complete")}</h4>
-          <p className="mb-2 text-xs text-green-700">
+          <h4 className="mb-2 font-medium text-green-800 text-sm">{t("thotis_mark_complete")}</h4>
+          <p className="mb-2 text-green-700 text-xs">
             This will mark the session as completed and send a feedback request to the student.
           </p>
           <div className="flex gap-2">
@@ -651,14 +650,14 @@ export const SessionManagementUI = ({
 
       {/* NEW: Student Rating & Feedback Section (Only for students, past sessions, completed/accepted) */}
       {!isMentor && (isPast || metadata?.completedAt) && !isCancelled && responses?.email && (
-        <div className="mt-4 border-t border-gray-100 pt-4">
+        <div className="mt-4 border-gray-100 border-t pt-4">
           <RatingForm bookingId={booking.id} email={responses.email} token={token} />
         </div>
       )}
 
       {/* Cancellation reason display for already-cancelled bookings */}
       {isCancelled && booking.cancellationReason && (
-        <div className="mt-2 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <div className="mt-2 rounded-md bg-gray-50 px-3 py-2 text-gray-600 text-xs">
           <strong>{t("thotis_cancel_reason")}:</strong> {booking.cancellationReason}
         </div>
       )}

@@ -222,6 +222,48 @@ model MentorModerationAction {
   @@index([actionByUserId])
 }
 
+enum ThotisAdminAuditAction {
+  AMBASSADOR_PROVISIONED
+  MENTOR_STATUS_UPDATED
+  PASSWORD_RESET_SENT
+  INCIDENT_RESOLVED
+  MODERATION_ACTION_TAKEN
+  BOOKING_CANCELLED
+  MENTOR_PROFILE_UPDATED
+  MENTOR_SCHEDULE_UPDATED
+  CSV_EXPORTED
+}
+
+enum ThotisAdminAuditResourceType {
+  STUDENT_PROFILE
+  USER
+  BOOKING
+  INCIDENT
+  PLATFORM
+}
+
+model ThotisAdminAuditLog {
+  id String @id @default(cuid())
+
+  adminUserId    Int
+  adminUserName  String?
+  adminUserEmail String?
+
+  action       ThotisAdminAuditAction
+  resourceType ThotisAdminAuditResourceType
+  resourceId   String
+
+  resourceDisplayName String?
+  metadata            Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}
+
 enum ThotisAnalyticsEventType {
   profile_viewed
   booking_started

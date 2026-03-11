@@ -950,6 +950,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@axe-core/playwright@npm:^4.11.1":
+  version: 4.11.1
+  resolution: "@axe-core/playwright@npm:4.11.1"
+  dependencies:
+    axe-core: "npm:~4.11.1"
+  peerDependencies:
+    playwright-core: ">= 1.0.0"
+  checksum: 10/d2a0fce217fa415682c4730a0f82a5f3cf2b3081281ea4373f10aeb8a83417e84214e6bd75954a9ba3a23532e0afa0dad87cfcbfc88358170a50702266fad0cd
+  languageName: node
+  linkType: hard
+
 "@axiomhq/js@npm:1.2.0":
   version: 1.2.0
   resolution: "@axiomhq/js@npm:1.2.0"
@@ -18123,6 +18134,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"axe-core@npm:~4.11.1":
+  version: 4.11.1
+  resolution: "axe-core@npm:4.11.1"
+  checksum: 10/bbc8e8959258a229b92fbaa73437050825579815051cac7b0fdbb6752946fea226e403bfeeef3d60d712477bdd4c01afdc8455f27c3d85e4251df88b032b6250
+  languageName: node
+  linkType: hard
+
 "axios-retry@npm:^3.2.4":
   version: 3.2.4
   resolution: "axios-retry@npm:3.2.4"
@@ -18853,6 +18871,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "calcom-monorepo@workspace:."
   dependencies:
+    "@axe-core/playwright": "npm:^4.11.1"
     "@biomejs/biome": "npm:2.3.10"
     "@changesets/changelog-github": "npm:0.5.1"
     "@changesets/cli": "npm:2.29.4"
@@ -18878,6 +18897,7 @@ __metadata:
     next-router-mock: "npm:0.9.12"
     node-gyp: "npm:10.2.0"
     node-ical: "npm:0.16.1"
+    playwright-core: "npm:1.57.0"
     prismock: "npm:1.35.3"
     resize-observer-polyfill: "npm:1.5.1"
     tsc-absolute: "npm:1.0.0"

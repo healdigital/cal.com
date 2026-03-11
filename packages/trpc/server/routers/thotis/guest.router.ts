@@ -7,11 +7,16 @@ import { bookingService, emailService, guestService, sessionOperationsService } 
 
 export const guestRouter = router({
   requestInboxLink: publicProcedure
-    .input(z.object({ email: z.string().email() }))
+    .input(
+      z.object({
+        email: z.string().email(),
+        locale: z.string().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const { token } = await guestService.requestInboxLink(input.email);
       const link = `${process.env.NEXT_PUBLIC_WEBAPP_URL}/thotis/my-sessions?token=${token}`;
-      await emailService.sendMagicLink(input.email, link, "LOGIN");
+      await emailService.sendMagicLink(input.email, link, "LOGIN", input.locale);
       return { success: true };
     }),
 

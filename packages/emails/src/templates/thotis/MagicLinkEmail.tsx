@@ -1,19 +1,22 @@
+import type { ReactElement } from "react";
 import { ThotisBaseEmail } from "./ThotisBaseEmail";
 
 export const MagicLinkEmail = (props: {
+  buttonText: string;
+  expiresNotice: string;
+  ignoreNotice: string;
   magicLink: string;
   actionType?: string; // "LOGIN", "CANCEL", "RESCHEDULE", etc.
   recipientName?: string;
-}) => {
-  const isLogin = !props.actionType || props.actionType === "LOGIN";
-  const title = isLogin ? "Connexion à votre espace Thotis" : "Action demandée sur votre session Thotis";
-  const subtitle = isLogin
-    ? "Cliquez sur le lien ci-dessous pour accéder à votre espace."
-    : "Cliquez ci-dessous pour confirmer votre action.";
-  const buttonText = isLogin ? "Accéder à mon espace" : "Confirmer l'action";
-
+  subtitle: string;
+  title: string;
+}): ReactElement => {
   return (
-    <ThotisBaseEmail subject={title} title={title} subtitle={subtitle} headerType="checkCircle">
+    <ThotisBaseEmail
+      subject={props.title}
+      title={props.title}
+      subtitle={props.subtitle}
+      headerType="checkCircle">
       <div style={{ textAlign: "center", margin: "30px 0" }}>
         <a
           href={props.magicLink}
@@ -28,12 +31,12 @@ export const MagicLinkEmail = (props: {
             fontSize: "16px",
             display: "inline-block",
           }}>
-          {buttonText}
+          {props.buttonText}
         </a>
       </div>
       <div style={{ textAlign: "center", color: "#666", fontSize: "14px" }}>
-        <p>Ce lien expirera dans 15 minutes.</p>
-        <p>Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+        <p>{props.expiresNotice}</p>
+        <p>{props.ignoreNotice}</p>
       </div>
     </ThotisBaseEmail>
   );

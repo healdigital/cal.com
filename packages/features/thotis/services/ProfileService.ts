@@ -95,19 +95,25 @@ export class ProfileService {
    * Cal.com v2 uses a 'profiles' array on the User model, but many components
    * expect a singular 'profile' object.
    */
-  private mapProfile<T extends { user: { profiles: unknown } } | null>(profile: T): T {
+  private mapProfile<T extends { user?: unknown } | null>(profile: T): T {
     if (!profile || !profile.user) return profile;
 
-    const userProfiles = profile.user.profiles as {
+    const user = profile.user as Record<string, unknown>;
+
+    // Only map if profiles array exists
+    if (!user.profiles || !Array.isArray(user.profiles)) return profile;
+
+    const userProfiles = user.profiles as {
       organization: { id: number; slug: string | null } | null;
     }[];
+
     return {
       ...profile,
       user: {
-        ...profile.user,
+        ...user,
         profile: userProfiles && userProfiles.length > 0 ? userProfiles[0] : null,
       },
-    };
+    } as T;
   }
 
   private normalizeUrl(url: string): string {

@@ -97,9 +97,9 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-emphasis text-2xl font-bold">{t("thotis_dashboard")}</h1>
+          <h1 className="font-bold text-2xl text-emphasis">{t("thotis_dashboard")}</h1>
           {profile && (
-            <p className="text-subtle text-sm">
+            <p className="text-sm text-subtle">
               {profile.university} &middot; {profile.field}
             </p>
           )}
@@ -115,7 +115,7 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {statCards.map((card) => (
-          <div key={card.label} className="bg-default border-subtle rounded-lg border p-4">
+          <div key={card.label} className="rounded-lg border border-subtle bg-default p-4">
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${card.bgColor}`}>
                 <Icon
@@ -124,8 +124,8 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
                 />
               </div>
               <div>
-                <p className="text-subtle text-xs font-medium">{card.label}</p>
-                <p className="text-emphasis text-xl font-bold">{card.value}</p>
+                <p className="font-medium text-subtle text-xs">{card.label}</p>
+                <p className="font-bold text-emphasis text-xl">{card.value}</p>
               </div>
             </div>
           </div>
@@ -134,11 +134,11 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
 
       {/* Session Management Section */}
       <div>
-        <h2 className="text-emphasis mb-4 text-lg font-semibold">{t("thotis_manage_sessions")}</h2>
+        <h2 className="mb-4 font-semibold text-emphasis text-lg">{t("thotis_manage_sessions")}</h2>
 
         {/* Session Tabs */}
         <div
-          className="border-subtle mb-4 flex gap-0 border-b"
+          className="mb-4 flex gap-0 border-subtle border-b"
           role="tablist"
           aria-label={t("thotis_manage_sessions")}>
           {(["upcoming", "past", "cancelled"] as const).map((tab, index) => {
@@ -166,12 +166,12 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
                     handleTabChange(tabs[(index - 1 + tabs.length) % tabs.length]);
                   }
                 }}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  isActive ? "text-emphasis border-b-2 border-blue-600" : "text-subtle hover:text-emphasis"
+                className={`px-4 py-2 font-medium text-sm transition-colors ${
+                  isActive ? "border-blue-600 border-b-2 text-emphasis" : "text-subtle hover:text-emphasis"
                 }`}>
                 {tabLabels[tab]}
                 {sessionsData && isActive && sessionsData.total > 0 && (
-                  <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-100 px-1.5 text-xs font-medium text-blue-700">
+                  <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-100 px-1.5 font-medium text-blue-700 text-xs">
                     {sessionsData.total}
                   </span>
                 )}
@@ -187,9 +187,9 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
           ) : sessionsError ? (
             <ThotisErrorState message={sessionsError.message} onAction={() => void refetchSessions()} />
           ) : !sessionsData?.bookings || sessionsData.bookings.length === 0 ? (
-            <div className="border-subtle bg-default rounded-lg border py-12 text-center">
-              <Icon name="calendar" className="text-subtle mx-auto mb-3 h-10 w-10" />
-              <p className="text-emphasis text-sm font-medium">{t("thotis_no_sessions_yet")}</p>
+            <div className="rounded-lg border border-subtle bg-default py-12 text-center">
+              <Icon name="calendar" className="mx-auto mb-3 h-10 w-10 text-subtle" />
+              <p className="font-medium text-emphasis text-sm">{t("thotis_no_sessions_yet")}</p>
             </div>
           ) : (
             <>
@@ -209,7 +209,7 @@ export const MentorDashboard = ({ userId }: MentorDashboardProps) => {
                     onClick={() => setCurrentPage((p) => p - 1)}>
                     {t("previous")}
                   </Button>
-                  <span className="text-subtle text-sm">
+                  <span className="text-sm text-subtle">
                     {currentPage} / {Math.ceil(sessionsData.total / pageSize)}
                   </span>
                   <Button

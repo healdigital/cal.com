@@ -1643,6 +1643,8 @@ export class BookingRepository implements IBookingRepository {
       where: { id: bookingId },
       select: {
         id: true,
+        uid: true,
+        title: true,
         status: true,
         metadata: true,
         userId: true,

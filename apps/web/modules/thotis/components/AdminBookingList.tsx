@@ -8,6 +8,7 @@ import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { Table } from "@calcom/ui/components/table";
 import { useState } from "react";
 import { BookingDetailDialog } from "./BookingDetailDialog";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useLocale();
@@ -53,7 +54,7 @@ export function AdminBookingList() {
     { label: t("thotis_admin_status_cancelled"), value: "CANCELLED" },
   ];
 
-  const { data, isLoading } = trpc.thotis.admin.listBookings.useQuery({
+  const { data, error, isLoading, refetch } = trpc.thotis.admin.listBookings.useQuery({
     page,
     pageSize,
     status: status || undefined,
@@ -117,9 +118,13 @@ export function AdminBookingList() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10" aria-live="polite">
-          <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
-        </div>
+        <ThotisLoadingState />
+      ) : error ? (
+        <ThotisErrorState
+          message={error.message}
+          onAction={() => void refetch()}
+          title={t("thotis_admin_error")}
+        />
       ) : (
         <>
           <Table>

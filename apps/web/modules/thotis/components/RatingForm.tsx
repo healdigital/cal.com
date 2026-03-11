@@ -85,8 +85,8 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
   // If loading rating status
   if (isExistingRatingPending) {
     return (
-      <div className="bg-default border-subtle flex h-24 items-center justify-center rounded-lg border p-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+      <div className="flex h-24 items-center justify-center rounded-lg border border-subtle bg-default p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-blue-600 border-t-2 border-b-2" />
       </div>
     );
   }
@@ -94,8 +94,8 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
   // If already rated, show the existing rating
   if (existingRating) {
     return (
-      <div className="bg-default border-subtle rounded-lg border p-4">
-        <h3 className="text-emphasis mb-2 text-sm font-semibold">{t("thotis_rate_session")}</h3>
+      <div className="rounded-lg border border-subtle bg-default p-4">
+        <h3 className="mb-2 font-semibold text-emphasis text-sm">{t("thotis_rate_session")}</h3>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
             <Icon
@@ -108,10 +108,10 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
               }`}
             />
           ))}
-          <span className="text-subtle ml-2 text-sm">({existingRating.rating}/5)</span>
+          <span className="ml-2 text-sm text-subtle">({existingRating.rating}/5)</span>
         </div>
         {existingRating.feedback && (
-          <p className="text-subtle mt-2 text-sm italic">&ldquo;{existingRating.feedback}&rdquo;</p>
+          <p className="mt-2 text-sm text-subtle italic">&ldquo;{existingRating.feedback}&rdquo;</p>
         )}
       </div>
     );
@@ -120,24 +120,24 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
   // If submitted successfully
   if (submitted) {
     return (
-      <div className="bg-default border-subtle rounded-lg border p-4 text-center">
+      <div className="rounded-lg border border-subtle bg-default p-4 text-center">
         <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
           <Icon name="check" className="h-5 w-5 text-green-600" />
         </div>
-        <p className="text-emphasis text-sm font-medium">{t("thotis_rating_submitted")}</p>
+        <p className="font-medium text-emphasis text-sm">{t("thotis_rating_submitted")}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-default border-subtle rounded-lg border p-4">
-      <h3 className="text-emphasis mb-3 text-sm font-semibold">{t("thotis_rate_session")}</h3>
+    <div className="rounded-lg border border-subtle bg-default p-4">
+      <h3 className="mb-3 font-semibold text-emphasis text-sm">{t("thotis_rate_session")}</h3>
 
-      {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+      {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-red-700 text-xs">{error}</div>}
 
       {/* Star Rating */}
       <div className="mb-3">
-        <label className="text-subtle mb-1 block text-xs font-medium">{t("thotis_rating_label")}</label>
+        <label className="mb-1 block font-medium text-subtle text-xs">{t("thotis_rating_label")}</label>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
@@ -160,14 +160,14 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
             </button>
           ))}
           {rating > 0 && (
-            <span className="text-subtle ml-2 text-sm">{t("thotis_stars", { count: rating })}</span>
+            <span className="ml-2 text-sm text-subtle">{t("thotis_stars", { count: rating })}</span>
           )}
         </div>
       </div>
 
       {/* Feedback textarea */}
       <div className="mb-3">
-        <label htmlFor={`feedback-${bookingId}`} className="text-subtle mb-1 block text-xs font-medium">
+        <label htmlFor={`feedback-${bookingId}`} className="mb-1 block font-medium text-subtle text-xs">
           {t("thotis_feedback_label")}
         </label>
         <textarea
@@ -175,7 +175,7 @@ export const RatingForm = ({ bookingId, email, onRatingSubmitted, token }: Ratin
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder={t("thotis_feedback_placeholder")}
-          className="border-subtle bg-default w-full rounded-md border p-2 text-sm"
+          className="w-full rounded-md border border-subtle bg-default p-2 text-sm"
           rows={3}
         />
       </div>

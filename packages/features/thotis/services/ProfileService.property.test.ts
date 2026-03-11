@@ -1,4 +1,3 @@
-import { ErrorWithCode } from "@calcom/lib/errors";
 import { AcademicField } from "@calcom/prisma/enums";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +72,7 @@ describe("ProfileService - Property Tests", () => {
 
             await profileService.createProfile(input);
 
-            const callArgs = mockProfileRepository.createProfile.mock.calls[0][1];
+            const _callArgs = mockProfileRepository.createProfile.mock.calls[0][1];
             // The service passes unmodified URL to repo in current implementation,
             // BUT wait, property test expects NORMALIZATION.
             // My ProfileService impl passes it through: `profilePhotoUrl: input.profilePhotoUrl`.

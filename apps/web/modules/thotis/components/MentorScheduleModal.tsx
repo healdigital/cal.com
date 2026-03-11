@@ -11,6 +11,7 @@ import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
 import { useEffect, useState } from "react";
 import { getShortWeekdayLabel } from "../lib/displayLabels";
+import { ThotisErrorState } from "./ThotisAsyncState";
 
 interface AvailabilitySlot {
   days: number[];
@@ -77,7 +78,12 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [timeZone, setTimeZone] = useState(DEFAULT_SCHEDULE_CONFIG.timeZone);
 
-  const { data: schedule, isLoading } = trpc.thotis.admin.getMentorSchedule.useQuery(
+  const {
+    data: schedule,
+    error,
+    isLoading,
+    refetch,
+  } = trpc.thotis.admin.getMentorSchedule.useQuery(
     { mentorUserId: mentorUserId! },
     { enabled: !!mentorUserId && isOpen }
   );
@@ -172,6 +178,13 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
 
         {isLoading ? (
           <ScheduleModalSkeleton />
+        ) : error ? (
+          <ThotisErrorState
+            className="px-4 py-8"
+            message={error.message}
+            onAction={() => void refetch()}
+            title={t("thotis_admin_error")}
+          />
         ) : (
           <div className="max-h-[70vh] space-y-4 overflow-y-auto py-4">
             <div className="space-y-1">

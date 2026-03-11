@@ -7,8 +7,9 @@ import { Dialog, DialogContent } from "@calcom/ui/components/dialog";
 import { Form, Label, TextArea, TextField } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { showToast } from "@calcom/ui/components/toast";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import { ThotisErrorState, ThotisLoadingState } from "./ThotisAsyncState";
 
 interface Resource {
   type: "LINK" | "FILE";
@@ -31,10 +32,12 @@ interface PostSessionFormProps {
 export function PostSessionForm({ bookingId, open, onOpenChange }: PostSessionFormProps) {
   const { t } = useLocale();
   const utils = trpc.useUtils();
-  const { data: initialData, isPending } = trpc.thotis.booking.getPostSessionData.useQuery(
-    { bookingId },
-    { enabled: open }
-  );
+  const {
+    data: initialData,
+    error,
+    isPending,
+    refetch,
+  } = trpc.thotis.booking.getPostSessionData.useQuery({ bookingId }, { enabled: open });
 
   const mutation = trpc.thotis.booking.submitPostSessionData.useMutation({
     onSuccess: () => {
@@ -88,9 +91,9 @@ export function PostSessionForm({ bookingId, open, onOpenChange }: PostSessionFo
         title={t("thotis_post_session_summary")}
         description={t("thotis_post_session_desc")}>
         {isPending ? (
-          <div className="flex justify-center p-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
-          </div>
+          <ThotisLoadingState className="p-8" />
+        ) : error ? (
+          <ThotisErrorState className="px-4 py-8" message={error.message} onAction={() => void refetch()} />
         ) : (
           <Form form={form} handleSubmit={onSubmit} className="space-y-4">
             <div>
@@ -112,7 +115,7 @@ export function PostSessionForm({ bookingId, open, onOpenChange }: PostSessionFo
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-2">
+              <div className="mb-2 flex items-center justify-between">
                 <Label>{t("thotis_resources")}</Label>
                 <Button
                   color="secondary"
@@ -126,12 +129,12 @@ export function PostSessionForm({ bookingId, open, onOpenChange }: PostSessionFo
 
               <div className="space-y-3">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2 items-start border p-3 rounded-md">
+                  <div key={field.id} className="flex items-start gap-2 rounded-md border p-3">
                     <div className="flex-1 space-y-2">
                       <div className="flex gap-2">
                         <select
                           {...form.register(`resources.${index}.type`)}
-                          className="rounded-md border border-gray-300 p-2 text-sm max-w-[100px]">
+                          className="max-w-[100px] rounded-md border border-gray-300 p-2 text-sm">
                           <option value="LINK">Link</option>
                           <option value="FILE">File</option>
                         </select>
@@ -159,7 +162,7 @@ export function PostSessionForm({ bookingId, open, onOpenChange }: PostSessionFo
                   </div>
                 ))}
                 {fields.length === 0 && (
-                  <p className="text-sm text-gray-400 italic">{t("thotis_no_resources_yet")}</p>
+                  <p className="text-gray-400 text-sm italic">{t("thotis_no_resources_yet")}</p>
                 )}
               </div>
             </div>

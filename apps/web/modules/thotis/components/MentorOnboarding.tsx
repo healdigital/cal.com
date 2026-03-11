@@ -125,8 +125,8 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-emphasis mb-2 text-2xl font-bold">{t("thotis_mentor_onboarding_complete")}</h2>
-        <p className="text-subtle mb-6">{t("thotis_mentor_onboarding_success")}</p>
+        <h2 className="mb-2 font-bold text-2xl text-emphasis">{t("thotis_mentor_onboarding_complete")}</h2>
+        <p className="mb-6 text-subtle">{t("thotis_mentor_onboarding_success")}</p>
         <Button onClick={() => onComplete?.()} color="primary">
           {t("thotis_go_to_dashboard")}
         </Button>
@@ -142,10 +142,10 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="mb-2 flex items-center justify-between">
-          <span className="inline-block rounded-full bg-blue-200 px-2 py-1 text-xs font-semibold uppercase text-blue-600">
+          <span className="inline-block rounded-full bg-blue-200 px-2 py-1 font-semibold text-blue-600 text-xs uppercase">
             {stepLabel}
           </span>
-          <span className="inline-block text-xs font-semibold text-blue-600">{progress}%</span>
+          <span className="inline-block font-semibold text-blue-600 text-xs">{progress}%</span>
         </div>
         <div className="mb-4 flex h-2 overflow-hidden rounded bg-blue-200 text-xs">
           <div
@@ -157,8 +157,8 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
 
       {step === "profile" ? (
         <div className="animate-fade-in rounded-lg border bg-white p-6 shadow-sm">
-          <h2 className="mb-2 text-xl font-bold">{t("thotis_become_mentor")}</h2>
-          <p className="text-subtle mb-6 text-sm">{t("thotis_mentor_signup_desc")}</p>
+          <h2 className="mb-2 font-bold text-xl">{t("thotis_become_mentor")}</h2>
+          <p className="mb-6 text-sm text-subtle">{t("thotis_mentor_signup_desc")}</p>
 
           <form className="space-y-6" onSubmit={profileForm.handleSubmit(handleProfileSubmit)}>
             <TextField
@@ -172,10 +172,10 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
               error={profileForm.formState.errors.degree?.message}
             />
             <div>
-              <label className="text-default text-sm font-medium">{t("thotis_field_of_study")}</label>
+              <label className="font-medium text-default text-sm">{t("thotis_field_of_study")}</label>
               <select
                 {...profileForm.register("field")}
-                className="border-default bg-default mt-1 block w-full rounded-md border p-2 text-sm">
+                className="mt-1 block w-full rounded-md border border-default bg-default p-2 text-sm">
                 <option value="">{t("thotis_select_field")}</option>
                 {Object.values(AcademicField).map((f) => (
                   <option key={f} value={f}>
@@ -184,7 +184,7 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                 ))}
               </select>
               {profileForm.formState.errors.field && (
-                <p className="mt-1 text-sm text-red-600">{profileForm.formState.errors.field.message}</p>
+                <p className="mt-1 text-red-600 text-sm">{profileForm.formState.errors.field.message}</p>
               )}
             </div>
             <TextField
@@ -209,8 +209,8 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                 <Icon name="book-open" className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{t("thotis_mentor_expertise_title")}</h3>
-                <p className="text-sm text-gray-500">{t("thotis_mentor_expertise_desc")}</p>
+                <h3 className="font-semibold text-gray-900 text-lg">{t("thotis_mentor_expertise_title")}</h3>
+                <p className="text-gray-500 text-sm">{t("thotis_mentor_expertise_desc")}</p>
               </div>
             </div>
 
@@ -220,7 +220,7 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                   key={option.id}
                   type="button"
                   onClick={() => toggleExpertise(option.id)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`rounded-full border px-3 py-1.5 font-medium text-xs transition-colors ${
                     selectedExpertise.includes(option.id)
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-gray-200 bg-gray-50 text-gray-600 hover:border-blue-400"
@@ -238,10 +238,10 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                 <Icon name="clock" className="h-5 w-5 text-orange-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="font-semibold text-gray-900 text-lg">
                   {t("thotis_mentor_availability_title")}
                 </h3>
-                <p className="text-sm text-gray-500">{t("thotis_mentor_availability_desc")}</p>
+                <p className="text-gray-500 text-sm">{t("thotis_mentor_availability_desc")}</p>
               </div>
             </div>
 
@@ -257,7 +257,7 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                         onChange={() => toggleSchedule(opt.id)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-600">{t(opt.labelKey)}</span>
+                      <span className="text-gray-600 text-sm">{t(opt.labelKey)}</span>
                     </label>
                   ))}
                 </div>
@@ -274,7 +274,7 @@ export function MentorOnboarding({ onComplete }: MentorOnboardingProps) {
                     onChange={(e) => setMaxSessionsPerWeek(Number(e.target.value))}
                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600"
                   />
-                  <span className="text-sm font-semibold text-gray-700">
+                  <span className="font-semibold text-gray-700 text-sm">
                     {maxSessionsPerWeek} {t("per_week").toLowerCase()}
                   </span>
                 </div>

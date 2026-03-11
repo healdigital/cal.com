@@ -474,6 +474,7 @@ export default function Signup({
                   {/* User Type Selection */}
                   <SelectField
                     label="Je suis un..."
+                    required
                     options={[
                       { label: "Lycéen (Je cherche des conseils)", value: "STUDENT" },
                       { label: "Étudiant (Je donne des conseils)", value: "MENTOR" },
@@ -490,7 +491,11 @@ export default function Signup({
                         : undefined
                     }
                     onChange={(option) => {
-                      if (option) formMethods.setValue("userType", option.value as "STUDENT" | "MENTOR");
+                      if (option) {
+                        formMethods.setValue("userType", option.value as "STUDENT" | "MENTOR", {
+                          shouldValidate: true,
+                        });
+                      }
                     }}
                   />
                   {/* Username */}
@@ -618,6 +623,7 @@ export default function Signup({
                         !!formMethods.formState.errors.email ||
                         !formMethods.getValues("email") ||
                         !formMethods.getValues("password") ||
+                        !formMethods.getValues("userType") ||
                         (CLOUDFLARE_SITE_ID && !process.env.NEXT_PUBLIC_IS_E2E && !watch("cfToken")) ||
                         isSubmitting ||
                         usernameTaken

@@ -1,4 +1,3 @@
-import Mixpanel from "mixpanel";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsService } from "./AnalyticsService";
 

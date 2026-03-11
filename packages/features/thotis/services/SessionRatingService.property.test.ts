@@ -42,7 +42,7 @@ class MockSessionRatingRepository implements SessionRatingRepository {
     return count > 0 ? sum / count : null;
   }
 
-  async getRatingStats(studentProfileId: number) {
+  async getRatingStats(_studentProfileId: number) {
     return { average: null, count: 0, distribution: [] };
   }
   async updateRating(id: number, data: any) {

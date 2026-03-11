@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac } from "node:crypto";
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { type BaseWebhookPayload, WebhookService } from "./WebhookService";
@@ -58,7 +58,7 @@ describe("WebhookService Property Tests", () => {
 
   test("Property 28: Webhook Event Types - Validates Requirements 10.1, 10.2, 10.3", async () => {
     // Valid event types
-    const validEvents = ["booking.created", "booking.cancelled", "booking.completed", "booking.rescheduled"];
+    const _validEvents = ["booking.created", "booking.cancelled", "booking.completed", "booking.rescheduled"];
 
     const service = new WebhookService({
       url: "https://example.com/test",
@@ -102,7 +102,7 @@ describe("WebhookService Property Tests", () => {
     // Mock fetch to always fail
     globalFetch.mockRejectedValue(new Error("Network Error"));
 
-    const delays = [1000, 2000, 4000];
+    const _delays = [1000, 2000, 4000];
     const retrySpy = vi.spyOn(service, "retryFailedWebhook");
 
     // We need to spy on setTimeout to verify delays

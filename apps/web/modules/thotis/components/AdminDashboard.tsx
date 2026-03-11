@@ -2,8 +2,11 @@
 
 import type { PlatformStats } from "@calcom/features/thotis/services/StatisticsService";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { type MentorStatus, ThotisAdminAuditAction } from "@calcom/prisma/enums";
+import type { RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
+import { Label, Select } from "@calcom/ui/components/form";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
@@ -63,6 +66,124 @@ interface IncidentData {
       name: string | null;
     };
   } | null;
+}
+
+type AdminAuditLogData = RouterOutputs["thotis"]["admin"]["listAuditLogs"]["logs"][number];
+
+const AUDIT_ACTION_LABELS: Record<ThotisAdminAuditAction, string> = {
+  AMBASSADOR_PROVISIONED: "thotis_admin_audit_action_ambassador_provisioned",
+  BOOKING_CANCELLED: "thotis_admin_audit_action_booking_cancelled",
+  CSV_EXPORTED: "thotis_admin_audit_action_csv_exported",
+  INCIDENT_RESOLVED: "thotis_admin_audit_action_incident_resolved",
+  MENTOR_PROFILE_UPDATED: "thotis_admin_audit_action_mentor_profile_updated",
+  MENTOR_SCHEDULE_UPDATED: "thotis_admin_audit_action_mentor_schedule_updated",
+  MENTOR_STATUS_UPDATED: "thotis_admin_audit_action_mentor_status_updated",
+  MODERATION_ACTION_TAKEN: "thotis_admin_audit_action_moderation_action_taken",
+  PASSWORD_RESET_SENT: "thotis_admin_audit_action_password_reset_sent",
+};
+
+const AUDIT_STATUS_LABELS: Record<MentorStatus, string> = {
+  DELISTED: "thotis_mentor_status_delisted",
+  PENDING_VERIFICATION: "thotis_mentor_status_pending_verification",
+  SUSPENDED: "thotis_mentor_status_suspended",
+  VERIFIED: "thotis_mentor_status_verified",
+};
+
+function getAuditMetadataRecord(metadata: unknown): Record<string, unknown> | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  return metadata as Record<string, unknown>;
+}
+
+function formatEnumValue(value: unknown): string | null {
+  if (typeof value !== "string" || !value.length) {
+    return null;
+  }
+
+  return value.toLowerCase().replaceAll("_", " ");
+}
+
+function getAuditStatusLabel(translate: (key: string) => string, value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  if (value in AUDIT_STATUS_LABELS) {
+    return translate(AUDIT_STATUS_LABELS[value as MentorStatus]);
+  }
+
+  return formatEnumValue(value);
+}
+
+function getAuditLogDetails(translate: (key: string) => string, log: AdminAuditLogData): string {
+  const metadata = getAuditMetadataRecord(log.metadata);
+
+  if (!metadata) {
+    return "\u2014";
+  }
+
+  if (log.action === "AMBASSADOR_PROVISIONED") {
+    return typeof metadata.email === "string" ? metadata.email : "\u2014";
+  }
+
+  if (log.action === "MENTOR_STATUS_UPDATED") {
+    const previousStatus = getAuditStatusLabel(translate, metadata.previousStatus);
+    const nextStatus = getAuditStatusLabel(translate, metadata.nextStatus);
+
+    if (previousStatus && nextStatus) {
+      return `${previousStatus} -> ${nextStatus}`;
+    }
+  }
+
+  if (log.action === "PASSWORD_RESET_SENT") {
+    return typeof metadata.email === "string" ? metadata.email : "\u2014";
+  }
+
+  if (log.action === "INCIDENT_RESOLVED") {
+    return typeof metadata.incidentType === "string"
+      ? getMentorIncidentTypeLabel(translate, metadata.incidentType)
+      : "\u2014";
+  }
+
+  if (log.action === "MODERATION_ACTION_TAKEN") {
+    const actionType = formatEnumValue(metadata.actionType);
+    const reason = typeof metadata.reason === "string" ? metadata.reason : null;
+
+    return [actionType, reason].filter(Boolean).join(" · ") || "\u2014";
+  }
+
+  if (log.action === "BOOKING_CANCELLED") {
+    return typeof metadata.reason === "string" ? metadata.reason : "\u2014";
+  }
+
+  if (log.action === "MENTOR_PROFILE_UPDATED") {
+    if (Array.isArray(metadata.changedFields)) {
+      const changedFields = metadata.changedFields.filter(
+        (value): value is string => typeof value === "string"
+      );
+      return changedFields.join(", ") || "\u2014";
+    }
+  }
+
+  if (log.action === "MENTOR_SCHEDULE_UPDATED") {
+    const slotCount =
+      typeof metadata.slotCount === "number"
+        ? `${metadata.slotCount} ${translate("thotis_admin_audit_slots_label")}`
+        : null;
+    const timeZone = typeof metadata.timeZone === "string" ? metadata.timeZone : null;
+
+    return [slotCount, timeZone].filter(Boolean).join(" · ") || "\u2014";
+  }
+
+  if (log.action === "CSV_EXPORTED") {
+    return typeof metadata.mentorCount === "number"
+      ? `${metadata.mentorCount} ${translate("thotis_admin_audit_mentors_label")}`
+      : "\u2014";
+  }
+
+  return "\u2014";
 }
 
 const AdminDashboardSkeleton = () => {
@@ -462,11 +583,119 @@ const RecentIncidents = () => {
   );
 };
 
+const AdminAuditLog = () => {
+  const { t } = useLocale();
+  const [page, setPage] = useState(1);
+  const [action, setAction] = useState<ThotisAdminAuditAction | "">("");
+  const pageSize = 20;
+  const { data, error, isPending } = trpc.thotis.admin.listAuditLogs.useQuery({
+    action: action || undefined,
+    page,
+    pageSize,
+  });
+
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+  const actionOptions = [
+    { label: t("thotis_admin_audit_action_all"), value: "" },
+    ...Object.values(ThotisAdminAuditAction).map((value) => ({
+      label: t(AUDIT_ACTION_LABELS[value]),
+      value,
+    })),
+  ];
+
+  if (error) {
+    return <ThotisErrorState message={error.message} title={t("thotis_admin_audit_log_title")} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-emphasis text-xl">{t("thotis_admin_audit_log_title")}</h2>
+          <p className="text-sm text-subtle">{t("thotis_admin_audit_log_description")}</p>
+        </div>
+        <div className="w-full max-w-xs">
+          <Label>{t("thotis_admin_audit_filter_action")}</Label>
+          <Select
+            options={actionOptions}
+            value={actionOptions.find((option) => option.value === action)}
+            onChange={(option) => {
+              setAction((option?.value as ThotisAdminAuditAction | "") || "");
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {isPending ? (
+        <div className="flex justify-center py-10" aria-live="polite">
+          <div className="h-8 w-8 animate-spin rounded-full border-emphasis border-t-2 border-b-2" />
+        </div>
+      ) : (
+        <>
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnTitle>{t("thotis_admin_audit_col_time")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_audit_col_admin")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_audit_col_action")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_audit_col_resource")}</Table.ColumnTitle>
+                <Table.ColumnTitle>{t("thotis_admin_audit_col_details")}</Table.ColumnTitle>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {!data?.logs.length ? (
+                <Table.Row>
+                  <td colSpan={5} className="px-6 py-10 text-center text-subtle">
+                    {t("thotis_admin_audit_empty")}
+                  </td>
+                </Table.Row>
+              ) : (
+                data.logs.map((log) => (
+                  <Table.Row key={log.id}>
+                    <Table.Cell>{new Date(log.createdAt).toLocaleString()}</Table.Cell>
+                    <Table.Cell>{log.adminUserName || log.adminUserEmail || log.adminUserId}</Table.Cell>
+                    <Table.Cell>{t(AUDIT_ACTION_LABELS[log.action])}</Table.Cell>
+                    <Table.Cell>{log.resourceDisplayName || log.resourceId}</Table.Cell>
+                    <Table.Cell>{getAuditLogDetails(t, log)}</Table.Cell>
+                  </Table.Row>
+                ))
+              )}
+            </Table.Body>
+          </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                color="minimal"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}>
+                {t("thotis_admin_previous")}
+              </Button>
+              <span className="text-sm text-subtle">
+                {page} / {totalPages} ({t("total")}: {data?.total})
+              </span>
+              <Button
+                color="minimal"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((currentPage) => currentPage + 1)}>
+                {t("thotis_admin_next")}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 export const AdminDashboard = () => {
   const { t } = useLocale();
-  const [activeTab, setActiveTab] = useState<"insights" | "ambassadors" | "bookings">("insights");
+  const [activeTab, setActiveTab] = useState<"insights" | "ambassadors" | "audit" | "bookings">("insights");
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const {
     data: stats,
@@ -561,6 +790,9 @@ export const AdminDashboard = () => {
             onClick={() => setActiveTab("bookings")}>
             {t("thotis_tab_bookings")}
           </Button>
+          <Button color={activeTab === "audit" ? "primary" : "minimal"} onClick={() => setActiveTab("audit")}>
+            {t("thotis_tab_audit")}
+          </Button>
           {/* CSV export only visible on insights tab */}
           {activeTab === "insights" && (
             <div className="ml-4 border-l pl-4">
@@ -588,6 +820,7 @@ export const AdminDashboard = () => {
       )}
       {activeTab === "ambassadors" && <AmbassadorManagement />}
       {activeTab === "bookings" && <AdminBookingList />}
+      {activeTab === "audit" && <AdminAuditLog />}
     </div>
   );
 };

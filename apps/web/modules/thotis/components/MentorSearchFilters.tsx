@@ -121,9 +121,7 @@ export const MentorSearchFilters = ({ filters, onFiltersChange }: MentorSearchFi
               onChange={handleUniversityChange}
               disabled={areUniversitiesLoading || !!universitiesError}
               className="block w-full rounded-md border border-subtle bg-default px-3 py-2 text-emphasis text-sm focus:border-blue-500 focus:ring-blue-500">
-              <option value="">
-                {areUniversitiesLoading ? t("loading") : t("thotis_all_universities")}
-              </option>
+              <option value="">{areUniversitiesLoading ? t("loading") : t("thotis_all_universities")}</option>
               {universities?.map((uni) => (
                 <option key={uni} value={uni}>
                   {uni}

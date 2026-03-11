@@ -1,6 +1,7 @@
 import type { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import type { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
 import type { SchedulesRepository } from "@calcom/features/schedules/repositories/SchedulesRepository";
+import type { AdminAuditLogRepository } from "@calcom/features/thotis/repositories/AdminAuditLogRepository";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
@@ -26,9 +27,16 @@ const createProfileServiceMock = () =>
     createProfile: vi.fn(),
   }) as unknown as ProfileService;
 
+const createAdminAuditLogRepositoryMock = () =>
+  ({
+    createLog: vi.fn(),
+    listLogs: vi.fn(),
+  }) as unknown as AdminAuditLogRepository;
+
 const createMentorQualityRepositoryMock = () =>
   ({
     createModerationAction: vi.fn(),
+    getIncidentById: vi.fn(),
     listIncidents: vi.fn(),
     updateIncident: vi.fn(),
   }) as unknown as MentorQualityRepository;
@@ -66,6 +74,7 @@ const createSchedulesRepositoryMock = () =>
   }) as unknown as SchedulesRepository;
 
 describe("ThotisAdminService", () => {
+  let adminAuditLogRepositoryMock: AdminAuditLogRepository;
   let bookingRepositoryMock: BookingRepository;
   let mentorQualityRepositoryMock: MentorQualityRepository;
   let passwordResetRequestFn: (user: Pick<User, "email" | "locale" | "name">) => Promise<void>;
@@ -80,6 +89,7 @@ describe("ThotisAdminService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    adminAuditLogRepositoryMock = createAdminAuditLogRepositoryMock();
     profileRepositoryMock = createProfileRepositoryMock();
     profileServiceMock = createProfileServiceMock();
     mentorQualityRepositoryMock = createMentorQualityRepositoryMock();
@@ -91,6 +101,7 @@ describe("ThotisAdminService", () => {
     passwordResetRateLimitFn = vi.fn().mockResolvedValue(undefined);
 
     service = new ThotisAdminService({
+      adminAuditLogRepository: adminAuditLogRepositoryMock,
       bookingRepository: bookingRepositoryMock,
       mentorQualityRepository: mentorQualityRepositoryMock,
       passwordResetRequestFn,
@@ -417,6 +428,7 @@ describe("ThotisAdminService", () => {
     });
     passwordResetRequestFn = vi.fn().mockRejectedValue(new Error("mailer down"));
     service = new ThotisAdminService({
+      adminAuditLogRepository: adminAuditLogRepositoryMock,
       bookingRepository: bookingRepositoryMock,
       mentorQualityRepository: mentorQualityRepositoryMock,
       passwordResetRequestFn,
@@ -459,6 +471,31 @@ describe("ThotisAdminService", () => {
     expect(passwordResetRateLimitFn).toHaveBeenCalledWith("thotis:admin:password-reset:10");
   });
 
+  it("records an audit log when an admin sends a password setup email", async () => {
+    vi.mocked(userRepositoryMock.findForPasswordReset).mockResolvedValue({
+      email: "mentor@example.com",
+      locale: "fr",
+      name: "Mentor",
+    });
+
+    await service.sendInitialPasswordSetup(10, {
+      actor: {
+        email: "admin@example.com",
+        id: 99,
+        name: "Admin",
+      },
+    });
+
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "PASSWORD_RESET_SENT",
+        adminUserEmail: "admin@example.com",
+        adminUserId: 99,
+        resourceId: "10",
+      })
+    );
+  });
+
   it("throws when sending a password setup email for an unknown user", async () => {
     vi.mocked(userRepositoryMock.findForPasswordReset).mockResolvedValue(null);
 
@@ -477,6 +514,7 @@ describe("ThotisAdminService", () => {
       .fn()
       .mockRejectedValue(new ErrorWithCode(ErrorCode.BadRequest, "Password reset rate limit exceeded."));
     service = new ThotisAdminService({
+      adminAuditLogRepository: adminAuditLogRepositoryMock,
       bookingRepository: bookingRepositoryMock,
       mentorQualityRepository: mentorQualityRepositoryMock,
       passwordResetRequestFn,
@@ -513,16 +551,54 @@ describe("ThotisAdminService", () => {
     });
   });
 
+  it("delegates audit log listing to the audit repository", async () => {
+    vi.mocked(adminAuditLogRepositoryMock.listLogs).mockResolvedValue({
+      logs: [{ action: "CSV_EXPORTED", id: "log-1" }],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    });
+
+    const result = await service.listAuditLogs({ page: 1, pageSize: 20 });
+
+    expect(result).toEqual({
+      logs: [{ action: "CSV_EXPORTED", id: "log-1" }],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    });
+    expect(adminAuditLogRepositoryMock.listLogs).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
   it("updates ambassador status through the profile repository", async () => {
+    vi.mocked(profileRepositoryMock.getProfile).mockResolvedValue({
+      id: "profile-1",
+      status: MentorStatus.PENDING_VERIFICATION,
+      user: {
+        email: "mentor@example.com",
+        name: "Mentor",
+      },
+    });
     vi.mocked(profileRepositoryMock.updateProfile).mockResolvedValue({
       id: "profile-1",
       isActive: true,
       status: MentorStatus.VERIFIED,
+      user: {
+        email: "mentor@example.com",
+        name: "Mentor",
+      },
     });
 
-    const result = await service.setAmbassadorStatus("profile-1", MentorStatus.VERIFIED);
+    const result = await service.setAmbassadorStatus("profile-1", MentorStatus.VERIFIED, {
+      email: "admin@example.com",
+      id: 99,
+      name: "Admin",
+    });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       id: "profile-1",
       isActive: true,
       status: MentorStatus.VERIFIED,
@@ -531,6 +607,84 @@ describe("ThotisAdminService", () => {
       isActive: true,
       status: MentorStatus.VERIFIED,
     });
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "MENTOR_STATUS_UPDATED",
+        adminUserEmail: "admin@example.com",
+        adminUserId: 99,
+      })
+    );
+  });
+
+  it("updates multiple ambassador statuses and deduplicates profile ids", async () => {
+    vi.mocked(profileRepositoryMock.getProfile)
+      .mockResolvedValueOnce({
+        id: "profile-1",
+        status: MentorStatus.VERIFIED,
+        user: {
+          email: "mentor-1@example.com",
+          name: "Mentor 1",
+        },
+      })
+      .mockResolvedValueOnce({
+        id: "profile-2",
+        status: MentorStatus.VERIFIED,
+        user: {
+          email: "mentor-2@example.com",
+          name: "Mentor 2",
+        },
+      });
+    vi.mocked(profileRepositoryMock.updateProfile)
+      .mockResolvedValueOnce({
+        id: "profile-1",
+        isActive: false,
+        status: MentorStatus.SUSPENDED,
+        user: {
+          email: "mentor-1@example.com",
+          name: "Mentor 1",
+        },
+      })
+      .mockResolvedValueOnce({
+        id: "profile-2",
+        isActive: false,
+        status: MentorStatus.SUSPENDED,
+        user: {
+          email: "mentor-2@example.com",
+          name: "Mentor 2",
+        },
+      });
+
+    const result = await service.bulkSetAmbassadorStatus(
+      ["profile-1", "profile-2", "profile-1"],
+      MentorStatus.SUSPENDED,
+      {
+        email: "admin@example.com",
+        id: 99,
+        name: "Admin",
+      }
+    );
+
+    expect(result).toEqual({
+      success: true,
+      updatedCount: 2,
+    });
+    expect(profileRepositoryMock.updateProfile).toHaveBeenCalledTimes(2);
+    expect(profileRepositoryMock.updateProfile).toHaveBeenNthCalledWith(1, "profile-1", {
+      isActive: false,
+      status: MentorStatus.SUSPENDED,
+    });
+    expect(profileRepositoryMock.updateProfile).toHaveBeenNthCalledWith(2, "profile-2", {
+      isActive: false,
+      status: MentorStatus.SUSPENDED,
+    });
+  });
+
+  it("rejects bulk status updates when no ambassador is selected", async () => {
+    await expect(service.bulkSetAmbassadorStatus([], MentorStatus.SUSPENDED)).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+    });
+
+    expect(profileRepositoryMock.updateProfile).not.toHaveBeenCalled();
   });
 
   it("lists and resolves incidents through the mentor quality repository", async () => {
@@ -540,22 +694,54 @@ describe("ThotisAdminService", () => {
       pageSize: 10,
       total: 1,
     });
+    vi.mocked(mentorQualityRepositoryMock.getIncidentById).mockResolvedValue({
+      bookingUid: "booking-1",
+      id: "incident-1",
+      studentProfile: {
+        degree: "Master",
+        field: "COMPUTER_SCIENCE",
+        id: "profile-1",
+        isActive: true,
+        status: "VERIFIED",
+        university: "Sorbonne",
+        userId: 10,
+      },
+      studentProfileId: "profile-1",
+      type: "NO_SHOW",
+    });
     vi.mocked(mentorQualityRepositoryMock.updateIncident).mockResolvedValue({
       id: "incident-1",
       resolved: true,
     });
 
     const listed = await service.listIncidents({ page: 1, pageSize: 10 });
-    const resolved = await service.resolveIncident("incident-1");
+    const resolved = await service.resolveIncident("incident-1", {
+      email: "admin@example.com",
+      id: 99,
+      name: "Admin",
+    });
 
     expect(listed.total).toBe(1);
     expect(resolved).toEqual({
       id: "incident-1",
       resolved: true,
     });
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "INCIDENT_RESOLVED",
+      })
+    );
   });
 
   it("creates moderation actions and optionally updates the mentor status", async () => {
+    vi.mocked(profileRepositoryMock.getProfile).mockResolvedValue({
+      id: "profile-1",
+      status: MentorStatus.VERIFIED,
+      user: {
+        email: "mentor@example.com",
+        name: "Mentor",
+      },
+    });
     vi.mocked(mentorQualityRepositoryMock.createModerationAction).mockResolvedValue({
       id: "action-1",
     });
@@ -566,7 +752,11 @@ describe("ThotisAdminService", () => {
     });
 
     const result = await service.takeModerationAction({
-      actionByUserId: 99,
+      actor: {
+        email: "admin@example.com",
+        id: 99,
+        name: "Admin",
+      },
       actionType: "SUSPEND",
       reason: "Repeated no-shows",
       studentProfileId: "profile-1",
@@ -578,6 +768,11 @@ describe("ThotisAdminService", () => {
       isActive: false,
       status: MentorStatus.SUSPENDED,
     });
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "MODERATION_ACTION_TAKEN",
+      })
+    );
   });
 
   it("delegates booking listing and details lookup to the booking repository", async () => {
@@ -615,10 +810,16 @@ describe("ThotisAdminService", () => {
       id: 1,
       metadata: { studentProfileId: "profile-1" },
       status: "PENDING",
+      title: "Mentoring Session",
+      uid: "booking-1",
       userId: 10,
     });
 
-    const result = await service.adminCancelBooking(1, "Policy violation", 99);
+    const result = await service.adminCancelBooking(1, "Policy violation", {
+      email: "admin@example.com",
+      id: 99,
+      name: "Admin",
+    });
 
     expect(result).toEqual({ success: true });
     expect(bookingRepositoryMock.cancelThotisAdminBooking).toHaveBeenCalledWith({
@@ -628,6 +829,12 @@ describe("ThotisAdminService", () => {
       reason: "Policy violation",
     });
     expect(profileRepositoryMock.incrementCancelledSessions).toHaveBeenCalledWith("profile-1");
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "BOOKING_CANCELLED",
+        resourceDisplayName: "booking-1",
+      })
+    );
   });
 
   it("updates mentor profiles and schedule settings through repositories", async () => {
