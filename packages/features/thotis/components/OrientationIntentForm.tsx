@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { AcademicFieldSchema } from "@calcom/prisma/zod/inputTypeSchemas/AcademicFieldSchema";
+import { AcademicField } from "@calcom/prisma/enums";
 import { Button } from "@calcom/ui/components/button";
 import { Label, Select } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
@@ -24,7 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
   OTHER: "thotis_field_other",
 };
 
-const fields = AcademicFieldSchema.options.map((value) => ({
+const fields = Object.values(AcademicField).map((value) => ({
   value,
   labelKey: FIELD_LABELS[value] || value.replace(/_/g, " "),
 }));
@@ -67,6 +67,9 @@ const academicLevelOptions = [
 
 export function OrientationIntentForm({ onSubmit, isPending }: OrientationIntentFormProps) {
   const { t } = useLocale();
+  const fieldSelectId = "thotis-target-field";
+  const levelSelectId = "thotis-academic-level";
+  const zoneInputId = "thotis-zone-region";
   const [field, setField] = useState<{ value: string; label: string } | null>(null);
   const [level, setLevel] = useState<{ value: string; label: string } | null>(null);
   const [zone, setZone] = useState<string>("");
@@ -109,8 +112,9 @@ export function OrientationIntentForm({ onSubmit, isPending }: OrientationIntent
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="space-y-2">
-            <Label>{t("thotis_target_field")}</Label>
+            <Label htmlFor={fieldSelectId}>{t("thotis_target_field")}</Label>
             <Select
+              inputId={fieldSelectId}
               options={fields.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
               value={field}
               onChange={(val) => setField(val)}
@@ -119,8 +123,9 @@ export function OrientationIntentForm({ onSubmit, isPending }: OrientationIntent
           </div>
 
           <div className="space-y-2">
-            <Label>{t("thotis_academic_level")}</Label>
+            <Label htmlFor={levelSelectId}>{t("thotis_academic_level")}</Label>
             <Select
+              inputId={levelSelectId}
               options={academicLevelOptions.map((option) => ({
                 value: option.value,
                 label: t(option.labelKey),
@@ -132,8 +137,9 @@ export function OrientationIntentForm({ onSubmit, isPending }: OrientationIntent
           </div>
 
           <div className="space-y-2">
-            <Label>{t("thotis_zone_region")}</Label>
+            <Label htmlFor={zoneInputId}>{t("thotis_zone_region")}</Label>
             <input
+              id={zoneInputId}
               type="text"
               className="flex h-9 w-full rounded-md border border-default bg-default px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder={t("thotis_zone_region_placeholder")}

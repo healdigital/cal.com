@@ -368,13 +368,13 @@ const FunnelChart = ({ funnel }: { funnel: FunnelData | undefined }) => {
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-md bg-subtle p-2">
-          <p className="font-medium text-subtle">{t("thotis_conv_started")}</p>
+          <p className="font-medium text-default">{t("thotis_conv_started")}</p>
           <p className="font-bold text-emphasis">
             {funnel?.conversion?.profile_to_booking_started?.toFixed(1)}%
           </p>
         </div>
         <div className="rounded-md bg-subtle p-2">
-          <p className="font-medium text-subtle">{t("thotis_conv_confirmed")}</p>
+          <p className="font-medium text-default">{t("thotis_conv_confirmed")}</p>
           <p className="font-bold text-emphasis">
             {funnel?.conversion?.booking_started_to_confirmed?.toFixed(1)}%
           </p>

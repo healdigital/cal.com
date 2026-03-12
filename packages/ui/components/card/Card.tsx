@@ -233,8 +233,10 @@ export function Card({
         </a>
       )}
       {variant === "NewLaunchSidebarCard" && coverPhoto && (
-        {/* eslint-disable-next-line @next/next/no-img-element -- cover photo in card */}
-        <img alt="cover" className="mt-3 w-full" src={coverPhoto} />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- cover photo in card */}
+          <img alt="cover" className="mt-3 w-full" src={coverPhoto} />
+        </>
       )}
 
       {/* TODO: this should be CardActions https://mui.com/material-ui/api/card-actions/ */}

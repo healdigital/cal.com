@@ -53,6 +53,7 @@ test.describe("Thotis accessibility", () => {
     const admin = await users.create({
       role: "ADMIN",
       username: "thotis-admin-accessibility",
+      userFeatureFlags: [],
     });
 
     await admin.apiLogin("/thotis/admin");

@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_SCHEDULE_CONFIG } from "@calcom/features/thotis/services/ThotisAdminService";
+import { DEFAULT_SCHEDULE_CONFIG } from "@calcom/features/thotis/lib/adminConfig";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { IntlSupportedTimeZones } from "@calcom/lib/timeZones";
 import { trpc } from "@calcom/trpc/react";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { Label, Select, TextField } from "@calcom/ui/components/form";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
+import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 import { getShortWeekdayLabel } from "../lib/displayLabels";
 import { ThotisErrorState } from "./ThotisAsyncState";
@@ -36,7 +37,7 @@ const TIME_ZONE_OPTIONS: TimeZoneOption[] = IntlSupportedTimeZones.map((timeZone
   value: timeZone,
 }));
 
-function ScheduleModalSkeleton() {
+function ScheduleModalSkeleton(): ReactElement {
   return (
     <div className="space-y-4 py-4" aria-live="polite">
       <SkeletonText className="h-4 w-40" />
@@ -72,7 +73,12 @@ function formatTime(dateVal: Date | string): string {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName }: MentorScheduleModalProps) {
+export function MentorScheduleModal({
+  isOpen,
+  onClose,
+  mentorUserId,
+  mentorName,
+}: MentorScheduleModalProps): ReactElement {
   const { i18n, t } = useLocale();
   const utils = trpc.useUtils();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -84,7 +90,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
     isLoading,
     refetch,
   } = trpc.thotis.admin.getMentorSchedule.useQuery(
-    { mentorUserId: mentorUserId! },
+    { mentorUserId: mentorUserId ?? 0 },
     { enabled: !!mentorUserId && isOpen }
   );
 
@@ -124,7 +130,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
     },
   });
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     if (!mentorUserId) return;
     const validSlots = slots.filter((s) => s.days.length > 0 && s.startTime && s.endTime);
 
@@ -140,7 +146,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
     });
   };
 
-  const toggleDay = (slotIndex: number, day: number) => {
+  const toggleDay = (slotIndex: number, day: number): void => {
     setSlots((prev) =>
       prev.map((slot, i) => {
         if (i !== slotIndex) return slot;
@@ -152,11 +158,15 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
     );
   };
 
-  const updateSlotTime = (slotIndex: number, field: "startTime" | "endTime", value: string) => {
+  const updateSlotTime = (
+    slotIndex: number,
+    field: "startTime" | "endTime",
+    value: string
+  ): void => {
     setSlots((prev) => prev.map((slot, i) => (i === slotIndex ? { ...slot, [field]: value } : slot)));
   };
 
-  const addSlot = () => {
+  const addSlot = (): void => {
     setSlots((prev) => [
       ...prev,
       {
@@ -167,7 +177,7 @@ export function MentorScheduleModal({ isOpen, onClose, mentorUserId, mentorName 
     ]);
   };
 
-  const removeSlot = (index: number) => {
+  const removeSlot = (index: number): void => {
     setSlots((prev) => prev.filter((_, i) => i !== index));
   };
 

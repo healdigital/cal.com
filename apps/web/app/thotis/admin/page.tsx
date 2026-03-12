@@ -1,11 +1,23 @@
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import { UserPermissionRole } from "@calcom/prisma/enums";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
+import { _generateMetadata } from "app/_utils";
+import type { Metadata } from "next";
+import type { ReactElement } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminDashboard } from "~/thotis/components/AdminDashboard";
 
-export default async function AdminPage() {
+export const generateMetadata = async (): Promise<Metadata> =>
+  await _generateMetadata(
+    (t) => t("thotis_admin_page_title"),
+    (t) => t("thotis_admin_page_description"),
+    undefined,
+    undefined,
+    "/thotis/admin"
+  );
+
+export default async function AdminPage(): Promise<ReactElement> {
   const session = await getServerSession({
     req: buildLegacyRequest(await headers(), await cookies()),
   });

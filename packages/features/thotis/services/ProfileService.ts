@@ -95,25 +95,30 @@ export class ProfileService {
    * Cal.com v2 uses a 'profiles' array on the User model, but many components
    * expect a singular 'profile' object.
    */
-  private mapProfile<T extends { user?: unknown } | null>(profile: T): T {
-    if (!profile || !profile.user) return profile;
+  private mapProfile(profile: unknown): unknown {
+    if (!profile || typeof profile !== "object" || Array.isArray(profile)) return profile;
 
-    const user = profile.user as Record<string, unknown>;
+    const profileRecord = profile as Record<string, unknown>;
+    const rawUser = profileRecord.user;
 
-    // Only map if profiles array exists
-    if (!user.profiles || !Array.isArray(user.profiles)) return profile;
+    if (!rawUser || typeof rawUser !== "object" || Array.isArray(rawUser)) return profile;
 
-    const userProfiles = user.profiles as {
-      organization: { id: number; slug: string | null } | null;
-    }[];
+    const user = rawUser as Record<string, unknown>;
+    let userProfiles: unknown[] = [];
+
+    if (Array.isArray(user.profiles)) {
+      userProfiles = user.profiles;
+    } else if (user.profile) {
+      userProfiles = [user.profile];
+    }
 
     return {
-      ...profile,
+      ...profileRecord,
       user: {
         ...user,
-        profile: userProfiles && userProfiles.length > 0 ? userProfiles[0] : null,
+        profile: userProfiles[0] ?? null,
       },
-    } as T;
+    };
   }
 
   private normalizeUrl(url: string): string {
@@ -400,13 +405,19 @@ export class ProfileService {
     const scored = matchingService.sortMentors(candidates as StudentProfileWithUser[], intent);
 
     // 3. Return top results (e.g., top 5)
-    return scored.slice(0, 5).map((profile) =>
-      toMentorProfileDto({
-        ...this.mapProfile(profile),
+    return scored.slice(0, 5).map((profile) => {
+      const mappedProfile = this.mapProfile(profile);
+      const mappedProfileRecord =
+        mappedProfile && typeof mappedProfile === "object" && !Array.isArray(mappedProfile)
+          ? mappedProfile
+          : {};
+
+      return toMentorProfileDto({
+        ...mappedProfileRecord,
         matchScore: profile.matchScore,
         matchReasons: profile.matchReasons,
-      })
-    );
+      });
+    });
   }
 
   async upsertOrientationIntent(

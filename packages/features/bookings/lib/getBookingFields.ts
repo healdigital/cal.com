@@ -4,7 +4,7 @@ import { getFieldIdentifier } from "@calcom/features/form-builder/utils/getField
 import { CAL_AI_AGENT_PHONE_NUMBER_FIELD, SMS_REMINDER_NUMBER_FIELD } from "@calcom/lib/bookings/SystemField";
 import { markdownToSafeHTML } from "@calcom/lib/markdownToSafeHTML";
 import slugify from "@calcom/lib/slugify";
-import type { EventType, EventTypeCustomInput, Workflow } from "@calcom/prisma/client";
+import type { EventType, EventTypeCustomInput } from "@calcom/prisma/client";
 import { EventTypeCustomInputType } from "@calcom/prisma/enums";
 import {
   BookingFieldTypeEnum,
@@ -63,7 +63,6 @@ export const getBookingFieldsWithSystemFields = ({
   disableBookingTitle?: boolean;
   customInputs: EventTypeCustomInput[] | z.infer<typeof customInputSchema>[];
   metadata: EventType["metadata"] | z.infer<typeof EventTypeMetaDataSchema>;
-  workflows?: Workflow[];
 }) => {
   const parsedMetaData = EventTypeMetaDataSchema.parse(metadata || {});
   const parsedBookingFields = eventTypeBookingFields.parse(bookingFields || []);
@@ -93,7 +92,6 @@ export const ensureBookingInputsHaveSystemFields = ({
   disableBookingTitle?: boolean;
   additionalNotesRequired: boolean;
   customInputs: z.infer<typeof customInputSchema>[];
-  workflows?: Workflow[];
 }) => {
   // If bookingFields is set already, the migration is done.
   const hideBookingTitle = disableBookingTitle ?? true;

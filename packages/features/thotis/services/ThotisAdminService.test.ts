@@ -533,6 +533,44 @@ describe("ThotisAdminService", () => {
     expect(passwordResetRequestFn).not.toHaveBeenCalled();
   });
 
+  it("sends password reset emails in bulk and deduplicates user ids", async () => {
+    vi.mocked(userRepositoryMock.findForPasswordReset).mockImplementation(async ({ id }) => ({
+      email: `mentor-${id}@example.com`,
+      locale: "fr",
+      name: `Mentor ${id}`,
+    }));
+
+    const result = await service.bulkSendPasswordReset([10, 11, 10], {
+      email: "admin@example.com",
+      id: 99,
+      name: "Admin",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      sentCount: 2,
+    });
+    expect(passwordResetRequestFn).toHaveBeenCalledTimes(2);
+    expect(passwordResetRateLimitFn).toHaveBeenCalledTimes(2);
+    expect(passwordResetRateLimitFn).toHaveBeenNthCalledWith(1, "thotis:admin:password-reset:10");
+    expect(passwordResetRateLimitFn).toHaveBeenNthCalledWith(2, "thotis:admin:password-reset:11");
+    expect(adminAuditLogRepositoryMock.createLog).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects bulk password reset when no ambassador is selected", async () => {
+    await expect(
+      service.bulkSendPasswordReset([], {
+        email: "admin@example.com",
+        id: 99,
+        name: "Admin",
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+    });
+
+    expect(passwordResetRequestFn).not.toHaveBeenCalled();
+  });
+
   it("delegates ambassador listing to the profile repository", async () => {
     vi.mocked(profileRepositoryMock.listAdminProfiles).mockResolvedValue({
       page: 2,

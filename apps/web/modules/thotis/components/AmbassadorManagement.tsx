@@ -3,13 +3,13 @@
 import {
   DEFAULT_SCHEDULE_CONFIG,
   type ProvisionAmbassadorInput,
-} from "@calcom/features/thotis/services/ThotisAdminService";
+} from "@calcom/features/thotis/lib/adminConfig";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { AcademicField, MentorStatus } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
-import { Label, Select, TextField } from "@calcom/ui/components/form";
+import { Checkbox, Label, Select, TextField } from "@calcom/ui/components/form";
 import { Table } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -269,15 +269,24 @@ const StatusConfirmDialog: React.FC<{
   onClose: () => void;
   onConfirm: () => void;
   status: MentorStatus | null;
+  targetCount: number;
   isPending: boolean;
-}> = ({ isOpen, onClose, onConfirm, status, isPending }) => {
+}> = ({ isOpen, onClose, onConfirm, status, targetCount, isPending }) => {
   const { t } = useLocale();
   const statusLabel = status ? getMentorStatusLabel(t, status) : "";
+  const isBulkAction = targetCount > 1;
+  const title = isBulkAction
+    ? t("thotis_admin_confirm_bulk_status_change", { count: targetCount, status: statusLabel })
+    : t("thotis_admin_confirm_status_change", { status: statusLabel });
+  const description = isBulkAction
+    ? t("thotis_admin_confirm_bulk_status_desc", { count: targetCount })
+    : t("thotis_admin_confirm_status_desc");
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader title={t("thotis_admin_confirm_status_change", { status: statusLabel })} />
-        <p className="py-4 text-sm text-subtle">{t("thotis_admin_confirm_status_desc")}</p>
+        <DialogHeader title={title} />
+        <p className="py-4 text-sm text-subtle">{description}</p>
         <DialogFooter>
           <Button onClick={onClose} color="secondary">
             {t("cancel")}
@@ -298,18 +307,24 @@ const ResetPasswordConfirmDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  identifier: string;
+  identifier?: string;
+  targetCount: number;
   isPending: boolean;
-}> = ({ isOpen, onClose, onConfirm, identifier, isPending }) => {
+}> = ({ isOpen, onClose, onConfirm, identifier, targetCount, isPending }) => {
   const { t } = useLocale();
+  const isBulkAction = targetCount > 1;
+  const title = isBulkAction
+    ? t("thotis_admin_confirm_bulk_reset_password_title")
+    : t("thotis_admin_confirm_reset_password_title");
+  const description = isBulkAction
+    ? t("thotis_admin_confirm_bulk_reset_password_desc", { count: targetCount })
+    : t("thotis_admin_confirm_reset_password_desc", { identifier });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader title={t("thotis_admin_confirm_reset_password_title")} />
-        <p className="py-4 text-sm text-subtle">
-          {t("thotis_admin_confirm_reset_password_desc", { identifier })}
-        </p>
+        <DialogHeader title={title} />
+        <p className="py-4 text-sm text-subtle">{description}</p>
         <DialogFooter>
           <Button onClick={onClose} color="secondary">
             {t("cancel")}
@@ -343,13 +358,15 @@ export const AmbassadorManagement: React.FC = () => {
   } | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<{ userId: number; name: string } | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{
-    profileId: string;
+    profileIds: string[];
     status: MentorStatus;
   } | null>(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<{
-    userId: number;
-    identifier: string;
+    identifier?: string;
+    targetCount: number;
+    userIds: number[];
   } | null>(null);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 
   // Debounce search input (300ms)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -378,11 +395,33 @@ export const AmbassadorManagement: React.FC = () => {
   });
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+  const visibleProfileIds = data?.profiles?.map((profile) => profile.id) ?? [];
+  const selectedProfiles = data?.profiles?.filter((profile) => selectedProfileIds.includes(profile.id)) ?? [];
+  const selectedUserIds = selectedProfiles.map((profile) => profile.userId);
+  const allVisibleProfilesSelected =
+    visibleProfileIds.length > 0 &&
+    visibleProfileIds.every((profileId) => selectedProfileIds.includes(profileId));
+  const someVisibleProfilesSelected =
+    visibleProfileIds.length > 0 &&
+    visibleProfileIds.some((profileId) => selectedProfileIds.includes(profileId));
 
   const updateStatusMutation = trpc.thotis.admin.updateStatus.useMutation({
     onSuccess: () => {
       showToast(t("thotis_admin_status_updated_success"), "success");
       utils.thotis.admin.listAmbassadors.invalidate();
+      setStatusConfirm(null);
+    },
+    onError: (error) => {
+      showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+      setStatusConfirm(null);
+    },
+  });
+
+  const bulkUpdateStatusMutation = trpc.thotis.admin.bulkUpdateStatus.useMutation({
+    onSuccess: (result) => {
+      showToast(t("thotis_admin_bulk_status_updated_success", { count: result.updatedCount }), "success");
+      utils.thotis.admin.listAmbassadors.invalidate();
+      setSelectedProfileIds([]);
       setStatusConfirm(null);
     },
     onError: (error) => {
@@ -402,19 +441,81 @@ export const AmbassadorManagement: React.FC = () => {
     },
   });
 
+  const bulkResetPasswordMutation = trpc.thotis.admin.bulkSendPasswordReset.useMutation({
+    onSuccess: (result) => {
+      showToast(t("thotis_admin_bulk_reset_link_sent", { count: result.sentCount }), "success");
+      setSelectedProfileIds([]);
+      setResetPasswordTarget(null);
+    },
+    onError: (error) => {
+      showToast(`${t("thotis_admin_error")}: ${error.message}`, "error");
+      setResetPasswordTarget(null);
+    },
+  });
+
   const handleStatusChange = (profileId: string, newStatus: MentorStatus) => {
-    setStatusConfirm({ profileId, status: newStatus });
+    setStatusConfirm({ profileIds: [profileId], status: newStatus });
+  };
+
+  const handleBulkStatusChange = (newStatus: MentorStatus) => {
+    if (!selectedProfileIds.length) return;
+    setStatusConfirm({ profileIds: selectedProfileIds, status: newStatus });
   };
 
   const confirmStatusChange = () => {
     if (!statusConfirm) return;
-    updateStatusMutation.mutate({ profileId: statusConfirm.profileId, status: statusConfirm.status });
+    if (statusConfirm.profileIds.length === 1) {
+      updateStatusMutation.mutate({ profileId: statusConfirm.profileIds[0], status: statusConfirm.status });
+      return;
+    }
+
+    bulkUpdateStatusMutation.mutate({
+      profileIds: statusConfirm.profileIds,
+      status: statusConfirm.status,
+    });
+  };
+
+  const handleBulkPasswordReset = () => {
+    if (!selectedUserIds.length) return;
+    setResetPasswordTarget({
+      targetCount: selectedUserIds.length,
+      userIds: selectedUserIds,
+    });
   };
 
   const confirmResetPassword = () => {
     if (!resetPasswordTarget) return;
-    resetPasswordMutation.mutate({ userId: resetPasswordTarget.userId });
+    if (resetPasswordTarget.userIds.length === 1) {
+      resetPasswordMutation.mutate({ userId: resetPasswordTarget.userIds[0] });
+      return;
+    }
+
+    bulkResetPasswordMutation.mutate({ userIds: resetPasswordTarget.userIds });
   };
+
+  const toggleProfileSelection = (profileId: string, checked: boolean) => {
+    setSelectedProfileIds((current) => {
+      if (checked) {
+        return current.includes(profileId) ? current : [...current, profileId];
+      }
+
+      return current.filter((id) => id !== profileId);
+    });
+  };
+
+  const toggleAllVisibleProfiles = (checked: boolean) => {
+    setSelectedProfileIds((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...visibleProfileIds]));
+      }
+
+      return current.filter((id) => !visibleProfileIds.includes(id));
+    });
+  };
+
+  useEffect(() => {
+    setSelectedProfileIds((current) => current.filter((id) => visibleProfileIds.includes(id)));
+  }, [visibleProfileIds]);
 
   return (
     <div className="space-y-4">
@@ -452,6 +553,31 @@ export const AmbassadorManagement: React.FC = () => {
         </div>
       </div>
 
+      {selectedProfileIds.length > 0 && !isLoading && !error ? (
+        <div className="flex items-center justify-between rounded-md border border-subtle bg-subtle px-4 py-3">
+          <span className="text-default text-sm">
+            {t("thotis_admin_selected_ambassadors", { count: selectedProfileIds.length })}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" color="secondary" onClick={() => handleBulkStatusChange(MentorStatus.VERIFIED)}>
+              {t("verify")}
+            </Button>
+            <Button
+              size="sm"
+              color="destructive"
+              onClick={() => handleBulkStatusChange(MentorStatus.SUSPENDED)}>
+              {t("thotis_admin_suspend_mentor")}
+            </Button>
+            <Button size="sm" color="secondary" onClick={handleBulkPasswordReset}>
+              {t("thotis_admin_reset_password")}
+            </Button>
+            <Button size="sm" color="minimal" onClick={() => setSelectedProfileIds([])}>
+              {t("thotis_admin_clear_selection")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {isLoading ? <ThotisLoadingState /> : null}
       {error ? (
         <ThotisErrorState
@@ -464,6 +590,15 @@ export const AmbassadorManagement: React.FC = () => {
       <Table>
         <Table.Header>
           <Table.Row>
+            <Table.ColumnTitle>
+              <Checkbox
+                aria-label={t("select_all")}
+                checked={
+                  allVisibleProfilesSelected ? true : someVisibleProfilesSelected ? "indeterminate" : false
+                }
+                onCheckedChange={(value) => toggleAllVisibleProfiles(value === true)}
+              />
+            </Table.ColumnTitle>
             <Table.ColumnTitle>{t("thotis_admin_ambassador")}</Table.ColumnTitle>
             <Table.ColumnTitle>{t("thotis_admin_field_university")}</Table.ColumnTitle>
             <Table.ColumnTitle>{t("thotis_admin_status")}</Table.ColumnTitle>
@@ -473,13 +608,20 @@ export const AmbassadorManagement: React.FC = () => {
         <Table.Body>
           {isLoading || error ? null : !data?.profiles || data.profiles.length === 0 ? (
             <Table.Row>
-              <td colSpan={4} className="px-6 py-10 text-center text-subtle">
+              <td colSpan={5} className="px-6 py-10 text-center text-subtle">
                 {t("thotis_no_mentors_found")}
               </td>
             </Table.Row>
           ) : (
             data.profiles.map((profile) => (
               <Table.Row key={profile.id}>
+                <Table.Cell>
+                  <Checkbox
+                    aria-label={t("select_row")}
+                    checked={selectedProfileIds.includes(profile.id)}
+                    onCheckedChange={(value) => toggleProfileSelection(profile.id, value === true)}
+                  />
+                </Table.Cell>
                 <Table.Cell>
                   <div>
                     <div className="font-medium text-default">{profile.user.name}</div>
@@ -540,8 +682,9 @@ export const AmbassadorManagement: React.FC = () => {
                       color="secondary"
                       onClick={() =>
                         setResetPasswordTarget({
-                          userId: profile.userId,
                           identifier: profile.user.name || profile.user.email,
+                          targetCount: 1,
+                          userIds: [profile.userId],
                         })
                       }>
                       {t("thotis_admin_reset_password")}
@@ -615,15 +758,17 @@ export const AmbassadorManagement: React.FC = () => {
         onClose={() => setStatusConfirm(null)}
         onConfirm={confirmStatusChange}
         status={statusConfirm?.status || null}
-        isPending={updateStatusMutation.isPending}
+        targetCount={statusConfirm?.profileIds.length || 0}
+        isPending={updateStatusMutation.isPending || bulkUpdateStatusMutation.isPending}
       />
 
       <ResetPasswordConfirmDialog
         isOpen={!!resetPasswordTarget}
         onClose={() => setResetPasswordTarget(null)}
         onConfirm={confirmResetPassword}
-        identifier={resetPasswordTarget?.identifier || ""}
-        isPending={resetPasswordMutation.isPending}
+        identifier={resetPasswordTarget?.identifier}
+        targetCount={resetPasswordTarget?.targetCount || 0}
+        isPending={resetPasswordMutation.isPending || bulkResetPasswordMutation.isPending}
       />
     </div>
   );

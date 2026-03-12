@@ -21,6 +21,8 @@ import {
   type ThotisAdminAuditAction,
   type ThotisAdminAuditResourceType,
 } from "@calcom/prisma/enums";
+import type { ProvisionAmbassadorInput, ScheduleConfig } from "../lib/adminConfig";
+import { DEFAULT_SCHEDULE_CONFIG } from "../lib/adminConfig";
 import type { AdminAuditLogRepository } from "../repositories/AdminAuditLogRepository";
 import type { MentorQualityRepository } from "../repositories/MentorQualityRepository";
 import type { ProfileRepository } from "../repositories/ProfileRepository";
@@ -29,23 +31,7 @@ import type { ProfileService } from "./ProfileService";
 const log = logger.getSubLogger({ prefix: ["ThotisAdminService"] });
 const PASSWORD_RESET_RATE_LIMIT = { limit: 3, duration: "1h" } as const;
 
-export interface ScheduleConfig {
-  /** Days of the week (0=Sunday, 1=Monday, ..., 6=Saturday). Defaults to [1,2,3,4,5] (Mon-Fri). */
-  days?: number[];
-  /** Start time in HH:MM format. Defaults to "09:00". */
-  startTime?: string;
-  /** End time in HH:MM format. Defaults to "17:00". */
-  endTime?: string;
-  /** IANA timezone. Defaults to "Europe/Paris". */
-  timeZone?: string;
-}
-
-export const DEFAULT_SCHEDULE_CONFIG: Required<ScheduleConfig> = {
-  days: [1, 2, 3, 4, 5],
-  startTime: "09:00",
-  endTime: "17:00",
-  timeZone: "Europe/Paris",
-};
+export type { ProvisionAmbassadorInput, ScheduleConfig } from "../lib/adminConfig";
 
 function getMinutesFromTimeString(time: string): number {
   const [hours, minutes] = time.split(":").map((value) => Number(value));
@@ -56,23 +42,19 @@ function hasValidScheduleTimeRange(startTime: string, endTime: string): boolean 
   return getMinutesFromTimeString(endTime) > getMinutesFromTimeString(startTime);
 }
 
-export interface ProvisionAmbassadorInput {
-  name: string;
-  email: string;
-  fieldOfStudy: AcademicField;
-  university: string;
-  degree: string;
-  yearOfStudy: number;
-  bio: string;
-  expertise?: string[];
-  schedule?: ScheduleConfig;
-}
-
 export interface ThotisAdminActor {
   email: string;
   id: number;
   name: string | null;
 }
+
+type ProvisionedAmbassadorProfile = {
+  id: string;
+  user?: {
+    email?: string | null;
+    name?: string | null;
+  } | null;
+};
 
 export class ThotisAdminService {
   private adminAuditLogRepository: AdminAuditLogRepository;
@@ -211,7 +193,10 @@ export class ThotisAdminService {
    * If user doesn't exist, creates one. Then creates the student profile.
    * Idempotent: if profile already exists, returns it.
    */
-  async provisionAmbassador(input: ProvisionAmbassadorInput, actor?: ThotisAdminActor) {
+  async provisionAmbassador(
+    input: ProvisionAmbassadorInput,
+    actor?: ThotisAdminActor
+  ): Promise<ProvisionedAmbassadorProfile> {
     const scheduleConfig = {
       ...DEFAULT_SCHEDULE_CONFIG,
       ...input.schedule,
@@ -304,7 +289,7 @@ export class ThotisAdminService {
       timeZone: string;
     },
     input: ProvisionAmbassadorInput
-  ) {
+  ): Promise<ProvisionedAmbassadorProfile> {
     const existingProfile = await this.profileRepository.getProfileByUserId(user.id);
 
     // Sanitize user inputs
@@ -313,7 +298,7 @@ export class ThotisAdminService {
     const sanitizedDegree = sanitizeUserInput(input.degree, 200);
     const sanitizedExpertise = sanitizeStringArray(input.expertise, 10, 50);
 
-    let profile;
+    let profile: ProvisionedAmbassadorProfile | null;
     if (existingProfile) {
       // Profile exists (e.g., from a previous attempt where email failed) — update it
       profile = await this.profileRepository.updateProfile(existingProfile.id, {
@@ -420,6 +405,27 @@ export class ThotisAdminService {
     }
 
     return { success: true };
+  }
+
+  async bulkSendPasswordReset(userIds: number[], actor: ThotisAdminActor) {
+    const uniqueUserIds = Array.from(new Set(userIds));
+
+    if (!uniqueUserIds.length) {
+      throw new ErrorWithCode(ErrorCode.BadRequest, "At least one ambassador must be selected");
+    }
+
+    await Promise.all(
+      uniqueUserIds.map((userId) =>
+        this.sendInitialPasswordSetup(userId, {
+          actor,
+        })
+      )
+    );
+
+    return {
+      success: true,
+      sentCount: uniqueUserIds.length,
+    };
   }
 
   /**

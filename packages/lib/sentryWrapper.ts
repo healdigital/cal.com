@@ -19,7 +19,7 @@ considering that a million monitored iterations only took roughly 8 seconds when
  * @deprecated Use withReporting instead. This function will be removed in a future version.
  * Example: withReporting(myFunction, "myFunction")(...args)
  */
-const monitorCallbackAsync = async <T extends (...args: any[]) => any>(
+const monitorCallbackAsync = async <T extends (...args: unknown[]) => unknown>(
   cb: T,
   ...args: Parameters<T>
 ): Promise<ReturnType<T>> => {
@@ -43,7 +43,7 @@ const monitorCallbackAsync = async <T extends (...args: any[]) => any>(
  * @deprecated Use withReporting instead. This function will be removed in a future version.
  * Example: withReporting(myFunction, "myFunction")(...args)
  */
-const monitorCallbackSync = <T extends (...args: any[]) => any>(
+const monitorCallbackSync = <T extends (...args: unknown[]) => unknown>(
   cb: T,
   ...args: Parameters<T>
 ): ReturnType<T> => {
@@ -80,7 +80,8 @@ function createErrorHandler(name: string, args: unknown[]) {
     };
 
     if (error instanceof Error) {
-      (error as Record<string, unknown>).context = context;
+      const errorWithContext = error as Error & { context?: typeof context };
+      errorWithContext.context = context;
     }
 
     captureException(error, {
@@ -233,7 +234,10 @@ export async function withSpan<T>(
   return callback(noOpSpan);
 }
 
-export function withReporting<T extends any[], R>(func: (...args: T) => R, name: string): (...args: T) => R {
+export function withReporting<T extends unknown[], R>(
+  func: (...args: T) => R,
+  name: string
+): (...args: T) => R {
   if (!name?.trim()) {
     throw new Error("withReporting requires a non-empty name parameter");
   }

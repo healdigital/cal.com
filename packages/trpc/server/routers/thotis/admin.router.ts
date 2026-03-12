@@ -129,6 +129,20 @@ export const adminRouter = router({
       });
     }),
 
+  bulkSendPasswordReset: authedAdminProcedure
+    .input(
+      z.object({
+        userIds: z.array(z.number()).min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await adminService.bulkSendPasswordReset(input.userIds, {
+        email: ctx.user.email,
+        id: ctx.user.id,
+        name: ctx.user.name,
+      });
+    }),
+
   listIncidents: authedAdminProcedure
     .input(
       z.object({

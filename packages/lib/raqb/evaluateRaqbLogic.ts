@@ -2,7 +2,7 @@
 
 import { safeStringify } from "@calcom/lib/safeStringify";
 import type { RulesLogic } from "json-logic-js";
-import { type JsonTree, Utils as QbUtils } from "react-awesome-query-builder";
+import { type Config, type JsonTree, Utils as QbUtils } from "react-awesome-query-builder";
 import jsonLogic from "./jsonLogic";
 
 export enum RaqbLogicResult {
@@ -19,7 +19,7 @@ export const evaluateRaqbLogic = (
     beStrictWithEmptyLogic = false,
   }: {
     queryValue: JsonTree;
-    queryBuilderConfig: Record<string, unknown>;
+    queryBuilderConfig: Config;
     data: Record<string, unknown>;
     beStrictWithEmptyLogic?: boolean;
   },
