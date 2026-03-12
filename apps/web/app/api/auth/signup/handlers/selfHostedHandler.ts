@@ -204,11 +204,17 @@ export default async function handler(body: Record<string, string>) {
       await prefillAvatar({ email: userEmail });
     }
 
-    await sendEmailVerification({
-      email: userEmail,
-      username: correctedUsername,
-      language,
-    });
+    try {
+      await sendEmailVerification({
+        email: userEmail,
+        username: correctedUsername,
+        language,
+      });
+    } catch (e) {
+      // Log but don't fail signup if email verification fails
+      // (e.g. SMTP not configured, feature flag DB issues, rate limiting)
+      console.error("Failed to send email verification during signup", e);
+    }
   }
 
   return NextResponse.json({ message: "Created user" }, { status: 201 });
