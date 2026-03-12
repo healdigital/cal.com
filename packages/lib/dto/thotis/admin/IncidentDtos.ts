@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { thotisAdminPageSizeSchema, thotisPublicPageSchema } from "../ThotisValidationSchemas";
 
 // ============================================================================
 // Incident Enums
@@ -43,8 +44,8 @@ export const IncidentDtoSchema = z.object({
 });
 
 export const ListIncidentsInputDtoSchema = z.object({
-  page: z.number().int().positive().optional(),
-  pageSize: z.number().int().positive().optional(),
+  page: thotisPublicPageSchema.optional(),
+  pageSize: thotisAdminPageSizeSchema.optional(),
   studentProfileId: z.string().optional(),
   type: MentorIncidentTypeDtoSchema.optional(),
   resolved: z.boolean().optional(),
@@ -53,8 +54,8 @@ export const ListIncidentsInputDtoSchema = z.object({
 export const PaginatedIncidentsDtoSchema = z.object({
   incidents: z.array(IncidentDtoSchema),
   total: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
+  page: thotisPublicPageSchema,
+  pageSize: thotisAdminPageSizeSchema,
 });
 
 // ============================================================================

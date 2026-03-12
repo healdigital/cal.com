@@ -1,5 +1,6 @@
 import process from "node:process";
 import { getLocaleFromRequest } from "@calcom/features/auth/lib/getLocaleFromRequest";
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { cookies, headers } from "next/headers";
 import type { NextRequest } from "next/server";
@@ -10,13 +11,12 @@ import { withCors } from "../../_lib/cors";
 import { emailService, guestService } from "../../_lib/services";
 import { parseBody } from "../../_lib/validate";
 
-const MagicLinkSchema: z.ZodObject<{
-  email: z.ZodString;
-  locale: z.ZodOptional<z.ZodString>;
-}> = z.object({
-  email: z.string().email(),
-  locale: z.string().optional(),
-});
+const MagicLinkSchema = z
+  .object({
+    email: thotisEmailSchema,
+    locale: z.string().optional(),
+  })
+  .strict();
 
 const WP_BASE_URL: string = process.env.THOTIS_WP_ORIGIN || "https://thotismedia.com";
 type RouteHandler = (request: NextRequest, context?: unknown) => Promise<NextResponse>;

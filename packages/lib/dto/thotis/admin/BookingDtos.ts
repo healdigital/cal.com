@@ -1,13 +1,19 @@
 import { z } from "zod";
 import { BookingStatusDtoSchema, MentorUserDtoSchema } from "../ThotisApiSchemas";
+import {
+  thotisAdminPageSizeSchema,
+  thotisEmailSchema,
+  thotisJsonObjectSchema,
+  thotisPublicPageSchema,
+} from "../ThotisValidationSchemas";
 
 // ============================================================================
 // Booking List DTOs
 // ============================================================================
 
 export const ListBookingsInputDtoSchema = z.object({
-  page: z.number().int().positive().optional(),
-  pageSize: z.number().int().positive().optional(),
+  page: thotisPublicPageSchema.optional(),
+  pageSize: thotisAdminPageSizeSchema.optional(),
   mentorUserId: z.number().int().positive().optional(),
   status: BookingStatusDtoSchema.optional(),
   dateFrom: z.date().optional(),
@@ -24,20 +30,20 @@ export const AdminBookingListItemDtoSchema = z.object({
   user: MentorUserDtoSchema.nullable(),
   attendees: z.array(
     z.object({
-      email: z.string().email(),
+      email: thotisEmailSchema,
       name: z.string(),
     })
   ),
-  metadata: z.record(z.string(), z.unknown()).nullable(),
-  responses: z.record(z.string(), z.unknown()).nullable(),
+  metadata: thotisJsonObjectSchema.nullable(),
+  responses: thotisJsonObjectSchema.nullable(),
   cancellationReason: z.string().nullable(),
 });
 
 export const PaginatedAdminBookingsDtoSchema = z.object({
   bookings: z.array(AdminBookingListItemDtoSchema),
   total: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
+  page: thotisPublicPageSchema,
+  pageSize: thotisAdminPageSizeSchema,
 });
 
 // ============================================================================
@@ -50,7 +56,7 @@ export const GetBookingDetailsInputDtoSchema = z.object({
 
 export const BookingAttendeeDtoSchema = z.object({
   id: z.number().int().positive(),
-  email: z.string().email(),
+  email: thotisEmailSchema,
   name: z.string(),
   timeZone: z.string(),
   locale: z.string().nullable(),
@@ -74,8 +80,8 @@ export const BookingDetailsDtoSchema = z.object({
   user: MentorUserDtoSchema.nullable(),
   attendees: z.array(BookingAttendeeDtoSchema),
   eventType: BookingEventTypeDtoSchema.nullable(),
-  metadata: z.record(z.string(), z.unknown()).nullable(),
-  responses: z.record(z.string(), z.unknown()).nullable(),
+  metadata: thotisJsonObjectSchema.nullable(),
+  responses: thotisJsonObjectSchema.nullable(),
   cancellationReason: z.string().nullable(),
   rescheduledFromUid: z.string().nullable(),
   createdAt: z.string().datetime(),

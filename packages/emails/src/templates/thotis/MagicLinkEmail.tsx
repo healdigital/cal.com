@@ -10,13 +10,17 @@ export const MagicLinkEmail = (props: {
   recipientName?: string;
   subtitle: string;
   title: string;
+  unsubscribeLabel?: string;
+  unsubscribeLink?: string;
 }): ReactElement => {
   return (
     <ThotisBaseEmail
       subject={props.title}
       title={props.title}
       subtitle={props.subtitle}
-      headerType="checkCircle">
+      headerType="checkCircle"
+      unsubscribeLabel={props.unsubscribeLabel}
+      unsubscribeLink={props.unsubscribeLink}>
       <div style={{ textAlign: "center", margin: "30px 0" }}>
         <a
           href={props.magicLink}

@@ -77,6 +77,8 @@ export const ThotisBaseScheduledEmail = (
       headerType={props.headerType || "checkCircle"}
       subject={props.subject || subject}
       title={title}
+      unsubscribeLabel={props.unsubscribeLink ? t("unsubscribe") : undefined}
+      unsubscribeLink={props.unsubscribeLink}
       callToAction={
         props.callToAction === null
           ? null

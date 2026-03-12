@@ -23,6 +23,8 @@ export const ThotisBaseEmail = (props: {
   subtitle?: React.ReactNode | string;
   headerType?: BodyHeadType;
   hideLogo?: boolean;
+  unsubscribeLabel?: string;
+  unsubscribeLink?: string;
 }) => {
   // Thotis Colors
   const THOTIS_BLUE = "#004E89";
@@ -208,6 +210,18 @@ export const ThotisBaseEmail = (props: {
               color: "#6B7280",
               fontSize: "12px",
             }}>
+            {props.unsubscribeLink && props.unsubscribeLabel && (
+              <p style={{ marginBottom: "8px" }}>
+                <a
+                  href={props.unsubscribeLink}
+                  style={{
+                    color: THOTIS_BLUE,
+                    textDecoration: "underline",
+                  }}>
+                  {props.unsubscribeLabel}
+                </a>
+              </p>
+            )}
             <p>&copy; {new Date().getFullYear()} Thotis. All rights reserved.</p>
           </div>
           <RawHtml html="<!--[if mso | IE]></td></tr></table><![endif]-->" />

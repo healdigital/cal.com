@@ -1,3 +1,7 @@
+import {
+  clampThotisPageSize,
+  THOTIS_ADMIN_PAGE_SIZE_MAX,
+} from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import prisma from "@calcom/prisma";
 import type { Prisma, PrismaClient } from "@calcom/prisma/client";
 import { type AcademicField, MentorStatus } from "@calcom/prisma/enums";
@@ -233,7 +237,7 @@ export class ProfileRepository {
     sort?: "rating" | "popularity" | "newest";
   }) {
     const page = query.page || 1;
-    const pageSize = query.pageSize || 20;
+    const pageSize = clampThotisPageSize(query.pageSize, { fallback: 20 });
     const skip = (page - 1) * pageSize;
 
     // Build where clause
@@ -315,7 +319,10 @@ export class ProfileRepository {
     search?: string;
   }) {
     const page = filters.page || 1;
-    const pageSize = filters.pageSize || 10;
+    const pageSize = clampThotisPageSize(filters.pageSize, {
+      fallback: 10,
+      max: THOTIS_ADMIN_PAGE_SIZE_MAX,
+    });
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.StudentProfileWhereInput = {};

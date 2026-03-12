@@ -1,3 +1,8 @@
+import {
+  thotisEmailSchema,
+  thotisPublicPageSchema,
+  thotisPublicPageSizeSchema,
+} from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import authedProcedure from "../../procedures/authedProcedure";
@@ -8,17 +13,21 @@ import { bookingService, sessionOperationsService } from "./_shared";
 export const bookingRouter = router({
   createSession: publicProcedure
     .input(
-      z.object({
-        studentProfileId: z.string(),
-        dateTime: z.date(),
-        locale: z.string().optional(),
-        timeZone: z.string().optional(),
-        prospectiveStudent: z.object({
-          name: z.string(),
-          email: z.string().email(),
-          question: z.string().optional(),
-        }),
-      })
+      z
+        .object({
+          studentProfileId: z.string(),
+          dateTime: z.date(),
+          locale: z.string().optional(),
+          timeZone: z.string().optional(),
+          prospectiveStudent: z
+            .object({
+              name: z.string(),
+              email: thotisEmailSchema,
+              question: z.string().optional(),
+            })
+            .strict(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       return await bookingService.createStudentSession(input);
@@ -26,11 +35,13 @@ export const bookingRouter = router({
 
   getAvailability: publicProcedure
     .input(
-      z.object({
-        studentProfileId: z.string(),
-        start: z.date(),
-        end: z.date(),
-      })
+      z
+        .object({
+          studentProfileId: z.string(),
+          start: z.date(),
+          end: z.date(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await bookingService.getStudentAvailability(input.studentProfileId, {
@@ -41,11 +52,13 @@ export const bookingRouter = router({
 
   cancelSession: authedProcedure
     .input(
-      z.object({
-        bookingId: z.number(),
-        reason: z.string(),
-        cancelledBy: z.enum(["mentor", "student"]),
-      })
+      z
+        .object({
+          bookingId: z.number(),
+          reason: z.string(),
+          cancelledBy: z.enum(["mentor", "student"]),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       const requester = { id: ctx.user.id, email: ctx.user.email };
@@ -54,10 +67,12 @@ export const bookingRouter = router({
 
   rescheduleSession: authedProcedure
     .input(
-      z.object({
-        bookingId: z.number(),
-        newDateTime: z.date(),
-      })
+      z
+        .object({
+          bookingId: z.number(),
+          newDateTime: z.date(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       const requester = { id: ctx.user.id, email: ctx.user.email };
@@ -65,7 +80,7 @@ export const bookingRouter = router({
     }),
 
   markComplete: authedProcedure
-    .input(z.object({ bookingId: z.number() }))
+    .input(z.object({ bookingId: z.number() }).strict())
     .mutation(async ({ ctx, input }) => {
       return await bookingService.markSessionComplete(input.bookingId, {
         id: ctx.user.id,
@@ -75,18 +90,22 @@ export const bookingRouter = router({
 
   submitPostSessionData: authedProcedure
     .input(
-      z.object({
-        bookingId: z.number(),
-        content: z.string(),
-        nextSteps: z.string().optional(),
-        resources: z.array(
-          z.object({
-            type: z.string(),
-            title: z.string(),
-            url: z.string(),
-          })
-        ),
-      })
+      z
+        .object({
+          bookingId: z.number(),
+          content: z.string(),
+          nextSteps: z.string().optional(),
+          resources: z.array(
+            z
+              .object({
+                type: z.string(),
+                title: z.string(),
+                url: z.string(),
+              })
+              .strict()
+          ),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await sessionOperationsService.savePostSessionData({
@@ -99,7 +118,7 @@ export const bookingRouter = router({
     }),
 
   getPostSessionData: authedProcedure
-    .input(z.object({ bookingId: z.number() }))
+    .input(z.object({ bookingId: z.number() }).strict())
     .query(async ({ ctx, input }) => {
       return await sessionOperationsService.getPostSessionData({
         bookingId: input.bookingId,
@@ -110,11 +129,13 @@ export const bookingRouter = router({
 
   mentorSessions: authedProcedure
     .input(
-      z.object({
-        status: z.enum(["upcoming", "past", "cancelled"]).optional(),
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-      })
+      z
+        .object({
+          status: z.enum(["upcoming", "past", "cancelled"]).optional(),
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisPublicPageSizeSchema.optional(),
+        })
+        .strict()
     )
     .query(async ({ ctx, input }) => {
       return await sessionOperationsService.listMentorSessions({
@@ -127,10 +148,12 @@ export const bookingRouter = router({
 
   studentSessions: publicProcedure
     .input(
-      z.object({
-        status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
-        token: z.string().optional(),
-      })
+      z
+        .object({
+          status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
+          token: z.string().optional(),
+        })
+        .strict()
     )
     .query(async ({ ctx, input }) => {
       // Require either authentication or a guest token - reject fully anonymous requests early

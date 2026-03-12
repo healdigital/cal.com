@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { thotisEmailSchema } from "../ThotisValidationSchemas";
 
 // ============================================================================
 // Platform Statistics DTOs
@@ -63,7 +64,7 @@ export const PlatformStatsDtoSchema = z.object({
 export const MentorExportDataDtoSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
-  email: z.string().email(),
+  email: thotisEmailSchema,
   university: z.string().nullable(),
   field: z.string().nullable(),
   degree: z.string().nullable(),

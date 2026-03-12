@@ -1,3 +1,4 @@
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -5,10 +6,12 @@ import { ApiError, withCors } from "../_lib/cors";
 import { bookingService } from "../_lib/services";
 import { parseQuery } from "../_lib/validate";
 
-const SessionsSchema = z.object({
-  email: z.string().email().optional(),
-  status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
-});
+const SessionsSchema = z
+  .object({
+    email: thotisEmailSchema.optional(),
+    status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
+  })
+  .strict();
 
 async function handler(request: NextRequest) {
   const params = parseQuery(request, SessionsSchema);

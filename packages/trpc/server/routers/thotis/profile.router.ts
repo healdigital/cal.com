@@ -1,3 +1,7 @@
+import {
+  thotisPublicPageSchema,
+  thotisPublicPageSizeSchema,
+} from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { AcademicField } from "@calcom/prisma/enums";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -9,15 +13,17 @@ import { prisma, profileService } from "./_shared";
 export const profileRouter = router({
   create: authedProcedure
     .input(
-      z.object({
-        fieldOfStudy: z.nativeEnum(AcademicField),
-        yearOfStudy: z.number(),
-        bio: z.string(),
-        university: z.string(),
-        degree: z.string(),
-        profilePhotoUrl: z.string().optional(),
-        expertise: z.array(z.string()).optional(),
-      })
+      z
+        .object({
+          fieldOfStudy: z.nativeEnum(AcademicField),
+          yearOfStudy: z.number(),
+          bio: z.string(),
+          university: z.string(),
+          degree: z.string(),
+          profilePhotoUrl: z.string().optional(),
+          expertise: z.array(z.string()).optional(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       const existing = await profileService.getProfile(ctx.user.id);
@@ -33,16 +39,18 @@ export const profileRouter = router({
 
   update: authedProcedure
     .input(
-      z.object({
-        fieldOfStudy: z.nativeEnum(AcademicField).optional(),
-        yearOfStudy: z.number().optional(),
-        bio: z.string().optional(),
-        university: z.string().optional(),
-        degree: z.string().optional(),
-        profilePhotoUrl: z.string().optional(),
-        expertise: z.array(z.string()).optional(),
-        isActive: z.boolean().optional(),
-      })
+      z
+        .object({
+          fieldOfStudy: z.nativeEnum(AcademicField).optional(),
+          yearOfStudy: z.number().optional(),
+          bio: z.string().optional(),
+          university: z.string().optional(),
+          degree: z.string().optional(),
+          profilePhotoUrl: z.string().optional(),
+          expertise: z.array(z.string()).optional(),
+          isActive: z.boolean().optional(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await profileService.updateProfile(ctx.user.id, input);
@@ -54,17 +62,19 @@ export const profileRouter = router({
 
   search: publicProcedure
     .input(
-      z.object({
-        query: z.string().optional(),
-        fieldOfStudy: z.nativeEnum(AcademicField).optional(),
-        university: z.string().optional(),
-        minRating: z.number().optional(),
-        isActive: z.boolean().optional(),
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-        expertise: z.array(z.string()).optional(),
-        sort: z.enum(["rating", "popularity", "newest"]).optional(),
-      })
+      z
+        .object({
+          query: z.string().optional(),
+          fieldOfStudy: z.nativeEnum(AcademicField).optional(),
+          university: z.string().optional(),
+          minRating: z.number().optional(),
+          isActive: z.boolean().optional(),
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisPublicPageSizeSchema.optional(),
+          expertise: z.array(z.string()).optional(),
+          sort: z.enum(["rating", "popularity", "newest"]).optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await profileService.searchProfiles(input);
@@ -82,16 +92,20 @@ export const profileRouter = router({
     return await profileService.getRecommendedProfiles(studentProfile?.field);
   }),
 
-  getByUsername: publicProcedure.input(z.object({ username: z.string() })).query(async ({ input }) => {
-    return await profileService.getProfileByUsername(input.username);
-  }),
+  getByUsername: publicProcedure
+    .input(z.object({ username: z.string() }).strict())
+    .query(async ({ input }) => {
+      return await profileService.getProfileByUsername(input.username);
+    }),
 
   updatePreferences: authedProcedure
     .input(
-      z.object({
-        marketingConsent: z.boolean().optional(),
-        timezone: z.string().optional(),
-      })
+      z
+        .object({
+          marketingConsent: z.boolean().optional(),
+          timezone: z.string().optional(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       const profile = await prisma.studentProfile.findUnique({

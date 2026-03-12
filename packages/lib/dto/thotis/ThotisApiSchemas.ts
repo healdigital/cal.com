@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  thotisEmailSchema,
+  thotisJsonObjectSchema,
+  thotisPublicPageSchema,
+  thotisPublicPageSizeSchema,
+} from "./ThotisValidationSchemas";
 
 export const AcademicFieldDtoSchema = z.enum([
   "DROIT",
@@ -33,7 +39,7 @@ export const MentorUserDtoSchema = z.object({
   name: z.string().nullable(),
   username: z.string().nullable(),
   avatarUrl: z.string().nullable().optional(),
-  email: z.string().email().optional(),
+  email: thotisEmailSchema.optional(),
   profile: UserOrganizationProfileDtoSchema.nullable().optional(),
   profiles: z.array(UserOrganizationProfileDtoSchema).optional(),
 });
@@ -68,8 +74,8 @@ export const MentorProfileDtoSchema = z.object({
 export const PaginatedMentorProfilesDtoSchema = z.object({
   profiles: z.array(MentorProfileDtoSchema),
   total: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
+  page: thotisPublicPageSchema,
+  pageSize: thotisPublicPageSizeSchema,
 });
 
 export const BookingResultDtoSchema = z.object({
@@ -93,8 +99,8 @@ export const SessionDtoSchema = z.object({
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   status: BookingStatusDtoSchema,
-  metadata: z.record(z.string(), z.unknown()).nullable(),
-  responses: z.record(z.string(), z.unknown()).nullable(),
+  metadata: thotisJsonObjectSchema.nullable(),
+  responses: thotisJsonObjectSchema.nullable(),
   user: MentorUserDtoSchema.nullable().optional(),
   cancellationReason: z.string().nullable().optional(),
   thotisSessionSummary: SessionSummaryPreviewDtoSchema.nullable().optional(),
@@ -103,8 +109,8 @@ export const SessionDtoSchema = z.object({
 export const PaginatedSessionsDtoSchema = z.object({
   bookings: z.array(SessionDtoSchema),
   total: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
+  page: thotisPublicPageSchema,
+  pageSize: thotisPublicPageSizeSchema,
 });
 
 export const SessionRatingDtoSchema = z.object({
@@ -138,7 +144,7 @@ export const PostSessionDataDtoSchema = z.object({
 export const ThotisBookingMetadataSchema = z
   .object({
     studentProfileId: z.string().optional(),
-    prospectiveStudentEmail: z.string().optional(),
+    prospectiveStudentEmail: thotisEmailSchema.optional(),
     completedAt: z.string().optional(),
     googleMeetLink: z.string().optional(),
     isFallbackLink: z.boolean().optional(),

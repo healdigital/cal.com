@@ -4,16 +4,19 @@ import AttendeeScheduledEmail from "../attendee-scheduled-email";
 
 export default class BookingConfirmationEmail extends AttendeeScheduledEmail {
   dashboardLink?: string;
+  unsubscribeLink?: string;
 
   constructor(
     calEvent: CalendarEvent,
     attendee: Person,
     showAttendees?: boolean | undefined,
-    dashboardLink?: string
+    dashboardLink?: string,
+    unsubscribeLink?: string
   ) {
     super(calEvent, attendee, showAttendees);
     this.name = "SEND_BOOKING_CONFIRMATION";
     this.dashboardLink = dashboardLink;
+    this.unsubscribeLink = unsubscribeLink;
   }
 
   public async getHtml(calEvent: CalendarEvent, attendee: Person) {
@@ -21,6 +24,7 @@ export default class BookingConfirmationEmail extends AttendeeScheduledEmail {
       calEvent,
       attendee,
       dashboardLink: this.dashboardLink,
+      unsubscribeLink: this.unsubscribeLink,
     });
   }
 }

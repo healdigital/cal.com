@@ -12,6 +12,7 @@ import sharp from "sharp";
 import { RedisService } from "../../redis/RedisService";
 import { ProfileRepository, type StudentProfileWithUser } from "../repositories/ProfileRepository";
 import { AnalyticsService } from "./AnalyticsService";
+import { MentorMatchingService, type ThotisOrientationIntent } from "./MentorMatchingService";
 
 export interface CreateProfileInput {
   userId: number;
@@ -68,6 +69,7 @@ export class ProfileService {
   private repository: ProfileRepository;
   private redis?: RedisService;
   private analytics: AnalyticsService;
+  private readonly matchingService: MentorMatchingService;
   private readonly PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly LIST_CACHE_TTL = 1 * 60 * 1000; // 1 minute
   private readonly PROFILE_PHOTO_SIZE = 400; // 400x400 pixels
@@ -75,9 +77,15 @@ export class ProfileService {
   private readonly MIN_YEAR_OF_STUDY = 1;
   private readonly MAX_YEAR_OF_STUDY = 10;
 
-  constructor(repository?: ProfileRepository, redis?: RedisService, analytics?: AnalyticsService) {
+  constructor(
+    repository?: ProfileRepository,
+    redis?: RedisService,
+    analytics?: AnalyticsService,
+    matchingService?: MentorMatchingService
+  ) {
     this.repository = repository || new ProfileRepository();
     this.analytics = analytics || new AnalyticsService();
+    this.matchingService = matchingService || new MentorMatchingService();
     this.redis = redis;
 
     // Try to initialize Redis if not provided and env vars exist
@@ -396,13 +404,12 @@ export class ProfileService {
   /**
    * Get recommended profiles based on student intent
    */
-  async getRecommendedProfilesByIntent(intent: import("./MentorMatchingService").ThotisOrientationIntent) {
+  async getRecommendedProfilesByIntent(intent: ThotisOrientationIntent) {
     // 1. Fetch candidates (filtering by field match + high performers)
     const candidates = await this.repository.getRecommendedProfilesByIntent(intent);
 
     // 2. Score and sort using MentorMatchingService
-    const matchingService = new (await import("./MentorMatchingService")).MentorMatchingService();
-    const scored = matchingService.sortMentors(candidates as StudentProfileWithUser[], intent);
+    const scored = this.matchingService.sortMentors(candidates as StudentProfileWithUser[], intent);
 
     // 3. Return top results (e.g., top 5)
     return scored.slice(0, 5).map((profile) => {

@@ -6,9 +6,16 @@ export const FeedbackRequestEmail = (
     calEvent: CalendarEvent;
     attendee: Person;
     feedbackLink: string;
+    unsubscribeLink?: string;
   } & Partial<React.ComponentProps<typeof ThotisBaseEmail>>
 ) => {
   const { translate: t } = props.attendee.language;
+  let unsubscribeLabel: string | undefined;
+
+  if (props.unsubscribeLink) {
+    unsubscribeLabel = t("unsubscribe");
+  }
+
   return (
     <ThotisBaseEmail
       hideLogo={Boolean(props.calEvent.platformClientId)}
@@ -17,7 +24,9 @@ export const FeedbackRequestEmail = (
         name: props.calEvent.organizer.name,
       })}
       title={t("thotis_feedback_request_title", "Your session recap is available")}
-      subtitle={t("thotis_feedback_request_subtitle", "Was this session useful to you?")}>
+      subtitle={t("thotis_feedback_request_subtitle", "Was this session useful to you?")}
+      unsubscribeLabel={unsubscribeLabel}
+      unsubscribeLink={props.unsubscribeLink}>
       <div style={{ marginBottom: "20px" }}>
         <p>{t("thotis_feedback_request_body", { name: props.attendee.name })}</p>
       </div>

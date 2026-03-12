@@ -1,3 +1,7 @@
+import {
+  clampThotisPageSize,
+  THOTIS_ADMIN_PAGE_SIZE_MAX,
+} from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { withReporting } from "@calcom/lib/sentryWrapper";
 import type {
   BookingUpdateData,
@@ -1523,7 +1527,10 @@ export class BookingRepository implements IBookingRepository {
     dateTo?: Date;
   }) {
     const page = filters.page || 1;
-    const pageSize = filters.pageSize || 20;
+    const pageSize = clampThotisPageSize(filters.pageSize, {
+      fallback: 20,
+      max: THOTIS_ADMIN_PAGE_SIZE_MAX,
+    });
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.BookingWhereInput = {

@@ -5,6 +5,7 @@ import {
   toPostSessionDataDto,
   toSuccessResponseDto,
 } from "@calcom/lib/dto/thotis/ThotisDtoMappers";
+import { clampThotisPageSize } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import { sanitizeUserInput } from "@calcom/lib/sanitizeUserInput";
@@ -364,7 +365,7 @@ export class ThotisSessionOperationsService {
     pageSize?: number;
   }) {
     const page = input.page ?? 1;
-    const pageSize = input.pageSize ?? 20;
+    const pageSize = clampThotisPageSize(input.pageSize, { fallback: 20 });
     const skip = (page - 1) * pageSize;
     const now = new Date();
 

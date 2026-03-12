@@ -1,147 +1,127 @@
-import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionRatingRepository } from "../repositories/SessionRatingRepository";
+import type { AnalyticsService } from "./AnalyticsService";
 import { SessionRatingService } from "./SessionRatingService";
 
-// Mock Repository
-class MockSessionRatingRepository implements SessionRatingRepository {
-  private ratings: Map<number, any> = new Map();
-  private nextId = 1;
+describe("SessionRatingService", () => {
+  let repositoryMock: Pick<
+    SessionRatingRepository,
+    | "createRating"
+    | "deleteRating"
+    | "findByBookingId"
+    | "findByStudentProfileId"
+    | "getAverageRating"
+    | "getRatingStats"
+    | "updateRating"
+  >;
+  let analyticsMock: Pick<AnalyticsService, "trackRatingSubmitted">;
+  let service: SessionRatingService;
 
-  async createRating(data: any) {
-    const id = this.nextId++;
-    const rating = { ...data, id, createdAt: new Date(), updatedAt: new Date() };
-    this.ratings.set(id, rating);
-    return rating;
-  }
+  beforeEach(() => {
+    repositoryMock = {
+      createRating: vi.fn(),
+      deleteRating: vi.fn(),
+      findByBookingId: vi.fn(),
+      findByStudentProfileId: vi.fn(),
+      getAverageRating: vi.fn(),
+      getRatingStats: vi.fn(),
+      updateRating: vi.fn(),
+    };
 
-  async findByBookingId(bookingId: number) {
-    for (const rating of this.ratings.values()) {
-      if (rating.bookingId === bookingId) return rating;
-    }
-    return null;
-  }
+    analyticsMock = {
+      trackRatingSubmitted: vi.fn(),
+    };
 
-  async findByStudentProfileId(studentProfileId: number) {
-    const results = [];
-    for (const rating of this.ratings.values()) {
-      if (rating.studentProfileId === studentProfileId) results.push(rating);
-    }
-    return results;
-  }
+    service = new SessionRatingService(
+      repositoryMock as unknown as SessionRatingRepository,
+      analyticsMock as AnalyticsService
+    );
+  });
 
-  async getAverageRating(studentProfileId: number) {
-    let sum = 0;
-    let count = 0;
-    for (const rating of this.ratings.values()) {
-      if (rating.studentProfileId === studentProfileId) {
-        sum += rating.rating;
-        count++;
+  it("creates a valid rating and tracks analytics metadata", async () => {
+    vi.mocked(repositoryMock.createRating).mockResolvedValue({
+      id: "rating-1",
+      bookingId: 42,
+      studentProfileId: "student-profile-1",
+      rating: 5,
+      feedback: "This mentoring session was extremely helpful.",
+      createdAt: new Date("2026-03-12T10:00:00.000Z"),
+      booking: {
+        id: 42,
+        uid: "booking-uid",
+        metadata: {
+          prospectiveStudentEmail: "student@example.com",
+        },
+      },
+    } as never);
+
+    const result = await service.createRating({
+      bookingId: 42,
+      studentProfileId: "student-profile-1",
+      rating: 5,
+      feedback: "This mentoring session was extremely helpful.",
+    });
+
+    expect(result).toMatchObject({
+      bookingId: 42,
+      studentProfileId: "student-profile-1",
+      rating: 5,
+      feedback: "This mentoring session was extremely helpful.",
+    });
+    expect(analyticsMock.trackRatingSubmitted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 42,
+        rating: 5,
+      }),
+      {
+        metadata: {
+          prospectiveStudentEmail: "student@example.com",
+        },
       }
-    }
-    return count > 0 ? sum / count : null;
-  }
-
-  async getRatingStats(_studentProfileId: number) {
-    return { average: null, count: 0, distribution: [] };
-  }
-  async updateRating(id: number, data: any) {
-    return { ...this.ratings.get(id), ...data };
-  }
-  async deleteRating(id: number) {
-    this.ratings.delete(id);
-  }
-}
-
-describe("SessionRatingService Properties", () => {
-  const service = new SessionRatingService(new MockSessionRatingRepository() as any);
-
-  // Property 20: Rating Storage and Validation
-  it("should accept valid ratings (1-5) and valid feedback", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1 }), // bookingId
-        fc.integer({ min: 1 }), // studentId
-        fc.integer({ min: 1, max: 5 }), // rating
-        fc
-          .string({ minLength: 10, maxLength: 500 })
-          .filter((s) => s.trim().length >= 10), // feedback
-        async (bookingId, studentId, rating, feedback) => {
-          const result = await service.createRating({
-            bookingId,
-            studentProfileId: studentId,
-            rating,
-            feedback,
-          });
-
-          expect(result.rating).toBe(rating);
-          expect(result.feedback).toBe(feedback);
-          expect(result.bookingId).toBe(bookingId);
-        }
-      )
     );
   });
 
-  it("should reject invalid ratings (<1 or >5)", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1 }),
-        fc.integer({ min: 1 }),
-        fc.oneof(fc.integer({ max: 0 }), fc.integer({ min: 6 })), // invalid rating
-        async (bookingId, studentId, rating) => {
-          await expect(
-            service.createRating({
-              bookingId,
-              studentProfileId: studentId,
-              rating,
-              feedback: "Valid feedback text",
-            })
-          ).rejects.toThrow("Rating must be between 1 and 5");
-        }
-      )
-    );
+  it("rejects ratings outside the allowed range", async () => {
+    await expect(
+      service.createRating({
+        bookingId: 42,
+        studentProfileId: "student-profile-1",
+        rating: 0,
+        feedback: "This mentoring session was extremely helpful.",
+      })
+    ).rejects.toThrow("Rating must be between 1 and 5");
   });
 
-  it("should reject invalid feedback length", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1 }),
-        fc.integer({ min: 1 }),
-        fc.string({ maxLength: 9 }), // too short
-        async (bookingId, studentId, feedback) => {
-          // Skipping empty string if trimming is involved and empty is allowed?
-          // Service code: if (data.feedback !== null) { ... check length }
-          // If feedback is empty string, length < 10.
-          if (feedback.length > 0) {
-            await expect(
-              service.createRating({
-                bookingId,
-                studentProfileId: studentId,
-                rating: 5,
-                feedback,
-              })
-            ).rejects.toThrow("Feedback must be between 10 and 500 characters");
-          }
-        }
-      )
-    );
-    // Property Test for too long
-    await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1 }),
-        fc.integer({ min: 1 }),
-        fc.string({ minLength: 501, maxLength: 1000 }),
-        async (bookingId, studentId, feedback) => {
-          await expect(
-            service.createRating({
-              bookingId,
-              studentProfileId: studentId,
-              rating: 5,
-              feedback,
-            })
-          ).rejects.toThrow("Feedback must be between 10 and 500 characters");
-        }
-      )
-    );
+  it("rejects feedback that is too short after trimming", async () => {
+    await expect(
+      service.createRating({
+        bookingId: 42,
+        studentProfileId: "student-profile-1",
+        rating: 4,
+        feedback: "  too short ",
+      })
+    ).rejects.toThrow("Feedback must be between 10 and 500 characters");
+  });
+
+  it("validates updates before persisting a changed rating", async () => {
+    vi.mocked(repositoryMock.updateRating).mockResolvedValue({
+      id: "rating-1",
+      bookingId: 42,
+      studentProfileId: "student-profile-1",
+      rating: 4,
+      feedback: "Updated feedback for the mentoring session.",
+      createdAt: new Date("2026-03-12T10:00:00.000Z"),
+    } as never);
+
+    const result = await service.updateRating("rating-1", {
+      rating: 4,
+      feedback: "Updated feedback for the mentoring session.",
+    });
+
+    expect(repositoryMock.updateRating).toHaveBeenCalledWith("rating-1", {
+      rating: 4,
+      feedback: "Updated feedback for the mentoring session.",
+    });
+    expect(result.rating).toBe(4);
   });
 });

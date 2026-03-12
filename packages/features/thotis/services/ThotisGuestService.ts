@@ -23,11 +23,28 @@ export class ThotisGuestService {
     this.prismaClient = deps?.prismaClient || prisma;
   }
 
+  private normalizeEmail(email: string) {
+    return email.toLowerCase().trim();
+  }
+
+  private async invalidateGuestTokens(guestId: string) {
+    await this.prismaClient.thotisMagicLinkToken.updateMany({
+      where: {
+        guestId,
+        invalidated: false,
+      },
+      data: {
+        invalidated: true,
+        usedAt: new Date(),
+      },
+    });
+  }
+
   /**
    * Handles rate limiting and token generation.
    */
   async requestInboxLink(email: string, bookingId?: number, ttlMinutes: number = this.TOKEN_TTL_MINUTES) {
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = this.normalizeEmail(email);
 
     // 1. Find or create guest identity
     let guest = await this.prismaClient.thotisGuestIdentity.findUnique({
@@ -44,6 +61,7 @@ export class ThotisGuestService {
     }
 
     if (guest.blocked) {
+      await this.invalidateGuestTokens(guest.id);
       throw new ErrorWithCode(ErrorCode.Forbidden, "Access denied");
     }
 
@@ -139,6 +157,11 @@ export class ThotisGuestService {
       throw new ErrorWithCode(ErrorCode.Unauthorized, "Token expired or used");
     }
 
+    if (magicLink.guest.blocked) {
+      await this.invalidateGuestTokens(magicLink.guestId);
+      throw new ErrorWithCode(ErrorCode.Forbidden, "Access denied");
+    }
+
     // Enforce booking scope if the token was restricted to a specific booking
     if (magicLink.bookingId && bookingId && magicLink.bookingId !== bookingId) {
       throw new ErrorWithCode(ErrorCode.Forbidden, "This link is restricted to another session");
@@ -158,6 +181,28 @@ export class ThotisGuestService {
       where: { id: tokenId },
       data: { invalidated: true, usedAt: new Date() },
     });
+  }
+
+  async isEmailBlocked(email: string) {
+    const guest = await this.prismaClient.thotisGuestIdentity.findUnique({
+      where: { normalizedEmail: this.normalizeEmail(email) },
+      select: {
+        blocked: true,
+      },
+    });
+
+    return guest?.blocked ?? false;
+  }
+
+  async unsubscribeGuest(guestId: string) {
+    await this.prismaClient.thotisGuestIdentity.update({
+      where: { id: guestId },
+      data: {
+        blocked: true,
+      },
+    });
+
+    await this.invalidateGuestTokens(guestId);
   }
 
   async logAccess(

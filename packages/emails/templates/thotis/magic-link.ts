@@ -9,6 +9,8 @@ interface MagicLinkEmailContent {
   subject: string;
   subtitle: string;
   title: string;
+  unsubscribeLabel?: string;
+  unsubscribeLink?: string;
 }
 
 export default class MagicLinkEmail extends BaseEmail {
@@ -48,6 +50,8 @@ export default class MagicLinkEmail extends BaseEmail {
       recipientName: email, // Could be improved if we have name
       subtitle: content.subtitle,
       title: content.title,
+      unsubscribeLabel: content.unsubscribeLabel,
+      unsubscribeLink: content.unsubscribeLink,
     });
   }
 }

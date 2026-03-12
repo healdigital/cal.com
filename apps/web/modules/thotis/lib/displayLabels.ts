@@ -1,6 +1,7 @@
 import { formatWeekday } from "@calcom/lib/dateTimeFormatter";
 import type { MentorIncidentType, MentorStatus } from "@calcom/prisma/enums";
-import type { TFunction } from "i18next";
+
+type TranslateFn = (key: string) => string;
 
 const INCIDENT_TYPE_TRANSLATION_KEYS: Record<MentorIncidentType, string> = {
   NO_SHOW: "thotis_incident_type_no_show",
@@ -25,7 +26,7 @@ function formatEnumFallback(value: string): string {
     .join(" ");
 }
 
-export function getMentorIncidentTypeLabel(t: TFunction, type: string): string {
+export function getMentorIncidentTypeLabel(t: TranslateFn, type: string): string {
   const translationKey = INCIDENT_TYPE_TRANSLATION_KEYS[type as MentorIncidentType];
   if (translationKey) {
     return t(translationKey);
@@ -34,7 +35,7 @@ export function getMentorIncidentTypeLabel(t: TFunction, type: string): string {
   return formatEnumFallback(type);
 }
 
-export function getMentorStatusLabel(t: TFunction, status: string): string {
+export function getMentorStatusLabel(t: TranslateFn, status: string): string {
   const translationKey = MENTOR_STATUS_TRANSLATION_KEYS[status as MentorStatus];
   if (translationKey) {
     return t(translationKey);
