@@ -47,7 +47,7 @@ export function AdminBookingList() {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const pageSize = 20;
 
-  const STATUS_OPTIONS = [
+  const STATUS_OPTIONS: Array<{ label: string; value: BookingStatus | "" }> = [
     { label: t("thotis_admin_status_all"), value: "" },
     { label: t("thotis_admin_status_accepted"), value: "ACCEPTED" },
     { label: t("thotis_admin_status_pending"), value: "PENDING" },
@@ -75,7 +75,7 @@ export function AdminBookingList() {
             options={STATUS_OPTIONS}
             value={STATUS_OPTIONS.find((o) => o.value === status)}
             onChange={(opt) => {
-              setStatus(opt?.value || "");
+              setStatus(opt?.value ?? "");
               setPage(1);
             }}
           />

@@ -1,4 +1,5 @@
 import process from "node:process";
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { z } from "zod";
 import publicProcedure from "../../procedures/publicProcedure";
@@ -8,10 +9,12 @@ import { bookingService, emailService, guestService, sessionOperationsService } 
 export const guestRouter = router({
   requestInboxLink: publicProcedure
     .input(
-      z.object({
-        email: z.string().email(),
-        locale: z.string().optional(),
-      })
+      z
+        .object({
+          email: thotisEmailSchema,
+          locale: z.string().optional(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       const { token } = await guestService.requestInboxLink(input.email);
@@ -22,10 +25,12 @@ export const guestRouter = router({
 
   getSessionsByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
-      })
+      z
+        .object({
+          token: z.string(),
+          status: z.enum(["upcoming", "past", "cancelled", "all"]).optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await bookingService.studentSessions(input);
@@ -33,11 +38,13 @@ export const guestRouter = router({
 
   cancelByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-        reason: z.string(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+          reason: z.string(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
@@ -62,11 +69,13 @@ export const guestRouter = router({
 
   rescheduleByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-        newDateTime: z.date(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+          newDateTime: z.date(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
@@ -91,12 +100,14 @@ export const guestRouter = router({
 
   rateByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-        rating: z.number().min(1).max(5),
-        feedback: z.string().optional(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+          rating: z.number().min(1).max(5),
+          feedback: z.string().optional(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
@@ -117,10 +128,12 @@ export const guestRouter = router({
 
   getRatingByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
@@ -133,12 +146,14 @@ export const guestRouter = router({
 
   reportByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-        type: z.nativeEnum(MentorIncidentType),
-        description: z.string().optional(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+          type: z.nativeEnum(MentorIncidentType),
+          description: z.string().optional(),
+        })
+        .strict()
     )
     .mutation(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);
@@ -164,10 +179,12 @@ export const guestRouter = router({
 
   getPostSessionDataByToken: publicProcedure
     .input(
-      z.object({
-        token: z.string(),
-        bookingId: z.number(),
-      })
+      z
+        .object({
+          token: z.string(),
+          bookingId: z.number(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       const magicLink = await guestService.verifyToken(input.token, input.bookingId);

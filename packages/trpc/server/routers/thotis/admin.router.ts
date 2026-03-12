@@ -1,4 +1,9 @@
 import {
+  thotisAdminPageSizeSchema,
+  thotisEmailSchema,
+  thotisPublicPageSchema,
+} from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
+import {
   AcademicField,
   BookingStatus,
   MentorIncidentType,
@@ -53,13 +58,15 @@ const availabilitySlotSchema = z
 export const adminRouter = router({
   listAmbassadors: authedAdminProcedure
     .input(
-      z.object({
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-        fieldOfStudy: z.nativeEnum(AcademicField).optional(),
-        isActive: z.boolean().optional(),
-        search: z.string().optional(),
-      })
+      z
+        .object({
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisAdminPageSizeSchema.optional(),
+          fieldOfStudy: z.nativeEnum(AcademicField).optional(),
+          isActive: z.boolean().optional(),
+          search: z.string().optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await adminService.listAllAmbassadors(input);
@@ -67,17 +74,19 @@ export const adminRouter = router({
 
   createAmbassador: authedAdminProcedure
     .input(
-      z.object({
-        name: z.string(),
-        email: z.string().email(),
-        fieldOfStudy: z.nativeEnum(AcademicField),
-        university: z.string(),
-        degree: z.string(),
-        yearOfStudy: z.number(),
-        bio: z.string(),
-        expertise: z.array(z.string()).optional(),
-        schedule: scheduleConfigSchema.optional(),
-      })
+      z
+        .object({
+          name: z.string(),
+          email: thotisEmailSchema,
+          fieldOfStudy: z.nativeEnum(AcademicField),
+          university: z.string(),
+          degree: z.string(),
+          yearOfStudy: z.number(),
+          bio: z.string(),
+          expertise: z.array(z.string()).optional(),
+          schedule: scheduleConfigSchema.optional(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.provisionAmbassador(input, {
@@ -89,10 +98,12 @@ export const adminRouter = router({
 
   updateStatus: authedAdminProcedure
     .input(
-      z.object({
-        profileId: z.string(),
-        status: z.nativeEnum(MentorStatus),
-      })
+      z
+        .object({
+          profileId: z.string(),
+          status: z.nativeEnum(MentorStatus),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.setAmbassadorStatus(input.profileId, input.status, {
@@ -104,10 +115,12 @@ export const adminRouter = router({
 
   bulkUpdateStatus: authedAdminProcedure
     .input(
-      z.object({
-        profileIds: z.array(z.string()).min(1),
-        status: z.nativeEnum(MentorStatus),
-      })
+      z
+        .object({
+          profileIds: z.array(z.string()).min(1),
+          status: z.nativeEnum(MentorStatus),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.bulkSetAmbassadorStatus(input.profileIds, input.status, {
@@ -118,7 +131,7 @@ export const adminRouter = router({
     }),
 
   sendPasswordReset: authedAdminProcedure
-    .input(z.object({ userId: z.number() }))
+    .input(z.object({ userId: z.number() }).strict())
     .mutation(async ({ ctx, input }) => {
       return await adminService.sendInitialPasswordSetup(input.userId, {
         actor: {
@@ -131,9 +144,11 @@ export const adminRouter = router({
 
   bulkSendPasswordReset: authedAdminProcedure
     .input(
-      z.object({
-        userIds: z.array(z.number()).min(1),
-      })
+      z
+        .object({
+          userIds: z.array(z.number()).min(1),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.bulkSendPasswordReset(input.userIds, {
@@ -145,20 +160,22 @@ export const adminRouter = router({
 
   listIncidents: authedAdminProcedure
     .input(
-      z.object({
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-        studentProfileId: z.string().optional(),
-        type: z.nativeEnum(MentorIncidentType).optional(),
-        resolved: z.boolean().optional(),
-      })
+      z
+        .object({
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisAdminPageSizeSchema.optional(),
+          studentProfileId: z.string().optional(),
+          type: z.nativeEnum(MentorIncidentType).optional(),
+          resolved: z.boolean().optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await adminService.listIncidents(input);
     }),
 
   resolveIncident: authedAdminProcedure
-    .input(z.object({ incidentId: z.string() }))
+    .input(z.object({ incidentId: z.string() }).strict())
     .mutation(async ({ ctx, input }) => {
       return await adminService.resolveIncident(input.incidentId, {
         email: ctx.user.email,
@@ -169,12 +186,14 @@ export const adminRouter = router({
 
   takeModerationAction: authedAdminProcedure
     .input(
-      z.object({
-        studentProfileId: z.string(),
-        actionType: z.nativeEnum(MentorModerationActionType),
-        reason: z.string().optional(),
-        updateStatusTo: z.nativeEnum(MentorStatus).optional(),
-      })
+      z
+        .object({
+          studentProfileId: z.string(),
+          actionType: z.nativeEnum(MentorModerationActionType),
+          reason: z.string().optional(),
+          updateStatusTo: z.nativeEnum(MentorStatus).optional(),
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       return await adminService.takeModerationAction({
@@ -189,11 +208,13 @@ export const adminRouter = router({
 
   listAuditLogs: authedAdminProcedure
     .input(
-      z.object({
-        action: z.nativeEnum(ThotisAdminAuditAction).optional(),
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-      })
+      z
+        .object({
+          action: z.nativeEnum(ThotisAdminAuditAction).optional(),
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisAdminPageSizeSchema.optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await adminService.listAuditLogs(input);
@@ -201,21 +222,23 @@ export const adminRouter = router({
 
   listBookings: authedAdminProcedure
     .input(
-      z.object({
-        page: z.number().optional(),
-        pageSize: z.number().optional(),
-        mentorUserId: z.number().optional(),
-        status: z.nativeEnum(BookingStatus).optional(),
-        dateFrom: z.date().optional(),
-        dateTo: z.date().optional(),
-      })
+      z
+        .object({
+          page: thotisPublicPageSchema.optional(),
+          pageSize: thotisAdminPageSizeSchema.optional(),
+          mentorUserId: z.number().optional(),
+          status: z.nativeEnum(BookingStatus).optional(),
+          dateFrom: z.date().optional(),
+          dateTo: z.date().optional(),
+        })
+        .strict()
     )
     .query(async ({ input }) => {
       return await adminService.listBookings(input);
     }),
 
   getBookingDetails: authedAdminProcedure
-    .input(z.object({ bookingId: z.number() }))
+    .input(z.object({ bookingId: z.number() }).strict())
     .query(async ({ input }) => {
       return await adminService.getBookingDetails(input.bookingId);
     }),

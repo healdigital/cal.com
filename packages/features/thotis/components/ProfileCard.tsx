@@ -1,17 +1,14 @@
 "use client";
 
+import type { MentorProfileDto } from "@calcom/lib/dto/thotis/ThotisApiSchemas";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
 import { UserAvatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
 import { Icon } from "@calcom/ui/components/icon";
 import { useMemo } from "react";
-import type { StudentProfileWithUser as BaseStudentProfileWithUser } from "../repositories/ProfileRepository";
 
-export type StudentProfileWithUser = BaseStudentProfileWithUser & {
-  matchScore?: number;
-  matchReasons?: string[];
-};
+export type StudentProfileWithUser = MentorProfileDto;
 
 export type ProfileCardProps = {
   student: StudentProfileWithUser;
@@ -34,12 +31,8 @@ export const ProfileCard = ({
   // Format ratings to 1 decimal place if it has decimals
   const formattedRating = Number(rating).toFixed(1).replace(/\.0$/, "");
 
-  // Build the user object shape expected by UserAvatar.
-  // UserAvatar expects { name, username, avatarUrl, profile: Omit<UserProfile, "upId"> }
-  // while the repository returns { profiles: [{ organization }] }.
-  // We map profiles[0].organization to the profile.organization shape.
   const avatarUser = useMemo(() => {
-    const org = user.profiles?.[0]?.organization;
+    const org = user.profile?.organization ?? user.profiles?.[0]?.organization;
     const profile: { id: null; username: string; organizationId: null; organization: null } = {
       id: null,
       username: user.username ?? "",
@@ -49,7 +42,7 @@ export const ProfileCard = ({
     return {
       name: user.name,
       username: user.username,
-      avatarUrl: user.avatarUrl,
+      avatarUrl: user.avatarUrl ?? null,
       profile: org
         ? {
             id: 0,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AcademicFieldDtoSchema, MentorStatusDtoSchema, MentorUserDtoSchema } from "../ThotisApiSchemas";
+import { thotisAdminPageSizeSchema, thotisEmailSchema, thotisPublicPageSchema } from "../ThotisValidationSchemas";
 
 // ============================================================================
 // Schedule DTOs
@@ -36,7 +37,7 @@ export const MentorScheduleDtoSchema = z.object({
 
 export const ProvisionAmbassadorInputDtoSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: thotisEmailSchema,
   fieldOfStudy: AcademicFieldDtoSchema,
   university: z.string().min(1),
   degree: z.string().min(1),
@@ -50,7 +51,7 @@ export const ProvisionAmbassadorOutputDtoSchema = z.object({
   userId: z.number().int().positive(),
   profileId: z.string(),
   username: z.string(),
-  email: z.string().email(),
+  email: thotisEmailSchema,
   scheduleId: z.number().int().positive().optional(),
 });
 
@@ -59,8 +60,8 @@ export const ProvisionAmbassadorOutputDtoSchema = z.object({
 // ============================================================================
 
 export const ListAmbassadorsInputDtoSchema = z.object({
-  page: z.number().int().positive().optional(),
-  pageSize: z.number().int().positive().optional(),
+  page: thotisPublicPageSchema.optional(),
+  pageSize: thotisAdminPageSizeSchema.optional(),
   fieldOfStudy: AcademicFieldDtoSchema.optional(),
   isActive: z.boolean().optional(),
   search: z.string().optional(),
@@ -85,8 +86,8 @@ export const AmbassadorListItemDtoSchema = z.object({
 export const PaginatedAmbassadorsDtoSchema = z.object({
   profiles: z.array(AmbassadorListItemDtoSchema),
   total: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
+  page: thotisPublicPageSchema,
+  pageSize: thotisAdminPageSizeSchema,
 });
 
 // ============================================================================

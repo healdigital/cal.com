@@ -1,18 +1,20 @@
-import type { Prisma } from "@calcom/prisma/client";
+import { thotisScheduleConstraintsSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withCors } from "../_lib/cors";
-import { matchingService, profileService } from "../_lib/services";
+import { profileService } from "../_lib/services";
 import { parseBody } from "../_lib/validate";
 
-const IntentSchema = z.object({
-  targetFields: z.array(z.string()).min(1),
-  academicLevel: z.string(),
-  zone: z.string().optional().nullable(),
-  goals: z.array(z.string()).optional(),
-  scheduleConstraints: z.record(z.string(), z.unknown()).optional(),
-});
+const IntentSchema = z
+  .object({
+    targetFields: z.array(z.string()).min(1),
+    academicLevel: z.string(),
+    zone: z.string().optional().nullable(),
+    goals: z.array(z.string()).optional(),
+    scheduleConstraints: thotisScheduleConstraintsSchema.optional(),
+  })
+  .strict();
 
 async function handler(request: NextRequest) {
   const input = await parseBody(request, IntentSchema);

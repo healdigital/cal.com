@@ -60,7 +60,7 @@ export const StudentSettings = ({ user }: StudentSettingsProps) => {
   // Sync local state with DB value once loaded
   useEffect(() => {
     if (studentProfile?.marketingConsent !== undefined) {
-      setMarketingConsent(studentProfile.marketingConsent);
+      setMarketingConsent(studentProfile.marketingConsent ?? false);
     }
   }, [studentProfile?.marketingConsent]);
 

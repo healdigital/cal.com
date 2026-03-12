@@ -1,3 +1,4 @@
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -6,11 +7,13 @@ import { withCors } from "../../_lib/cors";
 import { bookingService, guestService } from "../../_lib/services";
 import { parseBody } from "../../_lib/validate";
 
-const RescheduleSchema = z.object({
-  bookingId: z.number(),
-  newDateTime: z.coerce.date(),
-  email: z.string().email().optional(),
-});
+const RescheduleSchema = z
+  .object({
+    bookingId: z.number(),
+    newDateTime: z.coerce.date(),
+    email: thotisEmailSchema.optional(),
+  })
+  .strict();
 
 async function handler(request: NextRequest) {
   const input = await parseBody(request, RescheduleSchema);

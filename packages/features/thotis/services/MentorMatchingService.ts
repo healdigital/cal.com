@@ -1,3 +1,4 @@
+import { THOTIS_MATCHING_REASON_MESSAGES } from "../lib/constants";
 import type { StudentProfileWithUser } from "../repositories/ProfileRepository";
 
 // Define the intent interface locally until the Prisma client is generated
@@ -27,30 +28,75 @@ export class MentorMatchingService {
     MENTOR_LOAD: 5,
   };
 
+  private getNormalizedGoals(intent: ThotisOrientationIntent): string[] {
+    if (!intent.goals?.length) return [];
+
+    const uniqueGoals = new Map<string, string>();
+
+    for (const goal of intent.goals) {
+      const trimmedGoal = goal.trim();
+      if (!trimmedGoal) continue;
+
+      const normalizedGoal = trimmedGoal.toLowerCase();
+      if (!uniqueGoals.has(normalizedGoal)) {
+        uniqueGoals.set(normalizedGoal, trimmedGoal);
+      }
+    }
+
+    return Array.from(uniqueGoals.values());
+  }
+
+  private getMatchingGoals(mentor: StudentProfileWithUser, normalizedGoals: string[]): string[] {
+    if (!normalizedGoals.length) return [];
+
+    const expertise = mentor.expertise || [];
+    if (!expertise.length) return [];
+
+    const normalizedExpertise = expertise.map((entry) => entry.toLowerCase());
+
+    return normalizedGoals.filter((goal) =>
+      normalizedExpertise.some((expertiseEntry) => expertiseEntry.includes(goal.toLowerCase()))
+    );
+  }
+
+  private compareScoredMentors(a: ScoredMentor, b: ScoredMentor): number {
+    const scoreDelta = b.matchScore - a.matchScore;
+    if (scoreDelta !== 0) return scoreDelta;
+
+    const ratingDelta = Number(b.averageRating || 0) - Number(a.averageRating || 0);
+    if (ratingDelta !== 0) return ratingDelta;
+
+    const completionDelta = (b.completedSessions || 0) - (a.completedSessions || 0);
+    if (completionDelta !== 0) return completionDelta;
+
+    const totalSessionsDelta = (b.totalSessions || 0) - (a.totalSessions || 0);
+    if (totalSessionsDelta !== 0) return totalSessionsDelta;
+
+    return (b.currentYear || 0) - (a.currentYear || 0);
+  }
+
   /**
    * Calculate a match score for a mentor based on student intent
    */
   scoreMentor(mentor: StudentProfileWithUser, intent: ThotisOrientationIntent): ScoredMentor {
     let score = 0;
-    const reasons: string[] = [];
+    const reasons = new Set<string>();
+    const normalizedGoals = this.getNormalizedGoals(intent);
 
     // 1. Field Match (25%)
     if (intent.targetFields.length > 0 && intent.targetFields.includes(mentor.field)) {
       score += this.WEIGHTS.FIELD_MATCH;
-      reasons.push("Matches your target field");
+      reasons.add(THOTIS_MATCHING_REASON_MESSAGES.fieldMatch);
     }
 
     // 2. Goal & Expertise Match (15%)
-    if (intent.goals && intent.goals.length > 0) {
-      const expertise = mentor.expertise || [];
-      const matchingGoals = intent.goals.filter((goal) =>
-        expertise.some((exp) => exp.toLowerCase().includes(goal.toLowerCase()))
-      );
+    if (normalizedGoals.length > 0) {
+      const matchingGoals = this.getMatchingGoals(mentor, normalizedGoals);
 
       if (matchingGoals.length > 0) {
         const bonus = Math.min(this.WEIGHTS.GOAL_MATCH, matchingGoals.length * 5);
         score += bonus;
-        reasons.push(`Expert in: ${matchingGoals.join(", ")}`);
+        reasons.add(THOTIS_MATCHING_REASON_MESSAGES.goalExpertise(matchingGoals));
       }
     }
 
@@ -61,7 +107,7 @@ export class MentorMatchingService {
         // Heuristic: Active mentors are weighted higher if student has constraints
         if (mentor.isActive) {
           score += this.WEIGHTS.SCHEDULE_MATCH;
-          reasons.push("Available during preferred times");
+          reasons.add(THOTIS_MATCHING_REASON_MESSAGES.preferredTimes);
         }
       }
     }
@@ -70,10 +116,10 @@ export class MentorMatchingService {
     // Prefer older students for orientation
     if (mentor.currentYear >= 3) {
       score += this.WEIGHTS.LEVEL_MATCH;
-      reasons.push("Senior student with perspective");
+      reasons.add(THOTIS_MATCHING_REASON_MESSAGES.seniorStudentPerspective);
     } else if (mentor.currentYear >= 2) {
       score += this.WEIGHTS.LEVEL_MATCH * 0.6;
-      reasons.push("Experienced student");
+      reasons.add(THOTIS_MATCHING_REASON_MESSAGES.experiencedStudent);
     }
 
     // 5. Availability & Activity (15%)
@@ -81,7 +127,7 @@ export class MentorMatchingService {
       score += this.WEIGHTS.AVAILABILITY * 0.5;
       if (mentor.totalSessions > 10) {
         score += this.WEIGHTS.AVAILABILITY * 0.5;
-        reasons.push("Very active mentor");
+        reasons.add(THOTIS_MATCHING_REASON_MESSAGES.veryActiveMentor);
       }
     }
 
@@ -89,7 +135,7 @@ export class MentorMatchingService {
     const rating = mentor.averageRating ? Number(mentor.averageRating) : 0;
     if (rating >= 4.8) {
       score += this.WEIGHTS.RATING;
-      reasons.push("Exceptionally high rating");
+      reasons.add(THOTIS_MATCHING_REASON_MESSAGES.exceptionallyHighRating);
     } else if (rating >= 4.5) {
       score += this.WEIGHTS.RATING * 0.7;
     }
@@ -109,7 +155,7 @@ export class MentorMatchingService {
     return {
       ...mentor,
       matchScore: Math.round(score),
-      matchReasons: reasons,
+      matchReasons: Array.from(reasons),
     };
   }
 
@@ -119,6 +165,6 @@ export class MentorMatchingService {
   sortMentors(mentors: StudentProfileWithUser[], intent: ThotisOrientationIntent): ScoredMentor[] {
     const scored = mentors.map((m) => this.scoreMentor(m, intent));
 
-    return scored.sort((a, b) => b.matchScore - a.matchScore);
+    return scored.sort((a, b) => this.compareScoredMentors(a, b));
   }
 }

@@ -59,7 +59,7 @@ export async function rateLimitThotisRoute(
     identifiers.add(`api:thotis:${action}:token:${piiHasher.hash(identity.token)}`);
   }
 
-  for (const identifier of identifiers) {
+  for (const identifier of Array.from(identifiers)) {
     await applyRateLimit(identifier);
   }
 }

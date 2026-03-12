@@ -1,6 +1,8 @@
 import process from "node:process";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
+import prisma from "@calcom/prisma";
+import type { PrismaClient } from "@calcom/prisma/client";
 import { RedisService } from "../../redis/RedisService";
 import type { ProfileRepository } from "../repositories/ProfileRepository";
 import type { SessionRatingRepository } from "../repositories/SessionRatingRepository";
@@ -45,13 +47,17 @@ export interface PlatformStats {
 
 export class StatisticsService {
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  private readonly prismaClient: Pick<PrismaClient, "$transaction" | "sessionRating" | "studentProfile">;
 
   constructor(
     private readonly profileRepository: ProfileRepository,
     private readonly ratingRepository: SessionRatingRepository,
     private readonly analyticsService: ThotisAnalyticsService,
-    private redis?: RedisService
+    private redis?: RedisService,
+    prismaClient?: Pick<PrismaClient, "$transaction" | "sessionRating" | "studentProfile">
   ) {
+    this.prismaClient = prismaClient || prisma;
+
     // Try to initialize Redis if not provided and env vars exist
     if (!this.redis && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
       try {
@@ -157,16 +163,48 @@ export class StatisticsService {
       );
     }
 
-    // Pass the profile ID (string cuid) to the repository.
-    await this.ratingRepository.createRating({
-      bookingId,
-      studentProfileId: profile.id,
-      rating,
-      feedback: feedback || null,
-      prospectiveEmail,
+    await this.prismaClient.$transaction(async (tx) => {
+      await tx.sessionRating.create({
+        data: {
+          bookingId,
+          studentProfileId: profile.id,
+          rating,
+          feedback: feedback || null,
+          prospectiveEmail: prospectiveEmail || "",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const average = await tx.sessionRating.aggregate({
+        where: {
+          studentProfileId: profile.id,
+        },
+        _avg: {
+          rating: true,
+        },
+      });
+
+      const roundedAvg = average._avg.rating ? Math.round(average._avg.rating * 10) / 10 : null;
+
+      await tx.studentProfile.update({
+        where: {
+          id: profile.id,
+        },
+        data: {
+          averageRating: roundedAvg,
+        },
+        select: {
+          id: true,
+        },
+      });
     });
 
-    await this.recalculateAverageRating(studentId);
+    if (this.redis) {
+      await this.redis.del(`stats:student:${studentId}`);
+      await this.redis.del(`profile:${studentId}`);
+    }
   }
 
   /**

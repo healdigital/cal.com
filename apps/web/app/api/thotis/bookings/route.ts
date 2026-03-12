@@ -1,3 +1,4 @@
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -5,15 +6,19 @@ import { withCors } from "../_lib/cors";
 import { bookingService } from "../_lib/services";
 import { parseBody } from "../_lib/validate";
 
-const CreateBookingSchema = z.object({
-  studentProfileId: z.string().min(1),
-  dateTime: z.coerce.date(),
-  prospectiveStudent: z.object({
-    name: z.string().min(1),
-    email: z.string().email(),
-    question: z.string().optional(),
-  }),
-});
+const CreateBookingSchema = z
+  .object({
+    studentProfileId: z.string().min(1),
+    dateTime: z.coerce.date(),
+    prospectiveStudent: z
+      .object({
+        name: z.string().min(1),
+        email: thotisEmailSchema,
+        question: z.string().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 async function handler(request: NextRequest) {
   const input = await parseBody(request, CreateBookingSchema);

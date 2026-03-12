@@ -1,3 +1,4 @@
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import { z } from "zod";
@@ -8,12 +9,14 @@ import { sessionOperationsService } from "./_shared";
 export const ratingRouter = router({
   submit: authedProcedure
     .input(
-      z.object({
-        bookingId: z.number(),
-        rating: z.number().min(1).max(5),
-        feedback: z.string().optional(),
-        email: z.string().email(),
-      })
+      z
+        .object({
+          bookingId: z.number(),
+          rating: z.number().min(1).max(5),
+          feedback: z.string().optional(),
+          email: thotisEmailSchema,
+        })
+        .strict()
     )
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.email !== input.email) {
@@ -29,11 +32,13 @@ export const ratingRouter = router({
       });
     }),
 
-  getByBooking: authedProcedure.input(z.object({ bookingId: z.number() })).query(async ({ ctx, input }) => {
-    return await sessionOperationsService.getRating({
-      bookingId: input.bookingId,
-      userId: ctx.user.id,
-      email: ctx.user.email,
-    });
-  }),
+  getByBooking: authedProcedure
+    .input(z.object({ bookingId: z.number() }).strict())
+    .query(async ({ ctx, input }) => {
+      return await sessionOperationsService.getRating({
+        bookingId: input.bookingId,
+        userId: ctx.user.id,
+        email: ctx.user.email,
+      });
+    }),
 });

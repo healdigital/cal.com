@@ -29,16 +29,6 @@ const fields = Object.values(AcademicField).map((value) => ({
   labelKey: FIELD_LABELS[value] || value.replace(/_/g, " "),
 }));
 
-export interface OrientationIntentData {
-  targetFields: string[];
-  academicLevel: string;
-  zone: string;
-  goals: string[];
-  scheduleConstraints: {
-    preferredTimes: string[];
-  };
-}
-
 interface OrientationIntentFormProps {
   onSubmit: (data: OrientationIntentData) => void;
   isPending?: boolean;
@@ -59,6 +49,18 @@ const scheduleOptions = [
   { id: "evenings", labelKey: "thotis_schedule_evenings" },
 ] as const;
 
+type ScheduleOptionId = (typeof scheduleOptions)[number]["id"];
+
+export interface OrientationIntentData {
+  targetFields: string[];
+  academicLevel: string;
+  zone: string;
+  goals: string[];
+  scheduleConstraints: {
+    preferredTimes: ScheduleOptionId[];
+  };
+}
+
 const academicLevelOptions = [
   { value: "TERMINALE", labelKey: "thotis_high_school_terminale" },
   { value: "PREPA", labelKey: "thotis_preparatory_class" },
@@ -74,13 +76,13 @@ export function OrientationIntentForm({ onSubmit, isPending }: OrientationIntent
   const [level, setLevel] = useState<{ value: string; label: string } | null>(null);
   const [zone, setZone] = useState<string>("");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
-  const [selectedSchedules, setSelectedSchedules] = useState<string[]>([]);
+  const [selectedSchedules, setSelectedSchedules] = useState<ScheduleOptionId[]>([]);
 
   const toggleGoal = (goal: string) => {
     setSelectedGoals((prev) => (prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal]));
   };
 
-  const toggleSchedule = (id: string) => {
+  const toggleSchedule = (id: ScheduleOptionId) => {
     setSelectedSchedules((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   };
 

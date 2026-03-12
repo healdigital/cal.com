@@ -6,12 +6,14 @@ export default class FeedbackRequestEmail extends BaseEmail {
   calEvent: CalendarEvent;
   attendee: Person;
   feedbackLink: string;
+  unsubscribeLink?: string;
 
-  constructor(calEvent: CalendarEvent, attendee: Person, feedbackLink: string) {
+  constructor(calEvent: CalendarEvent, attendee: Person, feedbackLink: string, unsubscribeLink?: string) {
     super();
     this.calEvent = calEvent;
     this.attendee = attendee;
     this.feedbackLink = feedbackLink;
+    this.unsubscribeLink = unsubscribeLink;
     this.name = "SEND_FEEDBACK_REQUEST";
   }
 
@@ -35,6 +37,7 @@ export default class FeedbackRequestEmail extends BaseEmail {
       calEvent,
       attendee,
       feedbackLink: feedbackLink,
+      unsubscribeLink: this.unsubscribeLink,
     });
   }
 }

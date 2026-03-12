@@ -1,3 +1,4 @@
+import process from "node:process";
 import BookingCancellationEmail from "@calcom/emails/templates/thotis/booking-cancellation";
 import BookingConfirmationEmail from "@calcom/emails/templates/thotis/booking-confirmation";
 import BookingReminderEmail from "@calcom/emails/templates/thotis/booking-reminder";
@@ -7,6 +8,7 @@ import MagicLinkEmail from "@calcom/emails/templates/thotis/magic-link";
 import logger from "@calcom/lib/logger";
 import { getTranslation } from "@calcom/lib/server/i18n";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
+import { ThotisGuestService } from "./ThotisGuestService";
 
 const log = logger.getSubLogger({ prefix: ["ThotisEmailService"] });
 
@@ -84,27 +86,81 @@ export async function sendThotisEmailWithRetry(
 }
 
 export class ThotisEmailService {
+  private readonly guestService: ThotisGuestService;
+
+  constructor(guestService?: ThotisGuestService) {
+    this.guestService = guestService || new ThotisGuestService();
+  }
+
+  private async shouldSendEmail(emailAddress: string) {
+    const isBlocked = await this.guestService.isEmailBlocked(emailAddress);
+
+    if (isBlocked) {
+      log.info("Skipping Thotis email for unsubscribed guest", { emailAddress });
+      return false;
+    }
+
+    return true;
+  }
+
+  private buildUnsubscribeLink(accessLink?: string) {
+    if (!accessLink) return undefined;
+
+    try {
+      const parsedUrl = new URL(accessLink);
+      const token = parsedUrl.searchParams.get("token");
+
+      if (!token) return undefined;
+
+      const webAppUrl = process.env.NEXT_PUBLIC_WEBAPP_URL || "https://app.cal.com";
+      return `${webAppUrl}/api/thotis/guest/unsubscribe?token=${encodeURIComponent(token)}`;
+    } catch {
+      return undefined;
+    }
+  }
+
   async sendReminder(calEvent: CalendarEvent, attendee: Person) {
+    if (!(await this.shouldSendEmail(attendee.email))) return;
+
     const email = new BookingReminderEmail(calEvent, attendee);
     await sendThotisEmailWithRetry(email);
   }
 
   async sendFeedbackRequest(calEvent: CalendarEvent, attendee: Person, feedbackLink: string) {
-    const email = new FeedbackRequestEmail(calEvent, attendee, feedbackLink);
+    if (!(await this.shouldSendEmail(attendee.email))) return;
+
+    const email = new FeedbackRequestEmail(
+      calEvent,
+      attendee,
+      feedbackLink,
+      this.buildUnsubscribeLink(feedbackLink)
+    );
     await sendThotisEmailWithRetry(email);
   }
 
   async sendConfirmation(calEvent: CalendarEvent, attendee: Person, dashboardLink?: string) {
-    const email = new BookingConfirmationEmail(calEvent, attendee, undefined, dashboardLink);
+    if (!(await this.shouldSendEmail(attendee.email))) return;
+
+    const email = new BookingConfirmationEmail(
+      calEvent,
+      attendee,
+      undefined,
+      dashboardLink,
+      this.buildUnsubscribeLink(dashboardLink)
+    );
     await sendThotisEmailWithRetry(email);
   }
 
   async sendCancellation(calEvent: CalendarEvent, attendee: Person) {
+    if (!(await this.shouldSendEmail(attendee.email))) return;
+
     const email = new BookingCancellationEmail(calEvent, attendee);
     await sendThotisEmailWithRetry(email);
   }
 
   async sendRescheduled(calEvent: CalendarEvent, attendee: Person) {
+    if (!(await this.shouldSendEmail(attendee.email))) return;
+
     const email = new BookingRescheduledEmail(calEvent, attendee);
     await sendThotisEmailWithRetry(email);
   }
@@ -115,6 +171,8 @@ export class ThotisEmailService {
     actionType: string = "LOGIN",
     locale?: string
   ) {
+    if (!(await this.shouldSendEmail(emailAddress))) return;
+
     const t = await getTranslation(locale ?? "fr", "common");
     const isLogin = !actionType || actionType === "LOGIN";
     const email = new MagicLinkEmail(emailAddress, magicLink, {
@@ -125,6 +183,8 @@ export class ThotisEmailService {
       subject: isLogin ? t("thotis_magic_link_login_subject") : t("thotis_magic_link_action_subject"),
       subtitle: isLogin ? t("thotis_magic_link_login_subtitle") : t("thotis_magic_link_action_subtitle"),
       title: isLogin ? t("thotis_magic_link_login_subject") : t("thotis_magic_link_action_subject"),
+      unsubscribeLabel: t("unsubscribe"),
+      unsubscribeLink: this.buildUnsubscribeLink(magicLink),
     });
     await sendThotisEmailWithRetry(email);
   }

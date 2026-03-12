@@ -1,3 +1,4 @@
+import { thotisEmailSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -6,16 +7,20 @@ import { withCors } from "../_lib/cors";
 import { guestService, sessionOperationsService } from "../_lib/services";
 import { parseBody, parseQuery } from "../_lib/validate";
 
-const SubmitRatingSchema = z.object({
-  bookingId: z.number(),
-  rating: z.number().min(1).max(5),
-  feedback: z.string().optional(),
-  email: z.string().email().optional(),
-});
+const SubmitRatingSchema = z
+  .object({
+    bookingId: z.number(),
+    rating: z.number().min(1).max(5),
+    feedback: z.string().optional(),
+    email: thotisEmailSchema.optional(),
+  })
+  .strict();
 
-const GetRatingSchema = z.object({
-  bookingId: z.coerce.number(),
-});
+const GetRatingSchema = z
+  .object({
+    bookingId: z.coerce.number(),
+  })
+  .strict();
 
 async function handleGet(request: NextRequest) {
   const params = parseQuery(request, GetRatingSchema);

@@ -24,6 +24,7 @@ const createPrismaMock = (): GuestPrismaMock =>
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   }) as unknown as GuestPrismaMock;
 
@@ -127,6 +128,31 @@ describe("ThotisGuestService", () => {
     });
   });
 
+  it("invalidates existing tokens when a blocked guest requests a new inbox link", async () => {
+    vi.mocked(prismaMock.thotisGuestIdentity.findUnique).mockResolvedValue({
+      blocked: true,
+      email: "student@example.com",
+      id: "guest-1",
+      lastRequestAt: new Date(Date.now() - 60 * 1000),
+      normalizedEmail: "student@example.com",
+    });
+
+    await expect(service.requestInboxLink("student@example.com")).rejects.toMatchObject({
+      code: ErrorCode.Forbidden,
+    });
+
+    expect(prismaMock.thotisMagicLinkToken.updateMany).toHaveBeenCalledWith({
+      where: {
+        guestId: "guest-1",
+        invalidated: false,
+      },
+      data: {
+        invalidated: true,
+        usedAt: expect.any(Date),
+      },
+    });
+  });
+
   it("verifies a valid token", async () => {
     const tokenRaw = "valid-token";
     const tokenHash = createHash("sha256").update(tokenRaw).digest("hex");
@@ -203,6 +229,40 @@ describe("ThotisGuestService", () => {
     });
   });
 
+  it("rejects blocked guests even when the token itself is still valid", async () => {
+    vi.mocked(prismaMock.thotisMagicLinkToken.findUnique).mockResolvedValue({
+      bookingId: null,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 60 * 1000),
+      guest: {
+        blocked: true,
+        email: "student@example.com",
+        id: "guest-1",
+        normalizedEmail: "student@example.com",
+      },
+      guestId: "guest-1",
+      id: "token-1",
+      invalidated: false,
+      tokenHash: "valid",
+      usedAt: null,
+    });
+
+    await expect(service.verifyToken("valid-token")).rejects.toMatchObject({
+      code: ErrorCode.Forbidden,
+    });
+
+    expect(prismaMock.thotisMagicLinkToken.updateMany).toHaveBeenCalledWith({
+      where: {
+        guestId: "guest-1",
+        invalidated: false,
+      },
+      data: {
+        invalidated: true,
+        usedAt: expect.any(Date),
+      },
+    });
+  });
+
   it("invalidates tokens after sensitive actions", async () => {
     await service.invalidateToken("token-1");
 
@@ -222,6 +282,25 @@ describe("ThotisGuestService", () => {
         guestId: "guest-1",
         resourceId: "booking-1",
         success: false,
+      },
+    });
+  });
+
+  it("blocks a guest and invalidates every active token when unsubscribing", async () => {
+    await service.unsubscribeGuest("guest-1");
+
+    expect(prismaMock.thotisGuestIdentity.update).toHaveBeenCalledWith({
+      where: { id: "guest-1" },
+      data: { blocked: true },
+    });
+    expect(prismaMock.thotisMagicLinkToken.updateMany).toHaveBeenCalledWith({
+      where: {
+        guestId: "guest-1",
+        invalidated: false,
+      },
+      data: {
+        invalidated: true,
+        usedAt: expect.any(Date),
       },
     });
   });

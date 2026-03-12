@@ -1,3 +1,4 @@
+import { thotisJsonObjectSchema } from "@calcom/lib/dto/thotis/ThotisValidationSchemas";
 import { ThotisAnalyticsEventType } from "@calcom/prisma/enums";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -6,14 +7,16 @@ import { withCors } from "../_lib/cors";
 import { analyticsService } from "../_lib/services";
 import { parseBody } from "../_lib/validate";
 
-const TrackSchema = z.object({
-  eventType: z.nativeEnum(ThotisAnalyticsEventType),
-  profileId: z.string().optional(),
-  bookingId: z.number().optional(),
-  field: z.string().optional(),
-  source: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
+const TrackSchema = z
+  .object({
+    eventType: z.nativeEnum(ThotisAnalyticsEventType),
+    profileId: z.string().optional(),
+    bookingId: z.number().optional(),
+    field: z.string().optional(),
+    source: z.string().optional(),
+    metadata: thotisJsonObjectSchema.optional(),
+  })
+  .strict();
 
 async function handler(request: NextRequest) {
   const input = await parseBody(request, TrackSchema);

@@ -1,8 +1,8 @@
 "use client";
 
 import dayjs from "@calcom/dayjs";
+import type { SessionDto } from "@calcom/lib/dto/thotis/ThotisApiSchemas";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import type { BookingStatus } from "@calcom/prisma/enums";
 import { MentorIncidentType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
@@ -27,25 +27,14 @@ interface SessionBookingResponses {
   [key: string]: unknown;
 }
 
+type SessionBooking = SessionDto;
+
 /** Narrow an unknown JSON value to an object type, returning null if it's not an object */
 function narrowJson<T>(val: unknown): T | null {
   if (val && typeof val === "object" && !Array.isArray(val)) {
     return val as T;
   }
   return null;
-}
-
-interface SessionBooking {
-  id: number;
-  uid: string;
-  title: string;
-  startTime: Date | string;
-  endTime: Date | string;
-  status: BookingStatus | string;
-  metadata: unknown;
-  responses: unknown;
-  cancellationReason?: string | null;
-  thotisSessionSummary?: { id: number } | null;
 }
 
 interface SessionManagementUIProps {
