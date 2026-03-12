@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { THOTIS_MATCHING_REASON_MESSAGES } from "../lib/constants";
+import { THOTIS_MATCHING_REASON_MESSAGES, THOTIS_MATCHING_REASON_PREFIXES } from "../lib/constants";
 import type { ProfileRepository, StudentProfileWithUser } from "../repositories/ProfileRepository";
 import type { MentorMatchingService, ThotisOrientationIntent } from "../services/MentorMatchingService";
 import { ProfileService } from "../services/ProfileService"; // Adjust import path
@@ -207,7 +207,24 @@ describe("Thotis Matching & Discovery Backend", () => {
       });
 
       expect(scored.matchReasons).toContain(THOTIS_MATCHING_REASON_MESSAGES.goalExpertise(["React"]));
-      expect(scored.matchReasons.filter((reason: string) => reason.startsWith("Expert in:"))).toHaveLength(1);
+      expect(
+        scored.matchReasons.filter((reason: string) =>
+          reason.startsWith(THOTIS_MATCHING_REASON_PREFIXES.goalExpertise)
+        )
+      ).toHaveLength(1);
+    });
+
+    it("should trim and normalize target fields before scoring", async () => {
+      const { MentorMatchingService } = await import("../services/MentorMatchingService");
+      const matchingService = new MentorMatchingService();
+
+      const scored = matchingService.scoreMentor(createMentor(), {
+        academicLevel: "BACHELOR",
+        goals: [],
+        targetFields: [" informatique "],
+      });
+
+      expect(scored.matchReasons).toContain(THOTIS_MATCHING_REASON_MESSAGES.fieldMatch);
     });
 
     it("should use rating and session history as deterministic tiebreakers", async () => {
